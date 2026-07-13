@@ -1,0 +1,213 @@
+import 'dotenv/config';
+import { PrismaPg } from '@prisma/adapter-pg';
+import * as argon2 from 'argon2';
+import { PrismaClient } from '../src/generated/prisma/client';
+import { Role, OrderStatus, ChecklistItemType, ConditionRating } from '../src/generated/prisma/enums';
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
+
+async function main() {
+  const password = 'Password123!';
+  const passwordHash = await argon2.hash(password);
+
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: 'taller-demo' },
+    update: {},
+    create: {
+      name: 'Taller Demo Bicimotos Eléctricas',
+      slug: 'taller-demo',
+      address: 'Cra 45 # 12-34, Bogotá',
+      phone: '+57 300 555 0100',
+      email: 'contacto@tallerdemo.com',
+      taxId: '900123456-7',
+      taxRatePercent: 19,
+      currency: 'COP',
+    },
+  });
+
+  const [admin, manager, receptionist, technician] = await Promise.all([
+    prisma.user.upsert({
+      where: { email: 'admin@tallerdemo.com' },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        email: 'admin@tallerdemo.com',
+        passwordHash,
+        firstName: 'Ana',
+        lastName: 'Administradora',
+        role: Role.ADMIN,
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: 'gerente@tallerdemo.com' },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        email: 'gerente@tallerdemo.com',
+        passwordHash,
+        firstName: 'Gerardo',
+        lastName: 'Gerente',
+        role: Role.MANAGER,
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: 'recepcion@tallerdemo.com' },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        email: 'recepcion@tallerdemo.com',
+        passwordHash,
+        firstName: 'Rita',
+        lastName: 'Recepción',
+        role: Role.RECEPTIONIST,
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: 'tecnico@tallerdemo.com' },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        email: 'tecnico@tallerdemo.com',
+        passwordHash,
+        firstName: 'Tomás',
+        lastName: 'Técnico',
+        role: Role.TECHNICIAN,
+      },
+    }),
+  ]);
+
+  const client = await prisma.client.upsert({
+    where: { tenantId_documentId: { tenantId: tenant.id, documentId: '1020304050' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      firstName: 'Carlos',
+      lastName: 'Ramírez',
+      documentId: '1020304050',
+      phone: '+57 310 555 0199',
+      email: 'carlos.ramirez@example.com',
+      address: 'Calle 80 # 20-15, Bogotá',
+    },
+  });
+
+  const motorcycle =
+    (await prisma.motorcycle.findFirst({ where: { tenantId: tenant.id, serialNumber: 'SN-0001' } })) ??
+    (await prisma.motorcycle.create({
+      data: {
+        tenantId: tenant.id,
+        clientId: client.id,
+        brand: 'Volt',
+        model: 'Urban Rider X1',
+        color: 'Negro mate',
+        year: 2024,
+        serialNumber: 'SN-0001',
+        motorNumber: 'MTR-0001',
+        batteryNumber: 'BAT-0001',
+        batteryCapacity: '20Ah',
+        voltage: '48V',
+        controller: 'Sine Wave 500W',
+        display: 'LCD Color',
+        mileage: 1200,
+      },
+    }));
+
+  const category = await prisma.category.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Baterías' } },
+    update: {},
+    create: { tenantId: tenant.id, name: 'Baterías' },
+  });
+
+  const supplier = await prisma.supplier.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000001' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000001',
+      tenantId: tenant.id,
+      name: 'ElectroPartes S.A.S.',
+      contactName: 'Laura Gómez',
+      phone: '+57 601 555 0200',
+      email: 'ventas@electropartes.com',
+    },
+  });
+
+  const product = await prisma.product.upsert({
+    where: { tenantId_sku: { tenantId: tenant.id, sku: 'BAT-48V-20AH' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      categoryId: category.id,
+      supplierId: supplier.id,
+      sku: 'BAT-48V-20AH',
+      code: 'BAT001',
+      name: 'Batería de Litio 48V 20Ah',
+      unitCost: 450000,
+      unitPrice: 650000,
+      quantity: 8,
+      minStock: 2,
+      location: 'Estante A1',
+    },
+  });
+
+  const existingOrder = await prisma.order.findFirst({ where: { tenantId: tenant.id } });
+  if (!existingOrder) {
+    const tenantForOrder = await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: { nextOrderNumber: { increment: 1 } },
+    });
+    const order = await prisma.order.create({
+      data: {
+        tenantId: tenant.id,
+        orderNumber: tenantForOrder.nextOrderNumber - 1,
+        clientId: client.id,
+        motorcycleId: motorcycle.id,
+        receptionistId: receptionist.id,
+        technicianId: technician.id,
+        reason: 'La bicimoto no enciende y la batería no carga',
+        status: OrderStatus.DIAGNOSING,
+      },
+    });
+
+    await prisma.orderStatusHistory.createMany({
+      data: [
+        { orderId: order.id, toStatus: OrderStatus.RECEIVED, changedById: receptionist.id, notes: 'Orden creada' },
+        {
+          orderId: order.id,
+          fromStatus: OrderStatus.RECEIVED,
+          toStatus: OrderStatus.DIAGNOSING,
+          changedById: technician.id,
+          notes: 'Técnico asignado, iniciando diagnóstico',
+        },
+      ],
+    });
+
+    await prisma.checklistItem.createMany({
+      data: [
+        { orderId: order.id, item: ChecklistItemType.BATTERY, condition: ConditionRating.BAD, observations: 'No enciende' },
+        { orderId: order.id, item: ChecklistItemType.TIRES, condition: ConditionRating.GOOD },
+        { orderId: order.id, item: ChecklistItemType.BRAKES, condition: ConditionRating.FAIR, observations: 'Requiere ajuste' },
+      ],
+    });
+
+    console.log(`Orden demo creada: #${order.orderNumber}`);
+  }
+
+  console.log('\nSeed completado.');
+  console.log(`Taller: ${tenant.name} (${tenant.slug})`);
+  console.log('Usuarios de prueba (misma contraseña para todos):');
+  console.log(`  Admin:        ${admin.email} / ${password}`);
+  console.log(`  Gerente:      ${manager.email} / ${password}`);
+  console.log(`  Recepción:    ${receptionist.email} / ${password}`);
+  console.log(`  Técnico:      ${technician.email} / ${password}`);
+  console.log(`Producto demo: ${product.name} (stock ${product.quantity})`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

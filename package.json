@@ -1,0 +1,19 @@
+{
+  "name": "sistema-taller-motos",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @taller/api start:dev",
+    "dev:web": "pnpm --filter @taller/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "prisma:generate": "pnpm --filter @taller/api prisma:generate",
+    "prisma:migrate": "pnpm --filter @taller/api prisma:migrate",
+    "prisma:seed": "pnpm --filter @taller/api prisma:seed"
+  }
+}

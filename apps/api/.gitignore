@@ -1,0 +1,35 @@
+# compiled output
+/dist
+/node_modules
+
+# generated prisma client (regenerated via `pnpm prisma:generate`)
+/src/generated/prisma
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/.nyc_output
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Env
+.env
+.env.local
+
+# uploads (local storage driver)
+/uploads

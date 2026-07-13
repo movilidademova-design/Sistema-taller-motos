@@ -1,0 +1,712 @@
+// Sistema de Gestion de Taller - Bicimotos Electricas
+// Multi-tenant schema: every business record is scoped by tenantId.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  RECEPTIONIST
+  TECHNICIAN
+  CLIENT
+}
+
+enum OrderStatus {
+  RECEIVED
+  DIAGNOSING
+  WAITING_APPROVAL
+  WAITING_PARTS
+  IN_REPAIR
+  TESTING
+  READY_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  WARRANTY
+}
+
+enum QuotationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ConditionRating {
+  GOOD
+  FAIR
+  BAD
+}
+
+enum ChecklistItemType {
+  TIRES
+  BRAKES
+  DISCS
+  LIGHTS
+  SIGNALS
+  HORN
+  DISPLAY
+  THROTTLE
+  SUSPENSION
+  BATTERY
+  CHARGER
+  KEYS
+  MIRRORS
+  FENDERS
+  SEAT
+}
+
+enum PhotoCategory {
+  FRONT
+  BACK
+  LEFT_SIDE
+  RIGHT_SIDE
+  DAMAGE
+  SERIAL_NUMBER
+  MOTOR
+  BATTERY
+  ACCESSORY
+  OTHER
+}
+
+enum QuotationItemType {
+  PART
+  LABOR
+  OTHER
+}
+
+enum InventoryMovementType {
+  PURCHASE_IN
+  SALE_OUT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  RETURN
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+enum WarrantyStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  RESOLVED
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+  QR
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+enum AppointmentType {
+  APPOINTMENT
+  MAINTENANCE
+  WARRANTY
+  DELIVERY
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Tenant / Auth
+// ─────────────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  logoUrl         String?
+  primaryColor    String   @default("#0f172a")
+  address         String?
+  phone           String?
+  email           String?
+  taxId           String?
+  taxRatePercent  Decimal  @default(0) @db.Decimal(5, 2)
+  currency        String   @default("USD")
+  invoicePrefix   String   @default("FAC")
+  orderPrefix     String   @default("OT")
+  nextOrderNumber Int      @default(1)
+  nextInvoiceNo   Int      @default(1)
+  businessHours   Json?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users            User[]
+  clients          Client[]
+  motorcycles      Motorcycle[]
+  orders           Order[]
+  categories       Category[]
+  suppliers        Supplier[]
+  products         Product[]
+  purchaseOrders   PurchaseOrder[]
+  warranties       Warranty[]
+  payments         Payment[]
+  invoices         Invoice[]
+  auditLogs        AuditLog[]
+  appointments     Appointment[]
+  inventoryMovements InventoryMovement[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  role         Role      @default(RECEPTIONIST)
+  isActive     Boolean   @default(true)
+  avatarUrl    String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  refreshTokens       RefreshToken[]
+  technicianOrders    Order[]              @relation("assignedTechnician")
+  receptionistOrders  Order[]              @relation("receptionist")
+  diagnoses           Diagnosis[]
+  laborEntries        LaborEntry[]
+  statusChanges       OrderStatusHistory[]
+  auditLogs           AuditLog[]
+  paymentsReceived    Payment[]
+  warrantiesApproved  Warranty[]
+  assignedAppointments Appointment[]
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash       String
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  replacedByToken String?
+  createdByIp     String?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Clients / Motorcycles
+// ─────────────────────────────────────────────────────────────────────────
+
+model Client {
+  id         String    @id @default(uuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  firstName  String
+  lastName   String
+  documentId String?
+  phone      String?
+  email      String?
+  address    String?
+  birthDate  DateTime?
+  notes      String?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  motorcycles  Motorcycle[]
+  orders       Order[]
+  payments     Payment[]
+  invoices     Invoice[]
+  warranties   Warranty[]
+  appointments Appointment[]
+
+  @@unique([tenantId, documentId])
+  @@index([tenantId])
+  @@map("clients")
+}
+
+model Motorcycle {
+  id               String    @id @default(uuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId         String
+  client           Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  brand            String
+  model            String
+  color            String?
+  year             Int?
+  serialNumber     String?
+  motorNumber      String?
+  batteryNumber    String?
+  batteryCapacity  String?
+  voltage          String?
+  controller       String?
+  display          String?
+  purchaseDate     DateTime?
+  warrantyUntil    DateTime?
+  mileage          Int?
+  photoUrl         String?
+  observations     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  orders       Order[]
+  warranties   Warranty[]
+  appointments Appointment[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("motorcycles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Work Orders
+// ─────────────────────────────────────────────────────────────────────────
+
+model Order {
+  id                   String      @id @default(uuid())
+  tenantId             String
+  tenant               Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderNumber          Int
+  clientId             String
+  client               Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  motorcycleId         String
+  motorcycle           Motorcycle  @relation(fields: [motorcycleId], references: [id], onDelete: Restrict)
+  receptionistId       String
+  receptionist         User        @relation("receptionist", fields: [receptionistId], references: [id], onDelete: Restrict)
+  technicianId         String?
+  technician           User?       @relation("assignedTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+  status               OrderStatus @default(RECEIVED)
+  reason               String
+  accessoriesDelivered String?
+  receivedAt           DateTime    @default(now())
+  estimatedDeliveryAt  DateTime?
+  deliveredAt          DateTime?
+  cancelReason         String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  checklistItems     ChecklistItem[]
+  photos             OrderPhoto[]
+  diagnosis          Diagnosis?
+  quotation          Quotation?
+  statusHistory      OrderStatusHistory[]
+  laborEntries       LaborEntry[]
+  inventoryMovements InventoryMovement[]
+  warranties         Warranty[]
+  invoice            Invoice?
+  payments           Payment[]
+  appointments       Appointment[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, status])
+  @@map("orders")
+}
+
+model ChecklistItem {
+  id           String            @id @default(uuid())
+  orderId      String
+  order        Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  item         ChecklistItemType
+  condition    ConditionRating
+  observations String?
+
+  @@unique([orderId, item])
+  @@map("checklist_items")
+}
+
+model OrderPhoto {
+  id         String        @id @default(uuid())
+  orderId    String
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  category   PhotoCategory
+  url        String
+  uploadedAt DateTime      @default(now())
+
+  @@index([orderId])
+  @@map("order_photos")
+}
+
+model Diagnosis {
+  id                String   @id @default(uuid())
+  orderId           String   @unique
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  technicianId      String
+  technician        User     @relation(fields: [technicianId], references: [id], onDelete: Restrict)
+  description       String
+  faultFound        String
+  testsPerformed    String?
+  batteryVoltage    String?
+  controllerStatus  String?
+  motorStatus       String?
+  observations      String?
+  estimatedTimeHours Decimal? @db.Decimal(6, 2)
+  estimatedCost     Decimal? @db.Decimal(10, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  requiredParts DiagnosisPart[]
+
+  @@map("diagnoses")
+}
+
+model DiagnosisPart {
+  id          String     @id @default(uuid())
+  diagnosisId String
+  diagnosis   Diagnosis  @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description String
+  quantity    Int        @default(1)
+  unitCost    Decimal    @db.Decimal(10, 2)
+
+  @@map("diagnosis_parts")
+}
+
+model Quotation {
+  id          String          @id @default(uuid())
+  orderId     String          @unique
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      QuotationStatus @default(PENDING)
+  laborCost   Decimal         @default(0) @db.Decimal(10, 2)
+  partsCost   Decimal         @default(0) @db.Decimal(10, 2)
+  discount    Decimal         @default(0) @db.Decimal(10, 2)
+  taxRate     Decimal         @default(0) @db.Decimal(5, 2)
+  taxAmount   Decimal         @default(0) @db.Decimal(10, 2)
+  total       Decimal         @default(0) @db.Decimal(10, 2)
+  notes       String?
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  items QuotationItem[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String            @id @default(uuid())
+  quotationId String
+  quotation   Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  type        QuotationItemType
+  productId   String?
+  product     Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description String
+  quantity    Decimal           @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal           @db.Decimal(10, 2)
+  subtotal    Decimal           @db.Decimal(10, 2)
+
+  @@map("quotation_items")
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String
+  changedBy   User        @relation(fields: [changedById], references: [id], onDelete: Restrict)
+  notes       String?
+  createdAt   DateTime    @default(now())
+
+  @@index([orderId])
+  @@map("order_status_history")
+}
+
+model LaborEntry {
+  id           String    @id @default(uuid())
+  orderId      String
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  technicianId String
+  technician   User      @relation(fields: [technicianId], references: [id], onDelete: Restrict)
+  activity     String
+  startTime    DateTime
+  endTime      DateTime?
+  hours        Decimal?  @db.Decimal(6, 2)
+  cost         Decimal   @default(0) @db.Decimal(10, 2)
+  createdAt    DateTime  @default(now())
+
+  @@index([orderId])
+  @@map("labor_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Inventory / Purchases
+// ─────────────────────────────────────────────────────────────────────────
+
+model Category {
+  id       String     @id @default(uuid())
+  tenantId String
+  tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name     String
+  parentId String?
+  parent   Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryToCategory")
+
+  products Product[]
+
+  @@unique([tenantId, name])
+  @@map("categories")
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  taxId       String?
+  createdAt   DateTime @default(now())
+
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([tenantId])
+  @@map("suppliers")
+}
+
+model Product {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  code        String?
+  sku         String
+  name        String
+  description String?
+  imageUrl    String?
+  unitCost    Decimal   @default(0) @db.Decimal(10, 2)
+  unitPrice   Decimal   @default(0) @db.Decimal(10, 2)
+  quantity    Int       @default(0)
+  location    String?
+  minStock    Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  diagnosisParts     DiagnosisPart[]
+  quotationItems     QuotationItem[]
+  purchaseOrderItems PurchaseOrderItem[]
+  movements          InventoryMovement[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@map("products")
+}
+
+model InventoryMovement {
+  id              String                @id @default(uuid())
+  tenantId        String
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  orderId         String?
+  order           Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  type            InventoryMovementType
+  quantity        Int
+  reason          String?
+  createdById     String
+  createdAt       DateTime              @default(now())
+
+  @@index([tenantId, productId])
+  @@map("inventory_movements")
+}
+
+model PurchaseOrder {
+  id         String              @id @default(uuid())
+  tenantId   String
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplierId String
+  supplier   Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  status     PurchaseOrderStatus @default(DRAFT)
+  orderedAt  DateTime?
+  receivedAt DateTime?
+  notes      String?
+  total      Decimal             @default(0) @db.Decimal(10, 2)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  items     PurchaseOrderItem[]
+  movements InventoryMovement[]
+
+  @@index([tenantId])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity        Int
+  unitCost        Decimal       @db.Decimal(10, 2)
+  subtotal        Decimal       @db.Decimal(10, 2)
+
+  @@map("purchase_order_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Warranties / Payments / Invoicing
+// ─────────────────────────────────────────────────────────────────────────
+
+model Warranty {
+  id             String         @id @default(uuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId        String
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  motorcycleId   String
+  motorcycle     Motorcycle     @relation(fields: [motorcycleId], references: [id], onDelete: Restrict)
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  requestedAt    DateTime       @default(now())
+  reason         String
+  status         WarrantyStatus @default(OPEN)
+  approvedById   String?
+  approvedBy     User?          @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  cost           Decimal        @default(0) @db.Decimal(10, 2)
+  result         String?
+  resolvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@index([tenantId])
+  @@map("warranties")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId        String?
+  order          Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  invoiceId      String?
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  clientId       String
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(10, 2)
+  reference      String?
+  receiptNumber  String
+  receivedById   String
+  receivedBy     User          @relation(fields: [receivedById], references: [id], onDelete: Restrict)
+  createdAt      DateTime      @default(now())
+
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId])
+  @@map("payments")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId       String        @unique
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  invoiceNumber String
+  subtotal      Decimal       @db.Decimal(10, 2)
+  taxAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  discount      Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  amountPaid    Decimal       @default(0) @db.Decimal(10, 2)
+  status        InvoiceStatus @default(ISSUED)
+  pdfUrl        String?
+  issuedAt      DateTime      @default(now())
+  dueAt         DateTime?
+  sentAt        DateTime?
+
+  payments Payment[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
+  @@map("invoices")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Audit / Appointments
+// ─────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  ipAddress String?
+  changes   Json?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, entity, entityId])
+  @@map("audit_logs")
+}
+
+model Appointment {
+  id           String            @id @default(uuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId     String
+  client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  motorcycleId String?
+  motorcycle   Motorcycle?       @relation(fields: [motorcycleId], references: [id], onDelete: SetNull)
+  orderId      String?
+  order        Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  type         AppointmentType   @default(APPOINTMENT)
+  status       AppointmentStatus @default(SCHEDULED)
+  scheduledAt  DateTime
+  endAt        DateTime?
+  notes        String?
+  assignedToId String?
+  assignedTo   User?             @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([tenantId, scheduledAt])
+  @@map("appointments")
+}
