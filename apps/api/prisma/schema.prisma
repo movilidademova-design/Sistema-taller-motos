@@ -77,6 +77,13 @@ enum PhotoCategory {
   BATTERY
   ACCESSORY
   OTHER
+  GENERAL
+}
+
+enum VehicleType {
+  BICIMOTO
+  PATINETA
+  MOTO
 }
 
 enum QuotationItemType {
@@ -175,6 +182,8 @@ model Tenant {
   auditLogs        AuditLog[]
   appointments     Appointment[]
   inventoryMovements InventoryMovement[]
+  quickServices    QuickService[]
+  accessoryOptions AccessoryOption[]
 
   @@map("tenants")
 }
@@ -258,11 +267,12 @@ model Client {
 }
 
 model Motorcycle {
-  id               String    @id @default(uuid())
+  id               String      @id @default(uuid())
   tenantId         String
-  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientId         String
-  client           Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client           Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  vehicleType      VehicleType @default(BICIMOTO)
   brand            String
   model            String
   color            String?
@@ -311,6 +321,11 @@ model Order {
   status               OrderStatus @default(RECEIVED)
   reason               String
   accessoriesDelivered String?
+  otherAccessories     String?
+  exitCode             String
+  trackingToken        String      @unique
+  signatureUrl         String?
+  termsAcceptedAt      DateTime?
   receivedAt           DateTime    @default(now())
   estimatedDeliveryAt  DateTime?
   deliveredAt          DateTime?
@@ -329,10 +344,43 @@ model Order {
   invoice            Invoice?
   payments           Payment[]
   appointments       Appointment[]
+  quickServices      QuickService[]
+  accessories        AccessoryOption[]
 
   @@unique([tenantId, orderNumber])
+  @@unique([tenantId, exitCode])
   @@index([tenantId, status])
   @@map("orders")
+}
+
+model QuickService {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label     String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  orders Order[]
+
+  @@index([tenantId])
+  @@map("quick_services")
+}
+
+model AccessoryOption {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label     String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  orders Order[]
+
+  @@index([tenantId])
+  @@map("accessory_options")
 }
 
 model ChecklistItem {

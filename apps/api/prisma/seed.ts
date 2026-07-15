@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomUUID, randomInt } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -7,6 +8,10 @@ import { Role, OrderStatus, ChecklistItemType, ConditionRating } from '../src/ge
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
+
+function generateExitCode() {
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
+}
 
 async function main() {
   const password = 'Password123!';
@@ -24,8 +29,33 @@ async function main() {
       taxId: '900123456-7',
       taxRatePercent: 19,
       currency: 'COP',
+      orderPrefix: 'ORD',
     },
   });
+
+  const quickServiceLabels = [
+    'Mantenimiento 1000km',
+    'Mantenimiento 3000km',
+    'Mantenimiento 6000km',
+    'Cambio de batería',
+    'Revisión eléctrica',
+    'Diagnóstico',
+    'Garantía',
+  ];
+  for (const [index, label] of quickServiceLabels.entries()) {
+    const existing = await prisma.quickService.findFirst({ where: { tenantId: tenant.id, label } });
+    if (!existing) {
+      await prisma.quickService.create({ data: { tenantId: tenant.id, label, sortOrder: index } });
+    }
+  }
+
+  const accessoryLabels = ['Llaves', 'Cargador', 'Casco', 'Control remoto', 'Espejos', 'Canasta'];
+  for (const [index, label] of accessoryLabels.entries()) {
+    const existing = await prisma.accessoryOption.findFirst({ where: { tenantId: tenant.id, label } });
+    if (!existing) {
+      await prisma.accessoryOption.create({ data: { tenantId: tenant.id, label, sortOrder: index } });
+    }
+  }
 
   const [admin, manager, receptionist, technician] = await Promise.all([
     prisma.user.upsert({
@@ -166,6 +196,8 @@ async function main() {
         technicianId: technician.id,
         reason: 'La bicimoto no enciende y la batería no carga',
         status: OrderStatus.DIAGNOSING,
+        exitCode: generateExitCode(),
+        trackingToken: randomUUID(),
       },
     });
 

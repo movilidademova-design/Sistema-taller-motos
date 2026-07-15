@@ -66,6 +66,15 @@ export class ClientsService {
     };
   }
 
+  async lookupByDocument(tenantId: string, documentId: string) {
+    const client = await this.prisma.client.findFirst({
+      where: { tenantId, documentId, isActive: true },
+      include: { motorcycles: { orderBy: { createdAt: 'desc' } } },
+    });
+    if (!client) throw new NotFoundException('Cliente no encontrado');
+    return client;
+  }
+
   async findOne(tenantId: string, id: string) {
     const client = await this.prisma.client.findFirst({
       where: { id, tenantId },

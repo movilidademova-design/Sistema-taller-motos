@@ -11,6 +11,7 @@ import type {
   InvoiceStatus,
   AppointmentType,
   AppointmentStatus,
+  VehicleType,
 } from '@taller/shared';
 
 export interface PaginatedResult<T> {
@@ -53,10 +54,25 @@ export interface Client {
   warranties?: Warranty[];
 }
 
+export interface QuickService {
+  id: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface AccessoryOption {
+  id: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export interface Motorcycle {
   id: string;
   clientId: string;
   client?: Pick<Client, 'id' | 'firstName' | 'lastName'>;
+  vehicleType: VehicleType;
   brand: string;
   model: string;
   color?: string | null;
@@ -169,6 +185,11 @@ export interface Order {
   status: OrderStatus;
   reason: string;
   accessoriesDelivered?: string | null;
+  otherAccessories?: string | null;
+  exitCode?: string;
+  trackingToken?: string;
+  signatureUrl?: string | null;
+  termsAcceptedAt?: string | null;
   receivedAt: string;
   estimatedDeliveryAt?: string | null;
   deliveredAt?: string | null;
@@ -187,6 +208,8 @@ export interface Order {
   invoice?: Invoice | null;
   payments?: Payment[];
   warranties?: Warranty[];
+  quickServices?: QuickService[];
+  accessories?: AccessoryOption[];
 }
 
 export interface Category {

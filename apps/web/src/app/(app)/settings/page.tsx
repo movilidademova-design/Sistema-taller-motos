@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -23,7 +24,7 @@ import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import { Role } from '@taller/shared';
-import type { UserSummary } from '@/lib/types';
+import type { AccessoryOption, QuickService, UserSummary } from '@/lib/types';
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador',
@@ -56,12 +57,20 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="users">Usuarios</TabsTrigger>
+          <TabsTrigger value="quick-services">Servicios rápidos</TabsTrigger>
+          <TabsTrigger value="accessory-options">Accesorios</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralSettings />
         </TabsContent>
         <TabsContent value="users">
           <UsersSettings />
+        </TabsContent>
+        <TabsContent value="quick-services">
+          <CatalogSettings endpoint="/quick-services" title="Servicios rápidos" placeholder="Ej: Cambio de batería" />
+        </TabsContent>
+        <TabsContent value="accessory-options">
+          <CatalogSettings endpoint="/accessory-options" title="Accesorios" placeholder="Ej: Casco" />
         </TabsContent>
       </Tabs>
     </div>
@@ -298,5 +307,114 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function CatalogSettings({
+  endpoint,
+  title,
+  placeholder,
+}: {
+  endpoint: string;
+  title: string;
+  placeholder: string;
+}) {
+  const { data: items, mutate } = useApiSWR<(QuickService | AccessoryOption)[]>(
+    `${endpoint}?includeInactive=true`,
+  );
+  const [newLabel, setNewLabel] = React.useState('');
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newLabel.trim()) return;
+    setIsSaving(true);
+    try {
+      await api.post(endpoint, { label: newLabel.trim() });
+      setNewLabel('');
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleToggleActive(id: string, isActive: boolean) {
+    try {
+      await api.patch(`${endpoint}/${id}`, { isActive: !isActive });
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function handleRemove(id: string) {
+    try {
+      await api.delete(`${endpoint}/${id}`);
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  async function handleMove(index: number, direction: -1 | 1) {
+    if (!items) return;
+    const target = index + direction;
+    if (target < 0 || target >= items.length) return;
+    const reordered = [...items];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    try {
+      await api.patch(`${endpoint}/reorder`, { orderedIds: reordered.map((i) => i.id) });
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  return (
+    <Card className="mt-4 max-w-2xl">
+      <CardHeader>
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <form onSubmit={handleAdd} className="flex gap-2">
+          <Input placeholder={placeholder} value={newLabel} onChange={(e) => setNewLabel(e.target.value)} />
+          <Button type="submit" size="sm" disabled={isSaving || !newLabel.trim()}>
+            <Plus /> Agregar
+          </Button>
+        </form>
+        <div className="flex flex-col gap-2">
+          {items?.map((item, index) => (
+            <div key={item.id} className="flex items-center gap-2 rounded-lg border p-2">
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => handleMove(index, -1)}
+                  disabled={index === 0}
+                  className="text-muted-foreground disabled:opacity-30"
+                >
+                  <ChevronUp className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMove(index, 1)}
+                  disabled={index === items.length - 1}
+                  className="text-muted-foreground disabled:opacity-30"
+                >
+                  <ChevronDown className="size-4" />
+                </button>
+              </div>
+              <span className="flex-1 text-sm">{item.label}</span>
+              <Switch checked={item.isActive} onCheckedChange={() => handleToggleActive(item.id, item.isActive)} />
+              <Button variant="ghost" size="icon" onClick={() => handleRemove(item.id)}>
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+          {items?.length === 0 && <p className="text-sm text-muted-foreground">Sin elementos todavía</p>}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

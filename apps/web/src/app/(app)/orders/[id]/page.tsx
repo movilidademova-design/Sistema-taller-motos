@@ -147,18 +147,29 @@ function StatusChanger({
   onUpdated: () => void;
 }) {
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [deliveryOpen, setDeliveryOpen] = React.useState(false);
 
-  async function handleChange(status: string) {
+  async function applyStatus(status: string, exitCode?: string): Promise<boolean> {
     setIsUpdating(true);
     try {
-      await api.patch(`/orders/${orderId}/status`, { status });
+      await api.patch(`/orders/${orderId}/status`, { status, exitCode });
       toast.success('Estado actualizado');
       onUpdated();
+      return true;
     } catch (error) {
       toast.error(getErrorMessage(error));
+      return false;
     } finally {
       setIsUpdating(false);
     }
+  }
+
+  function handleChange(status: string) {
+    if (status === 'DELIVERED') {
+      setDeliveryOpen(true);
+      return;
+    }
+    void applyStatus(status);
   }
 
   return (
@@ -176,7 +187,61 @@ function StatusChanger({
           ))}
         </SelectContent>
       </Select>
+      <Dialog open={deliveryOpen} onOpenChange={setDeliveryOpen}>
+        <DialogContent>
+          <DeliveryConfirmForm
+            isSubmitting={isUpdating}
+            onConfirm={async (exitCode) => {
+              const success = await applyStatus('DELIVERED', exitCode);
+              if (success) setDeliveryOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function DeliveryConfirmForm({
+  isSubmitting,
+  onConfirm,
+}: {
+  isSubmitting: boolean;
+  onConfirm: (exitCode: string) => Promise<void>;
+}) {
+  const [exitCode, setExitCode] = React.useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await onConfirm(exitCode);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>Entregar vehículo</DialogTitle>
+      </DialogHeader>
+      <div className="flex flex-col gap-3 py-4">
+        <p className="text-sm text-muted-foreground">
+          Pide al cliente su clave de salida y verifica que coincida antes de entregar el vehículo.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <Label>Clave de salida</Label>
+          <Input
+            autoFocus
+            inputMode="numeric"
+            className="h-12 text-center text-2xl tracking-widest"
+            value={exitCode}
+            onChange={(e) => setExitCode(e.target.value)}
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="submit" disabled={isSubmitting || !exitCode.trim()} className="w-full">
+          {isSubmitting ? 'Verificando...' : 'Confirmar entrega'}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 

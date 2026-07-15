@@ -3,13 +3,20 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomInt, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { EmailService } from '../notifications/email.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { CreateOrderIntakeDto } from './dto/create-order-intake.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { OrderStatus } from '../generated/prisma/enums';
+import { OrderStatus, PhotoCategory } from '../generated/prisma/enums';
+import { Prisma } from '../generated/prisma/client';
 import { canTransition } from './order-status.util';
+import { formatOrderNumber, buildIntakeMessage } from './order-message.util';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { WhatsappService } from '../notifications/whatsapp.service';
 
@@ -30,6 +37,8 @@ export const ORDER_DETAIL_INCLUDE = {
   invoice: true,
   payments: true,
   warranties: true,
+  quickServices: true,
+  accessories: true,
 } as const;
 
 @Injectable()
@@ -38,6 +47,9 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
     private readonly whatsapp: WhatsappService,
+    private readonly email: EmailService,
+    private readonly storage: StorageService,
+    private readonly config: ConfigService,
   ) {}
 
   async findAll(
@@ -154,6 +166,7 @@ export class OrdersService {
         data: { nextOrderNumber: { increment: 1 } },
       });
       const orderNumber = tenant.nextOrderNumber - 1;
+      const exitCode = await this.generateUniqueExitCode(tx, tenantId);
 
       const created = await tx.order.create({
         data: {
@@ -165,6 +178,8 @@ export class OrdersService {
           technicianId: dto.technicianId,
           reason: dto.reason,
           accessoriesDelivered: dto.accessoriesDelivered,
+          exitCode,
+          trackingToken: randomUUID(),
           status: OrderStatus.RECEIVED,
         },
       });
@@ -188,6 +203,220 @@ export class OrdersService {
     }
 
     return this.findOne(tenantId, order.id);
+  }
+
+  /**
+   * Recepción móvil de un vehículo: resuelve o crea cliente y vehículo,
+   * genera número de orden + clave de salida + enlace de seguimiento, y crea
+   * la orden — todo en una sola transacción. Fotos y firma se suben después
+   * (el almacenamiento de archivos no participa de la transacción de BD).
+   */
+  async createIntake(
+    tenantId: string,
+    receptionistId: string,
+    dto: CreateOrderIntakeDto,
+    photos: Express.Multer.File[],
+    signature: Express.Multer.File | undefined,
+  ) {
+    if (!signature) {
+      throw new BadRequestException('La firma del cliente es obligatoria');
+    }
+    if (!dto.termsAccepted) {
+      throw new BadRequestException(
+        'El cliente debe aceptar los términos y condiciones',
+      );
+    }
+
+    const { order, client } = await this.prisma.$transaction(async (tx) => {
+      const resolvedClient = dto.clientId
+        ? await tx.client.findFirst({ where: { id: dto.clientId, tenantId } })
+        : await tx.client.create({ data: { ...dto.newClient!, tenantId } });
+      if (!resolvedClient) throw new NotFoundException('Cliente no encontrado');
+
+      const resolvedMotorcycle = dto.motorcycleId
+        ? await tx.motorcycle.findFirst({
+            where: { id: dto.motorcycleId, tenantId },
+          })
+        : await tx.motorcycle.create({
+            data: {
+              ...dto.newVehicle!,
+              tenantId,
+              clientId: resolvedClient.id,
+              purchaseDate: dto.newVehicle!.purchaseDate
+                ? new Date(dto.newVehicle!.purchaseDate)
+                : undefined,
+            },
+          });
+      if (!resolvedMotorcycle) {
+        throw new NotFoundException('Vehículo no encontrado');
+      }
+      if (resolvedMotorcycle.clientId !== resolvedClient.id) {
+        throw new BadRequestException('El vehículo no pertenece a ese cliente');
+      }
+
+      if (dto.quickServiceIds.length) {
+        const count = await tx.quickService.count({
+          where: { tenantId, id: { in: dto.quickServiceIds } },
+        });
+        if (count !== dto.quickServiceIds.length) {
+          throw new BadRequestException('Uno de los servicios rápidos no es válido');
+        }
+      }
+      if (dto.accessoryIds.length) {
+        const count = await tx.accessoryOption.count({
+          where: { tenantId, id: { in: dto.accessoryIds } },
+        });
+        if (count !== dto.accessoryIds.length) {
+          throw new BadRequestException('Uno de los accesorios no es válido');
+        }
+      }
+
+      const tenant = await tx.tenant.update({
+        where: { id: tenantId },
+        data: { nextOrderNumber: { increment: 1 } },
+      });
+      const orderNumber = tenant.nextOrderNumber - 1;
+      const exitCode = await this.generateUniqueExitCode(tx, tenantId);
+
+      const created = await tx.order.create({
+        data: {
+          tenantId,
+          orderNumber,
+          clientId: resolvedClient.id,
+          motorcycleId: resolvedMotorcycle.id,
+          receptionistId,
+          reason: dto.reason,
+          otherAccessories: dto.otherAccessories,
+          exitCode,
+          trackingToken: randomUUID(),
+          termsAcceptedAt: new Date(),
+          status: OrderStatus.RECEIVED,
+          quickServices: { connect: dto.quickServiceIds.map((id) => ({ id })) },
+          accessories: { connect: dto.accessoryIds.map((id) => ({ id })) },
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: created.id,
+          toStatus: OrderStatus.RECEIVED,
+          changedById: receptionistId,
+          notes: 'Orden creada desde recepción móvil',
+        },
+      });
+
+      return { order: created, client: resolvedClient };
+    });
+
+    const [signatureUrl, ...photoUrls] = await Promise.all([
+      this.storage.upload(
+        signature.buffer,
+        signature.originalname,
+        signature.mimetype,
+        'signatures',
+      ),
+      ...photos.map((photo) =>
+        this.storage.upload(
+          photo.buffer,
+          photo.originalname,
+          photo.mimetype,
+          'orders',
+        ),
+      ),
+    ]);
+
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: { signatureUrl },
+    });
+    if (photoUrls.length) {
+      await this.prisma.orderPhoto.createMany({
+        data: photoUrls.map((url) => ({
+          orderId: order.id,
+          url,
+          category: PhotoCategory.GENERAL,
+        })),
+      });
+    }
+
+    if (client.phone) {
+      this.whatsapp
+        .notifyOrderReceived(client.phone, order.orderNumber)
+        .catch(() => undefined);
+    }
+
+    return this.findOne(tenantId, order.id);
+  }
+
+  private async generateUniqueExitCode(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+  ): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      const existing = await tx.order.findFirst({
+        where: { tenantId, exitCode: code },
+      });
+      if (!existing) return code;
+    }
+    throw new Error('No se pudo generar una clave de salida única');
+  }
+
+  /** Reenvía el mensaje de confirmación de recepción (usado por el paso final del wizard). */
+  async notify(tenantId: string, id: string, channel: 'EMAIL') {
+    const order = await this.findOne(tenantId, id);
+    if (channel === 'EMAIL') {
+      if (!order.client.email) {
+        throw new BadRequestException('El cliente no tiene correo registrado');
+      }
+      const tenant = await this.prisma.tenant.findUniqueOrThrow({
+        where: { id: tenantId },
+      });
+      const message = buildIntakeMessage({
+        clientName: `${order.client.firstName} ${order.client.lastName}`,
+        tenantName: tenant.name,
+        formattedOrderNumber: formatOrderNumber(tenant.orderPrefix, order.orderNumber),
+        exitCode: order.exitCode,
+        trackingUrl: this.buildTrackingUrl(order.trackingToken),
+      });
+      await this.email.send({
+        to: order.client.email,
+        subject: `Recibimos tu vehículo — Orden ${formatOrderNumber(tenant.orderPrefix, order.orderNumber)}`,
+        html: message.replace(/\n/g, '<br/>'),
+      });
+    }
+    return { sent: true };
+  }
+
+  private buildTrackingUrl(trackingToken: string): string {
+    const origin =
+      this.config.get<string>('CORS_ORIGIN')?.split(',')[0]?.trim() ??
+      'http://localhost:3000';
+    return `${origin}/track/${trackingToken}`;
+  }
+
+  /** Datos de solo lectura para el enlace público de seguimiento (sin login). */
+  async findByTrackingToken(trackingToken: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { trackingToken },
+      include: {
+        motorcycle: { select: { brand: true, model: true, vehicleType: true } },
+        tenant: { select: { name: true, orderPrefix: true } },
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+          select: { toStatus: true, createdAt: true },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Enlace no válido');
+    return {
+      orderNumber: formatOrderNumber(order.tenant.orderPrefix, order.orderNumber),
+      tenantName: order.tenant.name,
+      status: order.status,
+      vehicle: order.motorcycle,
+      statusHistory: order.statusHistory,
+      receivedAt: order.receivedAt,
+    };
   }
 
   async update(tenantId: string, id: string, dto: UpdateOrderDto) {
@@ -217,6 +446,14 @@ export class OrdersService {
       throw new BadRequestException(
         `No se puede cambiar el estado de ${order.status} a ${dto.status}`,
       );
+    }
+
+    if (dto.status === OrderStatus.DELIVERED) {
+      if (!dto.exitCode || dto.exitCode !== order.exitCode) {
+        throw new BadRequestException(
+          'La clave de salida no coincide. Verifícala con el cliente antes de entregar el vehículo.',
+        );
+      }
     }
 
     await this.prisma.$transaction(async (tx) => {

@@ -37,6 +37,19 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   WARRANTY: 'Garantía',
 };
 
+export const VehicleType = {
+  BICIMOTO: 'BICIMOTO',
+  PATINETA: 'PATINETA',
+  MOTO: 'MOTO',
+} as const;
+export type VehicleType = (typeof VehicleType)[keyof typeof VehicleType];
+
+export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
+  BICIMOTO: 'Bicimoto',
+  PATINETA: 'Patineta',
+  MOTO: 'Moto',
+};
+
 export const QuotationStatus = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
@@ -105,6 +118,7 @@ export const PhotoCategory = {
   BATTERY: 'BATTERY',
   ACCESSORY: 'ACCESSORY',
   OTHER: 'OTHER',
+  GENERAL: 'GENERAL',
 } as const;
 export type PhotoCategory = (typeof PhotoCategory)[keyof typeof PhotoCategory];
 

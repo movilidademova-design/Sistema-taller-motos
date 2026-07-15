@@ -2,16 +2,27 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
   IsUUID,
 } from 'class-validator';
+import { VehicleType } from '../../generated/prisma/enums';
 
 export class CreateMotorcycleDto {
   @ApiProperty()
   @IsUUID()
   clientId: string;
+
+  @ApiProperty({
+    enum: VehicleType,
+    required: false,
+    description: 'Por defecto BICIMOTO si se omite',
+  })
+  @IsOptional()
+  @IsEnum(VehicleType)
+  vehicleType?: VehicleType;
 
   @ApiProperty()
   @IsString()

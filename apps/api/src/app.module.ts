@@ -11,6 +11,7 @@ import { TenantsModule } from './tenants/tenants.module';
 import { ClientsModule } from './clients/clients.module';
 import { MotorcyclesModule } from './motorcycles/motorcycles.module';
 import { OrdersModule } from './orders/orders.module';
+import { CatalogsModule } from './catalogs/catalogs.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { WarrantiesModule } from './warranties/warranties.module';
@@ -41,6 +42,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ClientsModule,
     MotorcyclesModule,
     OrdersModule,
+    CatalogsModule,
     InventoryModule,
     PurchasesModule,
     WarrantiesModule,

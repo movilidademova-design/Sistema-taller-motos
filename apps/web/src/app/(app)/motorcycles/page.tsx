@@ -23,6 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
+import { VEHICLE_TYPE_LABELS, type VehicleType } from '@taller/shared';
 import type { Client, Motorcycle, PaginatedResult } from '@/lib/types';
 
 export default function MotorcyclesPage() {
@@ -35,13 +36,13 @@ export default function MotorcyclesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Bicimotos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Vehículos</h1>
           <p className="text-sm text-muted-foreground">{data?.total ?? 0} vehículos registrados</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus /> Nueva bicimoto
+              <Plus /> Nuevo vehículo
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -88,7 +89,7 @@ export default function MotorcyclesPage() {
             {!isLoading && data?.items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No hay bicimotos registradas
+                  No hay vehículos registrados
                 </TableCell>
               </TableRow>
             )}
@@ -120,6 +121,7 @@ function NewMotorcycleForm({ onSuccess }: { onSuccess: () => void }) {
   const { data: clients } = useApiSWR<PaginatedResult<Client>>('/clients?pageSize=100');
   const [form, setForm] = React.useState({
     clientId: '',
+    vehicleType: 'BICIMOTO' as VehicleType,
     brand: '',
     model: '',
     color: '',
@@ -144,7 +146,7 @@ function NewMotorcycleForm({ onSuccess }: { onSuccess: () => void }) {
         year: form.year ? Number(form.year) : undefined,
         mileage: form.mileage ? Number(form.mileage) : undefined,
       });
-      toast.success('Bicimoto registrada');
+      toast.success('Vehículo registrado');
       onSuccess();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -156,7 +158,7 @@ function NewMotorcycleForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={handleSubmit}>
       <DialogHeader>
-        <DialogTitle>Nueva bicimoto</DialogTitle>
+        <DialogTitle>Nuevo vehículo</DialogTitle>
         <DialogDescription>Registra los datos técnicos del vehículo</DialogDescription>
       </DialogHeader>
       <div className="grid grid-cols-2 gap-3 py-4">
@@ -170,6 +172,24 @@ function NewMotorcycleForm({ onSuccess }: { onSuccess: () => void }) {
               {clients?.items.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.firstName} {c.lastName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Tipo de vehículo</Label>
+          <Select
+            value={form.vehicleType}
+            onValueChange={(v) => setForm({ ...form, vehicleType: v as VehicleType })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.entries(VEHICLE_TYPE_LABELS) as [VehicleType, string][]).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -242,7 +262,7 @@ function NewMotorcycleForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       <DialogFooter>
         <Button type="submit" disabled={isSubmitting || !form.clientId}>
-          {isSubmitting ? 'Guardando...' : 'Guardar bicimoto'}
+          {isSubmitting ? 'Guardando...' : 'Guardar vehículo'}
         </Button>
       </DialogFooter>
     </form>

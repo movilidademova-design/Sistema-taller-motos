@@ -32,6 +32,14 @@ export class ClientsController {
     return this.clientsService.findAll(tenantId, query);
   }
 
+  @Get('lookup/:documentId')
+  lookup(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.clientsService.lookupByDocument(tenantId, documentId);
+  }
+
   @Get(':id')
   findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
     return this.clientsService.findOne(tenantId, id);

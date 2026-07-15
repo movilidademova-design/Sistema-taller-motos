@@ -23,6 +23,7 @@ const CATEGORY_LABELS: Record<PhotoCategory, string> = {
   BATTERY: 'Batería',
   ACCESSORY: 'Accesorios',
   OTHER: 'Otra',
+  GENERAL: 'Recepción',
 };
 
 export function PhotosTab({

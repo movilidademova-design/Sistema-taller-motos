@@ -11,4 +11,12 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Obligatoria cuando status = DELIVERED; debe coincidir con la clave generada al recibir el vehículo',
+  })
+  @IsOptional()
+  @IsString()
+  exitCode?: string;
 }
