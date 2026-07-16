@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { OrderNotificationsModule } from '../order-notifications/order-notifications.module';
 import { StorageModule } from '../storage/storage.module';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
@@ -17,7 +18,7 @@ import { LaborService } from './labor/labor.service';
 import { LaborController } from './labor/labor.controller';
 
 @Module({
-  imports: [RealtimeModule, NotificationsModule, StorageModule],
+  imports: [RealtimeModule, NotificationsModule, OrderNotificationsModule, StorageModule],
   controllers: [
     OrdersController,
     PublicOrdersController,

@@ -3,20 +3,20 @@ import { OrderStatus } from '../generated/prisma/enums';
 
 describe('canTransition', () => {
   it('allows the standard happy path', () => {
-    expect(canTransition(OrderStatus.RECEIVED, OrderStatus.DIAGNOSING)).toBe(
-      true,
-    );
+    expect(
+      canTransition(OrderStatus.RECEIVED, OrderStatus.WAITING_DIAGNOSIS),
+    ).toBe(true);
+    expect(
+      canTransition(OrderStatus.WAITING_DIAGNOSIS, OrderStatus.DIAGNOSING),
+    ).toBe(true);
     expect(
       canTransition(OrderStatus.DIAGNOSING, OrderStatus.WAITING_APPROVAL),
     ).toBe(true);
     expect(
       canTransition(OrderStatus.WAITING_APPROVAL, OrderStatus.IN_REPAIR),
     ).toBe(true);
-    expect(canTransition(OrderStatus.IN_REPAIR, OrderStatus.TESTING)).toBe(
-      true,
-    );
     expect(
-      canTransition(OrderStatus.TESTING, OrderStatus.READY_FOR_DELIVERY),
+      canTransition(OrderStatus.IN_REPAIR, OrderStatus.READY_FOR_DELIVERY),
     ).toBe(true);
     expect(
       canTransition(OrderStatus.READY_FOR_DELIVERY, OrderStatus.DELIVERED),

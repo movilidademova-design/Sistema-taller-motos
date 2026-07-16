@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from './theme-toggle';
 import { SidebarNav } from './sidebar-nav';
+import { OrderNotificationsBell } from './order-notifications-bell';
 import { useAuth } from '@/components/providers/auth-provider';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -47,6 +48,7 @@ export function Topbar() {
 
       <div className="flex-1" />
 
+      <OrderNotificationsBell />
       <ThemeToggle />
 
       <DropdownMenu>

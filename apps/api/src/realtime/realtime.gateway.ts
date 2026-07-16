@@ -58,4 +58,8 @@ export class RealtimeGateway
   emitDashboardRefresh(tenantId: string) {
     this.server.to(`tenant:${tenantId}`).emit('dashboard:refresh');
   }
+
+  emitOrderNotificationCreated(tenantId: string, notification: unknown) {
+    this.server.to(`tenant:${tenantId}`).emit('order-notification:created', notification);
+  }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Package, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,13 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ProductPicker } from '@/components/shared/product-picker';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import { QuotationItemType } from '@taller/shared';
-import type { Quotation } from '@/lib/types';
+import type { Product, Quotation } from '@/lib/types';
 
 interface ItemDraft {
   type: QuotationItemType;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -39,6 +41,7 @@ export function QuotationTab({
   const [items, setItems] = React.useState<ItemDraft[]>(
     quotation?.items.map((i) => ({
       type: i.type,
+      productId: i.productId ?? undefined,
       description: i.description,
       quantity: Number(i.quantity),
       unitPrice: Number(i.unitPrice),
@@ -55,11 +58,36 @@ export function QuotationTab({
   const taxAmount = taxable * (Number(taxRate || 0) / 100);
   const total = taxable + taxAmount;
 
-  function addItem() {
+  function addInventoryItem(product: Product) {
+    setItems((i) => [
+      ...i,
+      {
+        type: QuotationItemType.PART,
+        productId: product.id,
+        description: product.name,
+        quantity: 1,
+        unitPrice: Number(product.unitPrice),
+      },
+    ]);
+  }
+  function addFreeItem() {
     setItems((i) => [...i, { type: QuotationItemType.PART, description: '', quantity: 1, unitPrice: 0 }]);
   }
+  function addLaborItem() {
+    setItems((i) => [...i, { type: QuotationItemType.LABOR, description: '', quantity: 1, unitPrice: 0 }]);
+  }
   function updateItem(index: number, patch: Partial<ItemDraft>) {
-    setItems((i) => i.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
+    setItems((i) =>
+      i.map((item, idx) => {
+        if (idx !== index) return item;
+        const next = { ...item, ...patch };
+        // Un repuesto de inventario deja de estar vinculado si deja de ser tipo Repuesto.
+        if (patch.type && patch.type !== QuotationItemType.PART) {
+          next.productId = undefined;
+        }
+        return next;
+      }),
+    );
   }
   function removeItem(index: number) {
     setItems((i) => i.filter((_, idx) => idx !== index));
@@ -111,11 +139,24 @@ export function QuotationTab({
       )}
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Label>Ítems</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addItem}>
-            <Plus /> Agregar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ProductPicker
+              onSelect={addInventoryItem}
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  <Package /> Repuesto del inventario
+                </Button>
+              }
+            />
+            <Button type="button" variant="outline" size="sm" onClick={addFreeItem}>
+              <Plus /> Repuesto libre
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={addLaborItem}>
+              <Plus /> Mano de obra / Otro
+            </Button>
+          </div>
         </div>
         {items.map((item, i) => (
           <div key={i} className="flex items-center gap-2">
@@ -131,6 +172,11 @@ export function QuotationTab({
                 ))}
               </SelectContent>
             </Select>
+            {item.productId && (
+              <span title="Vinculado a inventario" className="text-muted-foreground">
+                <Package className="size-4" />
+              </span>
+            )}
             <Input
               placeholder="Descripción"
               className="flex-1"

@@ -25,11 +25,11 @@ enum Role {
 
 enum OrderStatus {
   RECEIVED
+  WAITING_DIAGNOSIS
   DIAGNOSING
   WAITING_APPROVAL
   WAITING_PARTS
   IN_REPAIR
-  TESTING
   READY_FOR_DELIVERY
   DELIVERED
   CANCELLED
@@ -184,6 +184,7 @@ model Tenant {
   inventoryMovements InventoryMovement[]
   quickServices    QuickService[]
   accessoryOptions AccessoryOption[]
+  orderNotifications OrderNotification[]
 
   @@map("tenants")
 }
@@ -214,6 +215,8 @@ model User {
   paymentsReceived    Payment[]
   warrantiesApproved  Warranty[]
   assignedAppointments Appointment[]
+  orderNotificationsCreated  OrderNotification[] @relation("OrderNotificationCreatedBy")
+  orderNotificationsNotified OrderNotification[] @relation("OrderNotificationNotifiedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -346,11 +349,32 @@ model Order {
   appointments       Appointment[]
   quickServices      QuickService[]
   accessories        AccessoryOption[]
+  notifications      OrderNotification[]
 
   @@unique([tenantId, orderNumber])
   @@unique([tenantId, exitCode])
   @@index([tenantId, status])
   @@map("orders")
+}
+
+model OrderNotification {
+  id           String      @id @default(uuid())
+  tenantId     String
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId      String
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status       OrderStatus
+  message      String
+  isNotified   Boolean     @default(false)
+  notifiedAt   DateTime?
+  notifiedById String?
+  notifiedBy   User?       @relation("OrderNotificationNotifiedBy", fields: [notifiedById], references: [id], onDelete: SetNull)
+  createdById  String
+  createdBy    User        @relation("OrderNotificationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt    DateTime    @default(now())
+
+  @@index([tenantId, isNotified])
+  @@map("order_notifications")
 }
 
 model QuickService {

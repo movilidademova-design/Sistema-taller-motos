@@ -2,7 +2,8 @@ import { OrderStatus } from '../generated/prisma/enums';
 
 /** Allowed forward/lateral transitions for the work-order lifecycle. */
 export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  RECEIVED: [OrderStatus.DIAGNOSING, OrderStatus.CANCELLED],
+  RECEIVED: [OrderStatus.WAITING_DIAGNOSIS, OrderStatus.CANCELLED],
+  WAITING_DIAGNOSIS: [OrderStatus.DIAGNOSING, OrderStatus.CANCELLED],
   DIAGNOSING: [OrderStatus.WAITING_APPROVAL, OrderStatus.CANCELLED],
   WAITING_APPROVAL: [
     OrderStatus.WAITING_PARTS,
@@ -11,11 +12,10 @@ export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   ],
   WAITING_PARTS: [OrderStatus.IN_REPAIR, OrderStatus.CANCELLED],
   IN_REPAIR: [
-    OrderStatus.TESTING,
+    OrderStatus.READY_FOR_DELIVERY,
     OrderStatus.WAITING_PARTS,
     OrderStatus.CANCELLED,
   ],
-  TESTING: [OrderStatus.READY_FOR_DELIVERY, OrderStatus.IN_REPAIR],
   READY_FOR_DELIVERY: [OrderStatus.DELIVERED],
   DELIVERED: [OrderStatus.WARRANTY],
   WARRANTY: [OrderStatus.IN_REPAIR, OrderStatus.DELIVERED],

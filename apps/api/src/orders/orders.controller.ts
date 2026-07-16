@@ -165,4 +165,21 @@ export class OrdersController {
   ) {
     return this.ordersService.updateStatus(tenantId, id, userId, dto);
   }
+
+  /**
+   * Se llama después de un PATCH .../status exitoso, cuando el usuario que
+   * cambió el estado responde "Sí" a "¿Desea generar una notificación para
+   * el cliente?" — crea la notificación interna pendiente, no envía nada
+   * directamente al cliente.
+   */
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST, Role.TECHNICIAN)
+  @Audit('OrderNotification')
+  @Post(':id/notifications')
+  requestClientNotification(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.ordersService.requestClientNotification(tenantId, id, userId);
+  }
 }

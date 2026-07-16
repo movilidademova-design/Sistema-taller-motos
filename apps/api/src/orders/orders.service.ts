@@ -16,9 +16,15 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { OrderStatus, PhotoCategory } from '../generated/prisma/enums';
 import { Prisma } from '../generated/prisma/client';
 import { canTransition } from './order-status.util';
-import { formatOrderNumber, buildIntakeMessage } from './order-message.util';
+import {
+  formatOrderNumber,
+  buildIntakeMessage,
+  buildStatusUpdateMessage,
+  ORDER_STATUS_LABELS,
+} from './order-message.util';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { WhatsappService } from '../notifications/whatsapp.service';
+import { OrderNotificationsService } from '../order-notifications/order-notifications.service';
 
 export const ORDER_DETAIL_INCLUDE = {
   client: true,
@@ -50,6 +56,7 @@ export class OrdersService {
     private readonly email: EmailService,
     private readonly storage: StorageService,
     private readonly config: ConfigService,
+    private readonly orderNotifications: OrderNotificationsService,
   ) {}
 
   async findAll(
@@ -480,30 +487,35 @@ export class OrdersService {
 
     const updated = await this.findOne(tenantId, id);
     this.realtime.emitOrderUpdated(tenantId, updated);
-    this.notifyStatusChange(updated).catch(() => undefined);
     return updated;
   }
 
-  private async notifyStatusChange(
-    order: Awaited<ReturnType<OrdersService['findOne']>>,
-  ) {
-    const phone = order.client.phone;
-    if (!phone) return;
-    switch (order.status) {
-      case OrderStatus.IN_REPAIR:
-        await this.whatsapp.notifyInRepair(phone, order.orderNumber);
-        break;
-      case OrderStatus.READY_FOR_DELIVERY:
-        await this.whatsapp.notifyReadyForPickup(phone, order.orderNumber);
-        break;
-      case OrderStatus.DELIVERED:
-        await this.whatsapp.sendThankYou(
-          phone,
-          `${order.client.firstName} ${order.client.lastName}`,
-        );
-        break;
-      default:
-        break;
-    }
+  /**
+   * El técnico decide, después de cambiar el estado, si quiere avisarle al
+   * cliente — no se envía nada automáticamente. Esto solo crea la
+   * notificación interna pendiente que ve el personal de mostrador
+   * (Admin/Recepción), quienes son los que realmente contactan al cliente.
+   */
+  async requestClientNotification(tenantId: string, id: string, userId: string) {
+    const order = await this.findOne(tenantId, id);
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({
+      where: { id: tenantId },
+    });
+    const message = buildStatusUpdateMessage({
+      clientName: `${order.client.firstName} ${order.client.lastName}`,
+      tenantName: tenant.name,
+      formattedOrderNumber: formatOrderNumber(tenant.orderPrefix, order.orderNumber),
+      statusLabel: ORDER_STATUS_LABELS[order.status] ?? order.status,
+      trackingUrl: this.buildTrackingUrl(order.trackingToken),
+    });
+    const notification = await this.orderNotifications.create(
+      tenantId,
+      order.id,
+      order.status,
+      message,
+      userId,
+    );
+    this.realtime.emitOrderNotificationCreated(tenantId, notification);
+    return notification;
   }
 }

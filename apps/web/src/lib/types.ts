@@ -164,6 +164,21 @@ export interface OrderStatusHistoryEntry {
   changedBy?: { firstName: string; lastName: string };
 }
 
+export interface OrderNotification {
+  id: string;
+  orderId: string;
+  order?: {
+    id: string;
+    orderNumber: number;
+    client: { firstName: string; lastName: string; phone?: string | null; email?: string | null };
+  };
+  status: OrderStatus;
+  message: string;
+  isNotified: boolean;
+  notifiedAt?: string | null;
+  createdAt: string;
+}
+
 export interface LaborEntry {
   id: string;
   technicianId: string;

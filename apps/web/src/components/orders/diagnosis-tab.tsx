@@ -1,17 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Package, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ProductPicker } from '@/components/shared/product-picker';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
-import type { Diagnosis } from '@/lib/types';
+import type { Diagnosis, Product } from '@/lib/types';
 
 interface PartDraft {
+  productId?: string;
   description: string;
   quantity: number;
   unitCost: number;
@@ -39,6 +41,7 @@ export function DiagnosisTab({
   });
   const [parts, setParts] = React.useState<PartDraft[]>(
     diagnosis?.requiredParts.map((p) => ({
+      productId: p.productId ?? undefined,
       description: p.description,
       quantity: p.quantity,
       unitCost: Number(p.unitCost),
@@ -46,7 +49,14 @@ export function DiagnosisTab({
   );
   const [isSaving, setIsSaving] = React.useState(false);
 
-  function addPart() {
+  function addInventoryPart(product: Product) {
+    setParts((p) => [
+      ...p,
+      { productId: product.id, description: product.name, quantity: 1, unitCost: Number(product.unitCost) },
+    ]);
+  }
+
+  function addFreePart() {
     setParts((p) => [...p, { description: '', quantity: 1, unitCost: 0 }]);
   }
 
@@ -147,14 +157,29 @@ export function DiagnosisTab({
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Label>Repuestos requeridos</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addPart}>
-            <Plus /> Agregar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ProductPicker
+              onSelect={addInventoryPart}
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  <Package /> Del inventario
+                </Button>
+              }
+            />
+            <Button type="button" variant="outline" size="sm" onClick={addFreePart}>
+              <Plus /> Repuesto libre
+            </Button>
+          </div>
         </div>
         {parts.map((part, i) => (
           <div key={i} className="flex items-center gap-2">
+            {part.productId && (
+              <span title="Vinculado a inventario" className="text-muted-foreground">
+                <Package className="size-4" />
+              </span>
+            )}
             <Input
               placeholder="Descripción"
               className="flex-1"

@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -29,7 +30,7 @@ import { HistoryTab } from '@/components/orders/history-tab';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api, openAuthedBlobInNewTab } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
-import { ORDER_STATUS_LABELS, PaymentMethod, type OrderStatus } from '@taller/shared';
+import { ORDER_STATUS_LABELS, canTransition, PaymentMethod, type OrderStatus } from '@taller/shared';
 import type { Invoice, Order } from '@/lib/types';
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -148,6 +149,8 @@ function StatusChanger({
 }) {
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [deliveryOpen, setDeliveryOpen] = React.useState(false);
+  const [notifyPromptOpen, setNotifyPromptOpen] = React.useState(false);
+  const [isRequestingNotification, setIsRequestingNotification] = React.useState(false);
 
   async function applyStatus(status: string, exitCode?: string): Promise<boolean> {
     setIsUpdating(true);
@@ -164,13 +167,31 @@ function StatusChanger({
     }
   }
 
-  function handleChange(status: string) {
+  async function handleChange(status: string) {
     if (status === 'DELIVERED') {
       setDeliveryOpen(true);
       return;
     }
-    void applyStatus(status);
+    const success = await applyStatus(status);
+    if (success) setNotifyPromptOpen(true);
   }
+
+  async function handleRequestNotification() {
+    setIsRequestingNotification(true);
+    try {
+      await api.post(`/orders/${orderId}/notifications`);
+      toast.success('Notificación pendiente creada para el personal de mostrador');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsRequestingNotification(false);
+      setNotifyPromptOpen(false);
+    }
+  }
+
+  const nextStatusOptions = (Object.keys(ORDER_STATUS_LABELS) as OrderStatus[]).filter((status) =>
+    canTransition(currentStatus, status),
+  );
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -180,22 +201,50 @@ function StatusChanger({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
-            <SelectItem key={value} value={value}>
-              {label}
+          {nextStatusOptions.map((status) => (
+            <SelectItem key={status} value={status}>
+              {ORDER_STATUS_LABELS[status]}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+
       <Dialog open={deliveryOpen} onOpenChange={setDeliveryOpen}>
         <DialogContent>
           <DeliveryConfirmForm
             isSubmitting={isUpdating}
             onConfirm={async (exitCode) => {
               const success = await applyStatus('DELIVERED', exitCode);
-              if (success) setDeliveryOpen(false);
+              if (success) {
+                setDeliveryOpen(false);
+                setNotifyPromptOpen(true);
+              }
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={notifyPromptOpen} onOpenChange={setNotifyPromptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Desea generar una notificación para el cliente?</DialogTitle>
+            <DialogDescription>
+              El personal de mostrador podrá enviarle un aviso por WhatsApp o correo sobre este
+              cambio de estado.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setNotifyPromptOpen(false)}
+              disabled={isRequestingNotification}
+            >
+              No
+            </Button>
+            <Button onClick={handleRequestNotification} disabled={isRequestingNotification}>
+              {isRequestingNotification ? 'Generando...' : 'Sí'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

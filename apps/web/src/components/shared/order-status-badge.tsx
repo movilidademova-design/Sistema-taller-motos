@@ -3,11 +3,11 @@ import { ORDER_STATUS_LABELS, type OrderStatus } from '@taller/shared';
 
 const VARIANTS: Record<OrderStatus, 'default' | 'secondary' | 'destructive' | 'success' | 'warning'> = {
   RECEIVED: 'secondary',
+  WAITING_DIAGNOSIS: 'secondary',
   DIAGNOSING: 'default',
   WAITING_APPROVAL: 'warning',
   WAITING_PARTS: 'warning',
   IN_REPAIR: 'default',
-  TESTING: 'default',
   READY_FOR_DELIVERY: 'success',
   DELIVERED: 'success',
   CANCELLED: 'destructive',

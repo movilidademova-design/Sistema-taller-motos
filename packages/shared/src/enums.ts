@@ -12,11 +12,11 @@ export type Role = (typeof Role)[keyof typeof Role];
 
 export const OrderStatus = {
   RECEIVED: 'RECEIVED',
+  WAITING_DIAGNOSIS: 'WAITING_DIAGNOSIS',
   DIAGNOSING: 'DIAGNOSING',
   WAITING_APPROVAL: 'WAITING_APPROVAL',
   WAITING_PARTS: 'WAITING_PARTS',
   IN_REPAIR: 'IN_REPAIR',
-  TESTING: 'TESTING',
   READY_FOR_DELIVERY: 'READY_FOR_DELIVERY',
   DELIVERED: 'DELIVERED',
   CANCELLED: 'CANCELLED',
@@ -26,16 +26,47 @@ export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   RECEIVED: 'Recibida',
-  DIAGNOSING: 'En diagnóstico',
-  WAITING_APPROVAL: 'Esperando aprobación',
+  WAITING_DIAGNOSIS: 'En espera de diagnóstico',
+  DIAGNOSING: 'Diagnóstico',
+  WAITING_APPROVAL: 'Esperando aprobación de repuestos',
   WAITING_PARTS: 'Esperando repuestos',
-  IN_REPAIR: 'En reparación',
-  TESTING: 'En pruebas',
+  IN_REPAIR: 'Reparación',
   READY_FOR_DELIVERY: 'Lista para entrega',
-  DELIVERED: 'Entregada',
+  DELIVERED: 'Entregado',
   CANCELLED: 'Cancelada',
   WARRANTY: 'Garantía',
 };
+
+/**
+ * Duplicada intencionalmente de `apps/api/src/orders/order-status.util.ts` — el
+ * backend no puede depender en tiempo de ejecución de este paquete (Prisma 7 forzó
+ * salida CommonJS pura en el backend), así que cada lado mantiene su propia copia.
+ */
+export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  RECEIVED: [OrderStatus.WAITING_DIAGNOSIS, OrderStatus.CANCELLED],
+  WAITING_DIAGNOSIS: [OrderStatus.DIAGNOSING, OrderStatus.CANCELLED],
+  DIAGNOSING: [OrderStatus.WAITING_APPROVAL, OrderStatus.CANCELLED],
+  WAITING_APPROVAL: [
+    OrderStatus.WAITING_PARTS,
+    OrderStatus.IN_REPAIR,
+    OrderStatus.CANCELLED,
+  ],
+  WAITING_PARTS: [OrderStatus.IN_REPAIR, OrderStatus.CANCELLED],
+  IN_REPAIR: [
+    OrderStatus.READY_FOR_DELIVERY,
+    OrderStatus.WAITING_PARTS,
+    OrderStatus.CANCELLED,
+  ],
+  READY_FOR_DELIVERY: [OrderStatus.DELIVERED],
+  DELIVERED: [OrderStatus.WARRANTY],
+  WARRANTY: [OrderStatus.IN_REPAIR, OrderStatus.DELIVERED],
+  CANCELLED: [],
+};
+
+export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
+  if (from === to) return true;
+  return ORDER_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+}
 
 export const VehicleType = {
   BICIMOTO: 'BICIMOTO',

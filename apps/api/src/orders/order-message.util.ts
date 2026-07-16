@@ -30,3 +30,34 @@ Esta clave será necesaria para retirar tu vehículo. Por favor, consérvala y n
 Gracias por confiar en nosotros. Será un gusto atenderte.
 Equipo ${params.tenantName}`;
 }
+
+/** Duplicado de ORDER_STATUS_LABELS en @taller/shared — ver nota arriba. */
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  RECEIVED: 'Recibida',
+  WAITING_DIAGNOSIS: 'En espera de diagnóstico',
+  DIAGNOSING: 'Diagnóstico',
+  WAITING_APPROVAL: 'Esperando aprobación de repuestos',
+  WAITING_PARTS: 'Esperando repuestos',
+  IN_REPAIR: 'Reparación',
+  READY_FOR_DELIVERY: 'Lista para entrega',
+  DELIVERED: 'Entregado',
+  CANCELLED: 'Cancelada',
+  WARRANTY: 'Garantía',
+};
+
+export function buildStatusUpdateMessage(params: {
+  clientName: string;
+  tenantName: string;
+  formattedOrderNumber: string;
+  statusLabel: string;
+  trackingUrl: string;
+}): string {
+  return `Hola ${params.clientName}.
+
+Tu orden ${params.formattedOrderNumber} cambió de estado: ahora está en "${params.statusLabel}".
+
+🔗 Puedes consultar el detalle en cualquier momento aquí: ${params.trackingUrl}
+
+Gracias por confiar en nosotros.
+Equipo ${params.tenantName}`;
+}
