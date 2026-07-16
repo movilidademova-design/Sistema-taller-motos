@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
+  IsArray,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -34,4 +36,10 @@ export class CreateUserDto {
   @ApiProperty({ enum: Role })
   @IsEnum(Role)
   role: Role;
+
+  @ApiProperty({ type: [String], description: 'IDs de las sucursales a las que pertenece' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  storeIds: string[];
 }

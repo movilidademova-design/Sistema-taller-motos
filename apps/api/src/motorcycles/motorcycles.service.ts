@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMotorcycleDto } from './dto/create-motorcycle.dto';
 import { UpdateMotorcycleDto } from './dto/update-motorcycle.dto';
@@ -10,12 +10,14 @@ export class MotorcyclesService {
 
   async findAll(
     tenantId: string,
+    storeId: string | null,
     query: PaginationQueryDto & { clientId?: string },
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
+      ...(storeId ? { storeId } : {}),
       ...(query.clientId ? { clientId: query.clientId } : {}),
       ...(query.search
         ? {
@@ -65,9 +67,9 @@ export class MotorcyclesService {
     };
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, storeId: string | null, id: string) {
     const motorcycle = await this.prisma.motorcycle.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
       include: {
         client: true,
         orders: { orderBy: { createdAt: 'desc' }, include: { invoice: true } },
@@ -78,9 +80,12 @@ export class MotorcyclesService {
     return motorcycle;
   }
 
-  async create(tenantId: string, dto: CreateMotorcycleDto) {
+  async create(tenantId: string, storeId: string | null, dto: CreateMotorcycleDto) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear un vehículo');
+    }
     const client = await this.prisma.client.findFirst({
-      where: { id: dto.clientId, tenantId },
+      where: { id: dto.clientId, tenantId, storeId },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
 
@@ -88,6 +93,7 @@ export class MotorcyclesService {
       data: {
         ...dto,
         tenantId,
+        storeId,
         purchaseDate: dto.purchaseDate ? new Date(dto.purchaseDate) : undefined,
         warrantyUntil: dto.warrantyUntil
           ? new Date(dto.warrantyUntil)
@@ -96,8 +102,8 @@ export class MotorcyclesService {
     });
   }
 
-  async update(tenantId: string, id: string, dto: UpdateMotorcycleDto) {
-    await this.assertExists(tenantId, id);
+  async update(tenantId: string, storeId: string | null, id: string, dto: UpdateMotorcycleDto) {
+    await this.assertExists(tenantId, storeId, id);
     return this.prisma.motorcycle.update({
       where: { id },
       data: {
@@ -110,9 +116,9 @@ export class MotorcyclesService {
     });
   }
 
-  private async assertExists(tenantId: string, id: string) {
+  private async assertExists(tenantId: string, storeId: string | null, id: string) {
     const motorcycle = await this.prisma.motorcycle.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
     });
     if (!motorcycle) throw new NotFoundException('Bicimoto no encontrada');
     return motorcycle;

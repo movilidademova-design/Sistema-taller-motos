@@ -2,7 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Plus, Search, Hash } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,10 +12,45 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { OrderStatusBadge } from '@/components/shared/order-status-badge';
 import { useApiSWR } from '@/hooks/use-api-swr';
+import { api, ApiError } from '@/lib/api';
 import { ORDER_STATUS_LABELS, type OrderStatus } from '@taller/shared';
 import type { Order, PaginatedResult } from '@/lib/types';
 
 const STATUS_OPTIONS = Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, string][];
+
+function OrderNumberSearch() {
+  const router = useRouter();
+  const [orderNumber, setOrderNumber] = React.useState('');
+  const [isSearching, setIsSearching] = React.useState(false);
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!orderNumber.trim()) return;
+    setIsSearching(true);
+    try {
+      const order = await api.get<Order>(`/orders/search?orderNumber=${orderNumber.trim()}`);
+      router.push(`/orders/${order.id}`);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Orden no encontrada');
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSearch} className="relative w-48">
+      <Hash className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+      <Input
+        placeholder="Buscar por N° de orden"
+        className="pl-8"
+        type="number"
+        value={orderNumber}
+        onChange={(e) => setOrderNumber(e.target.value)}
+        disabled={isSearching}
+      />
+    </form>
+  );
+}
 
 export default function OrdersPage() {
   const [search, setSearch] = React.useState('');
@@ -33,11 +70,14 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Órdenes de trabajo</h1>
           <p className="text-sm text-muted-foreground">{data?.total ?? 0} órdenes</p>
         </div>
-        <Button asChild>
-          <Link href="/orders/new">
-            <Plus /> Nueva orden
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <OrderNumberSearch />
+          <Button asChild>
+            <Link href="/orders/new">
+              <Plus /> Nueva orden
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

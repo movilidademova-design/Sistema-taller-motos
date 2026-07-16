@@ -61,6 +61,7 @@ export class OrdersService {
 
   async findAll(
     tenantId: string,
+    storeId: string | null,
     query: PaginationQueryDto & {
       status?: OrderStatus;
       technicianId?: string;
@@ -71,6 +72,7 @@ export class OrdersService {
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
+      ...(storeId ? { storeId } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.technicianId ? { technicianId: query.technicianId } : {}),
       ...(query.clientId ? { clientId: query.clientId } : {}),
@@ -136,9 +138,19 @@ export class OrdersService {
     };
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, storeId: string | null, id: string) {
     const order = await this.prisma.order.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
+      include: ORDER_DETAIL_INCLUDE,
+    });
+    if (!order) throw new NotFoundException('Orden no encontrada');
+    return order;
+  }
+
+  /** Buscar una orden por su número (para Recepción/Visualizador/Admin) — acotado a la(s) sucursal(es) activa(s). */
+  async searchByOrderNumber(tenantId: string, storeId: string | null, orderNumber: number) {
+    const order = await this.prisma.order.findFirst({
+      where: { tenantId, orderNumber, ...(storeId ? { storeId } : {}) },
       include: ORDER_DETAIL_INCLUDE,
     });
     if (!order) throw new NotFoundException('Orden no encontrada');
@@ -146,19 +158,27 @@ export class OrdersService {
   }
 
   /** Used internally by sub-resource services (checklist, photos, diagnosis, quotation, labor). */
-  async assertOrderExists(tenantId: string, orderId: string) {
+  async assertOrderExists(tenantId: string, storeId: string | null, orderId: string) {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, tenantId },
+      where: { id: orderId, tenantId, ...(storeId ? { storeId } : {}) },
     });
     if (!order) throw new NotFoundException('Orden no encontrada');
     return order;
   }
 
-  async create(tenantId: string, receptionistId: string, dto: CreateOrderDto) {
+  async create(
+    tenantId: string,
+    storeId: string | null,
+    receptionistId: string,
+    dto: CreateOrderDto,
+  ) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear una orden');
+    }
     const [client, motorcycle] = await Promise.all([
-      this.prisma.client.findFirst({ where: { id: dto.clientId, tenantId } }),
+      this.prisma.client.findFirst({ where: { id: dto.clientId, tenantId, storeId } }),
       this.prisma.motorcycle.findFirst({
-        where: { id: dto.motorcycleId, tenantId },
+        where: { id: dto.motorcycleId, tenantId, storeId },
       }),
     ]);
     if (!client) throw new NotFoundException('Cliente no encontrado');
@@ -178,6 +198,7 @@ export class OrdersService {
       const created = await tx.order.create({
         data: {
           tenantId,
+          storeId,
           orderNumber,
           clientId: dto.clientId,
           motorcycleId: dto.motorcycleId,
@@ -209,7 +230,7 @@ export class OrdersService {
         .catch(() => undefined);
     }
 
-    return this.findOne(tenantId, order.id);
+    return this.findOne(tenantId, storeId, order.id);
   }
 
   /**
@@ -220,11 +241,15 @@ export class OrdersService {
    */
   async createIntake(
     tenantId: string,
+    storeId: string | null,
     receptionistId: string,
     dto: CreateOrderIntakeDto,
     photos: Express.Multer.File[],
     signature: Express.Multer.File | undefined,
   ) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear una orden');
+    }
     if (!signature) {
       throw new BadRequestException('La firma del cliente es obligatoria');
     }
@@ -236,18 +261,19 @@ export class OrdersService {
 
     const { order, client } = await this.prisma.$transaction(async (tx) => {
       const resolvedClient = dto.clientId
-        ? await tx.client.findFirst({ where: { id: dto.clientId, tenantId } })
-        : await tx.client.create({ data: { ...dto.newClient!, tenantId } });
+        ? await tx.client.findFirst({ where: { id: dto.clientId, tenantId, storeId } })
+        : await tx.client.create({ data: { ...dto.newClient!, tenantId, storeId } });
       if (!resolvedClient) throw new NotFoundException('Cliente no encontrado');
 
       const resolvedMotorcycle = dto.motorcycleId
         ? await tx.motorcycle.findFirst({
-            where: { id: dto.motorcycleId, tenantId },
+            where: { id: dto.motorcycleId, tenantId, storeId },
           })
         : await tx.motorcycle.create({
             data: {
               ...dto.newVehicle!,
               tenantId,
+              storeId,
               clientId: resolvedClient.id,
               purchaseDate: dto.newVehicle!.purchaseDate
                 ? new Date(dto.newVehicle!.purchaseDate)
@@ -263,7 +289,7 @@ export class OrdersService {
 
       if (dto.quickServiceIds.length) {
         const count = await tx.quickService.count({
-          where: { tenantId, id: { in: dto.quickServiceIds } },
+          where: { tenantId, storeId, id: { in: dto.quickServiceIds } },
         });
         if (count !== dto.quickServiceIds.length) {
           throw new BadRequestException('Uno de los servicios rápidos no es válido');
@@ -271,7 +297,7 @@ export class OrdersService {
       }
       if (dto.accessoryIds.length) {
         const count = await tx.accessoryOption.count({
-          where: { tenantId, id: { in: dto.accessoryIds } },
+          where: { tenantId, storeId, id: { in: dto.accessoryIds } },
         });
         if (count !== dto.accessoryIds.length) {
           throw new BadRequestException('Uno de los accesorios no es válido');
@@ -288,6 +314,7 @@ export class OrdersService {
       const created = await tx.order.create({
         data: {
           tenantId,
+          storeId,
           orderNumber,
           clientId: resolvedClient.id,
           motorcycleId: resolvedMotorcycle.id,
@@ -352,7 +379,7 @@ export class OrdersService {
         .catch(() => undefined);
     }
 
-    return this.findOne(tenantId, order.id);
+    return this.findOne(tenantId, storeId, order.id);
   }
 
   private async generateUniqueExitCode(
@@ -370,8 +397,8 @@ export class OrdersService {
   }
 
   /** Reenvía el mensaje de confirmación de recepción (usado por el paso final del wizard). */
-  async notify(tenantId: string, id: string, channel: 'EMAIL') {
-    const order = await this.findOne(tenantId, id);
+  async notify(tenantId: string, storeId: string | null, id: string, channel: 'EMAIL') {
+    const order = await this.findOne(tenantId, storeId, id);
     if (channel === 'EMAIL') {
       if (!order.client.email) {
         throw new BadRequestException('El cliente no tiene correo registrado');
@@ -426,8 +453,8 @@ export class OrdersService {
     };
   }
 
-  async update(tenantId: string, id: string, dto: UpdateOrderDto) {
-    await this.assertOrderExists(tenantId, id);
+  async update(tenantId: string, storeId: string | null, id: string, dto: UpdateOrderDto) {
+    await this.assertOrderExists(tenantId, storeId, id);
     const updated = await this.prisma.order.update({
       where: { id },
       data: {
@@ -438,16 +465,17 @@ export class OrdersService {
       },
     });
     this.realtime.emitOrderUpdated(tenantId, updated);
-    return this.findOne(tenantId, id);
+    return this.findOne(tenantId, storeId, id);
   }
 
   async updateStatus(
     tenantId: string,
+    storeId: string | null,
     id: string,
     userId: string,
     dto: UpdateOrderStatusDto,
   ) {
-    const order = await this.assertOrderExists(tenantId, id);
+    const order = await this.assertOrderExists(tenantId, storeId, id);
 
     if (!canTransition(order.status, dto.status)) {
       throw new BadRequestException(
@@ -485,7 +513,7 @@ export class OrdersService {
       });
     });
 
-    const updated = await this.findOne(tenantId, id);
+    const updated = await this.findOne(tenantId, storeId, id);
     this.realtime.emitOrderUpdated(tenantId, updated);
     return updated;
   }
@@ -496,8 +524,13 @@ export class OrdersService {
    * notificación interna pendiente que ve el personal de mostrador
    * (Admin/Recepción), quienes son los que realmente contactan al cliente.
    */
-  async requestClientNotification(tenantId: string, id: string, userId: string) {
-    const order = await this.findOne(tenantId, id);
+  async requestClientNotification(
+    tenantId: string,
+    storeId: string | null,
+    id: string,
+    userId: string,
+  ) {
+    const order = await this.findOne(tenantId, storeId, id);
     const tenant = await this.prisma.tenant.findUniqueOrThrow({
       where: { id: tenantId },
     });

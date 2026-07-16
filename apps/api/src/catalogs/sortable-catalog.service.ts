@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { CreateCatalogItemDto, UpdateCatalogItemDto } from './dto/catalog-item.dto';
@@ -8,6 +8,7 @@ export type CatalogModel = 'quickService' | 'accessoryOption';
 export interface CatalogRecord {
   id: string;
   tenantId: string;
+  storeId: string;
   label: string;
   sortOrder: number;
   isActive: boolean;
@@ -41,37 +42,62 @@ export class SortableCatalogService {
     };
   }
 
-  findAll(model: CatalogModel, tenantId: string, includeInactive = false) {
+  findAll(
+    model: CatalogModel,
+    tenantId: string,
+    storeId: string | null,
+    includeInactive = false,
+  ) {
     return this.delegate(model).findMany({
-      where: { tenantId, ...(includeInactive ? {} : { isActive: true }) },
+      where: {
+        tenantId,
+        ...(storeId ? { storeId } : {}),
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       orderBy: { sortOrder: 'asc' },
     });
   }
 
-  async create(model: CatalogModel, tenantId: string, dto: CreateCatalogItemDto) {
-    const sortOrder = await this.delegate(model).count({ where: { tenantId } });
+  async create(
+    model: CatalogModel,
+    tenantId: string,
+    storeId: string | null,
+    dto: CreateCatalogItemDto,
+  ) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear este elemento');
+    }
+    const sortOrder = await this.delegate(model).count({ where: { tenantId, storeId } });
     return this.delegate(model).create({
-      data: { tenantId, label: dto.label, sortOrder },
+      data: { tenantId, storeId, label: dto.label, sortOrder },
     });
   }
 
   async update(
     model: CatalogModel,
     tenantId: string,
+    storeId: string | null,
     id: string,
     dto: UpdateCatalogItemDto,
   ) {
-    await this.assertExists(model, tenantId, id);
+    await this.assertExists(model, tenantId, storeId, id);
     return this.delegate(model).update({ where: { id }, data: dto });
   }
 
-  async remove(model: CatalogModel, tenantId: string, id: string) {
-    await this.assertExists(model, tenantId, id);
+  async remove(model: CatalogModel, tenantId: string, storeId: string | null, id: string) {
+    await this.assertExists(model, tenantId, storeId, id);
     return this.delegate(model).delete({ where: { id } });
   }
 
-  async reorder(model: CatalogModel, tenantId: string, orderedIds: string[]) {
-    const items = await this.delegate(model).findMany({ where: { tenantId } });
+  async reorder(
+    model: CatalogModel,
+    tenantId: string,
+    storeId: string | null,
+    orderedIds: string[],
+  ) {
+    const items = await this.delegate(model).findMany({
+      where: { tenantId, ...(storeId ? { storeId } : {}) },
+    });
     const validIds = new Set(items.map((item) => item.id));
     const idsToUpdate = orderedIds.filter((id) => validIds.has(id));
     await this.prisma.$transaction(async (tx) => {
@@ -82,11 +108,18 @@ export class SortableCatalogService {
         });
       }
     });
-    return this.findAll(model, tenantId, true);
+    return this.findAll(model, tenantId, storeId, true);
   }
 
-  private async assertExists(model: CatalogModel, tenantId: string, id: string) {
-    const item = await this.delegate(model).findFirst({ where: { id, tenantId } });
+  private async assertExists(
+    model: CatalogModel,
+    tenantId: string,
+    storeId: string | null,
+    id: string,
+  ) {
+    const item = await this.delegate(model).findFirst({
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
+    });
     if (!item) throw new NotFoundException('Elemento no encontrado');
     return item;
   }

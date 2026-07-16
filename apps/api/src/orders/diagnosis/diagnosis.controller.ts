@@ -2,10 +2,10 @@ import { Body, Controller, Get, Param, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DiagnosisService } from './diagnosis.service';
 import { UpsertDiagnosisDto } from './dto/upsert-diagnosis.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentStore } from '../../common/decorators/current-store.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
-import { Role } from '../../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('orders')
@@ -16,20 +16,22 @@ export class DiagnosisController {
   @Get()
   findOne(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('orderId') orderId: string,
   ) {
-    return this.diagnosisService.findOne(tenantId, orderId);
+    return this.diagnosisService.findOne(tenantId, storeId, orderId);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.TECHNICIAN)
+  @RequirePermission('diagnosis.manage')
   @Audit('Diagnosis')
   @Put()
   upsert(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @CurrentUser('userId') userId: string,
     @Param('orderId') orderId: string,
     @Body() dto: UpsertDiagnosisDto,
   ) {
-    return this.diagnosisService.upsert(tenantId, orderId, userId, dto);
+    return this.diagnosisService.upsert(tenantId, storeId, orderId, userId, dto);
   }
 }

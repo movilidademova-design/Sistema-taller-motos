@@ -16,15 +16,9 @@ import {
 import { ThemeToggle } from './theme-toggle';
 import { SidebarNav } from './sidebar-nav';
 import { OrderNotificationsBell } from './order-notifications-bell';
+import { StoreSwitcher } from './store-switcher';
 import { useAuth } from '@/components/providers/auth-provider';
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Administrador',
-  MANAGER: 'Gerente',
-  RECEPTIONIST: 'Recepcionista',
-  TECHNICIAN: 'Técnico',
-  CLIENT: 'Cliente',
-};
+import { ROLE_LABELS } from '@taller/shared';
 
 export function Topbar() {
   const { user, logout } = useAuth();
@@ -48,6 +42,7 @@ export function Topbar() {
 
       <div className="flex-1" />
 
+      <StoreSwitcher />
       <OrderNotificationsBell />
       <ThemeToggle />
 

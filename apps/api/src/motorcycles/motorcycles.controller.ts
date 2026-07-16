@@ -12,10 +12,10 @@ import { MotorcyclesService } from './motorcycles.service';
 import { CreateMotorcycleDto } from './dto/create-motorcycle.dto';
 import { UpdateMotorcycleDto } from './dto/update-motorcycle.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentStore } from '../common/decorators/current-store.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
-import { Role } from '../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('motorcycles')
@@ -23,37 +23,46 @@ import { Role } from '../generated/prisma/enums';
 export class MotorcyclesController {
   constructor(private readonly motorcyclesService: MotorcyclesService) {}
 
+  @RequirePermission('motorcycles.view')
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Query() query: PaginationQueryDto & { clientId?: string },
   ) {
-    return this.motorcyclesService.findAll(tenantId, query);
+    return this.motorcyclesService.findAll(tenantId, storeId, query);
   }
 
+  @RequirePermission('motorcycles.view')
   @Get(':id')
-  findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.motorcyclesService.findOne(tenantId, id);
+  findOne(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.motorcyclesService.findOne(tenantId, storeId, id);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('motorcycles.manage')
   @Audit('Motorcycle')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateMotorcycleDto,
   ) {
-    return this.motorcyclesService.create(tenantId, dto);
+    return this.motorcyclesService.create(tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('motorcycles.manage')
   @Audit('Motorcycle')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateMotorcycleDto,
   ) {
-    return this.motorcyclesService.update(tenantId, id, dto);
+    return this.motorcyclesService.update(tenantId, storeId, id, dto);
   }
 }

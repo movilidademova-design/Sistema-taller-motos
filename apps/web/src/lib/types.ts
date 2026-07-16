@@ -22,6 +22,17 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
+export interface Store {
+  id: string;
+  name: string;
+  code: string;
+  address?: string | null;
+  city?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  isActive: boolean;
+}
+
 export interface UserSummary {
   id: string;
   email: string;
@@ -32,6 +43,14 @@ export interface UserSummary {
   isActive: boolean;
   lastLoginAt?: string | null;
   createdAt: string;
+  stores: Store[];
+}
+
+export interface PermissionEntry {
+  key: string;
+  roleDefault: boolean;
+  override: boolean | null;
+  effective: boolean;
 }
 
 export interface Client {
@@ -378,5 +397,20 @@ export interface DashboardSummary {
     revenueMonth: number;
     newClientsThisMonth: number;
     activeWarranties: number;
+    ordersCreatedToday: number;
+    lowStockCount: number;
+    expensesMonth: number;
+    todaysAppointments: number;
   };
+}
+
+export interface Expense {
+  id: string;
+  concept: string;
+  category: string;
+  amount: string;
+  expenseDate: string;
+  notes?: string | null;
+  createdBy?: { firstName: string; lastName: string };
+  createdAt: string;
 }

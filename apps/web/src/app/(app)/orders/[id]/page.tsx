@@ -29,13 +29,15 @@ import { LaborTab } from '@/components/orders/labor-tab';
 import { HistoryTab } from '@/components/orders/history-tab';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api, openAuthedBlobInNewTab } from '@/lib/api';
-import { getErrorMessage } from '@/components/providers/auth-provider';
+import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
 import { ORDER_STATUS_LABELS, canTransition, PaymentMethod, type OrderStatus } from '@taller/shared';
 import type { Invoice, Order } from '@/lib/types';
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const { data: order, isLoading, mutate } = useApiSWR<Order>(`/orders/${id}`);
+  const { user } = useAuth();
+  const canChangeStatus = !!user?.permissions['orders.changeStatus'];
 
   if (isLoading) {
     return (
@@ -100,8 +102,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <CardTitle className="text-sm">Acciones</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <StatusChanger orderId={order.id} currentStatus={order.status} onUpdated={() => mutate()} />
+            {canChangeStatus && (
+              <StatusChanger orderId={order.id} currentStatus={order.status} onUpdated={() => mutate()} />
+            )}
             <InvoiceActions order={order} onUpdated={() => mutate()} />
+            {!canChangeStatus && (
+              <p className="text-xs text-muted-foreground">Solo lectura — tu rol no puede modificar esta orden.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -295,9 +302,12 @@ function DeliveryConfirmForm({
 }
 
 function InvoiceActions({ order, onUpdated }: { order: Order; onUpdated: () => void }) {
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [paymentOpen, setPaymentOpen] = React.useState(false);
-  const canInvoice = order.quotation?.status === 'APPROVED' && !order.invoice;
+  const canInvoice =
+    order.quotation?.status === 'APPROVED' && !order.invoice && !!user?.permissions['invoices.create'];
+  const canRegisterPayment = !!user?.permissions['payments.create'];
 
   async function handleGenerateInvoice() {
     setIsGenerating(true);
@@ -328,6 +338,7 @@ function InvoiceActions({ order, onUpdated }: { order: Order; onUpdated: () => v
           <FileText /> Ver factura {order.invoice.invoiceNumber}
         </Button>
       )}
+      {canRegisterPayment && (
       <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
         <DialogTrigger asChild>
           <Button size="sm" variant="outline">
@@ -344,6 +355,7 @@ function InvoiceActions({ order, onUpdated }: { order: Order; onUpdated: () => v
           />
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

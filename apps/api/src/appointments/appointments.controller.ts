@@ -13,10 +13,10 @@ import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
 } from './dto/appointment.dto';
-import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentStore } from '../common/decorators/current-store.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
-import { Role } from '../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('appointments')
@@ -27,30 +27,33 @@ export class AppointmentsController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.appointmentsService.findAll(tenantId, from, to);
+    return this.appointmentsService.findAll(tenantId, storeId, from, to);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('appointments.manage')
   @Audit('Appointment')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateAppointmentDto,
   ) {
-    return this.appointmentsService.create(tenantId, dto);
+    return this.appointmentsService.create(tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('appointments.manage')
   @Audit('Appointment')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateAppointmentDto,
   ) {
-    return this.appointmentsService.update(tenantId, id, dto);
+    return this.appointmentsService.update(tenantId, storeId, id, dto);
   }
 }

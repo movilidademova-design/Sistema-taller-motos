@@ -10,13 +10,18 @@ export class ChecklistService {
     private readonly ordersService: OrdersService,
   ) {}
 
-  async findAll(tenantId: string, orderId: string) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async findAll(tenantId: string, storeId: string | null, orderId: string) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     return this.prisma.checklistItem.findMany({ where: { orderId } });
   }
 
-  async setItems(tenantId: string, orderId: string, dto: SetChecklistDto) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async setItems(
+    tenantId: string,
+    storeId: string | null,
+    orderId: string,
+    dto: SetChecklistDto,
+  ) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
 
     await this.prisma.$transaction(
       dto.items.map((item) =>
@@ -31,6 +36,6 @@ export class ChecklistService {
       ),
     );
 
-    return this.findAll(tenantId, orderId);
+    return this.findAll(tenantId, storeId, orderId);
   }
 }

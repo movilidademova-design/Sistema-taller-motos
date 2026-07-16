@@ -11,7 +11,11 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  const items = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
+  const items = NAV_ITEMS.filter((item) => {
+    if (item.roles && (!user || !item.roles.includes(user.role))) return false;
+    if (item.permission && !user?.permissions[item.permission]) return false;
+    return true;
+  });
 
   return (
     <div className="flex h-full flex-col gap-4">

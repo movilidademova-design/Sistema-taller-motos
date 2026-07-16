@@ -14,24 +14,27 @@ import {
 export class PurchasesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(tenantId: string) {
+  findAll(tenantId: string, storeId: string | null) {
     return this.prisma.purchaseOrder.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(storeId ? { storeId } : {}) },
       orderBy: { createdAt: 'desc' },
       include: { supplier: true, items: { include: { product: true } } },
     });
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, storeId: string | null, id: string) {
     const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
       include: { supplier: true, items: { include: { product: true } } },
     });
     if (!po) throw new NotFoundException('Orden de compra no encontrada');
     return po;
   }
 
-  async create(tenantId: string, dto: CreatePurchaseOrderDto) {
+  async create(tenantId: string, storeId: string | null, dto: CreatePurchaseOrderDto) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear una orden de compra');
+    }
     const total = dto.items.reduce(
       (acc, item) => acc + item.quantity * item.unitCost,
       0,
@@ -39,6 +42,7 @@ export class PurchasesService {
     const po = await this.prisma.purchaseOrder.create({
       data: {
         tenantId,
+        storeId,
         supplierId: dto.supplierId,
         status: PurchaseOrderStatus.DRAFT,
         notes: dto.notes,
@@ -57,17 +61,17 @@ export class PurchasesService {
     return po;
   }
 
-  async markOrdered(tenantId: string, id: string) {
-    await this.assertExists(tenantId, id);
+  async markOrdered(tenantId: string, storeId: string | null, id: string) {
+    await this.assertExists(tenantId, storeId, id);
     return this.prisma.purchaseOrder.update({
       where: { id },
       data: { status: PurchaseOrderStatus.ORDERED, orderedAt: new Date() },
     });
   }
 
-  async receive(tenantId: string, id: string, userId: string) {
+  async receive(tenantId: string, storeId: string | null, id: string, userId: string) {
     const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
       include: { items: true },
     });
     if (!po) throw new NotFoundException('Orden de compra no encontrada');
@@ -87,6 +91,7 @@ export class PurchasesService {
         await tx.inventoryMovement.create({
           data: {
             tenantId,
+            storeId: po.storeId,
             productId: item.productId,
             purchaseOrderId: po.id,
             type: InventoryMovementType.PURCHASE_IN,
@@ -104,17 +109,17 @@ export class PurchasesService {
     });
   }
 
-  async cancel(tenantId: string, id: string) {
-    await this.assertExists(tenantId, id);
+  async cancel(tenantId: string, storeId: string | null, id: string) {
+    await this.assertExists(tenantId, storeId, id);
     return this.prisma.purchaseOrder.update({
       where: { id },
       data: { status: PurchaseOrderStatus.CANCELLED },
     });
   }
 
-  private async assertExists(tenantId: string, id: string) {
+  private async assertExists(tenantId: string, storeId: string | null, id: string) {
     const po = await this.prisma.purchaseOrder.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
     });
     if (!po) throw new NotFoundException('Orden de compra no encontrada');
     return po;

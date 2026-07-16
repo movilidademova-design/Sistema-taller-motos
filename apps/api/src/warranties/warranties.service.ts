@@ -12,9 +12,9 @@ import { WarrantyStatus } from '../generated/prisma/enums';
 export class WarrantiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(tenantId: string) {
+  findAll(tenantId: string, storeId: string | null) {
     return this.prisma.warranty.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(storeId ? { storeId } : {}) },
       orderBy: { createdAt: 'desc' },
       include: {
         client: true,
@@ -24,9 +24,9 @@ export class WarrantiesService {
     });
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, storeId: string | null, id: string) {
     const warranty = await this.prisma.warranty.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
       include: {
         client: true,
         motorcycle: true,
@@ -38,15 +38,19 @@ export class WarrantiesService {
     return warranty;
   }
 
-  async create(tenantId: string, dto: CreateWarrantyDto) {
+  async create(tenantId: string, storeId: string | null, dto: CreateWarrantyDto) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear una garantía');
+    }
     const order = await this.prisma.order.findFirst({
-      where: { id: dto.orderId, tenantId },
+      where: { id: dto.orderId, tenantId, storeId },
     });
     if (!order) throw new NotFoundException('Orden no encontrada');
 
     return this.prisma.warranty.create({
       data: {
         tenantId,
+        storeId,
         orderId: order.id,
         motorcycleId: order.motorcycleId,
         clientId: order.clientId,
@@ -57,8 +61,8 @@ export class WarrantiesService {
     });
   }
 
-  async approve(tenantId: string, id: string, approvedById: string) {
-    const warranty = await this.assertExists(tenantId, id);
+  async approve(tenantId: string, storeId: string | null, id: string, approvedById: string) {
+    const warranty = await this.assertExists(tenantId, storeId, id);
     if (warranty.status !== WarrantyStatus.OPEN) {
       throw new BadRequestException('Esta garantía ya fue procesada');
     }
@@ -68,8 +72,8 @@ export class WarrantiesService {
     });
   }
 
-  async reject(tenantId: string, id: string, approvedById: string) {
-    const warranty = await this.assertExists(tenantId, id);
+  async reject(tenantId: string, storeId: string | null, id: string, approvedById: string) {
+    const warranty = await this.assertExists(tenantId, storeId, id);
     if (warranty.status !== WarrantyStatus.OPEN) {
       throw new BadRequestException('Esta garantía ya fue procesada');
     }
@@ -79,8 +83,8 @@ export class WarrantiesService {
     });
   }
 
-  async resolve(tenantId: string, id: string, dto: ResolveWarrantyDto) {
-    const warranty = await this.assertExists(tenantId, id);
+  async resolve(tenantId: string, storeId: string | null, id: string, dto: ResolveWarrantyDto) {
+    const warranty = await this.assertExists(tenantId, storeId, id);
     if (warranty.status !== WarrantyStatus.APPROVED) {
       throw new BadRequestException(
         'Solo se pueden resolver garantías aprobadas',
@@ -96,9 +100,9 @@ export class WarrantiesService {
     });
   }
 
-  private async assertExists(tenantId: string, id: string) {
+  private async assertExists(tenantId: string, storeId: string | null, id: string) {
     const warranty = await this.prisma.warranty.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
     });
     if (!warranty) throw new NotFoundException('Garantía no encontrada');
     return warranty;

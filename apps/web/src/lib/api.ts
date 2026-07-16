@@ -49,9 +49,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const { body, isFormData, skipAuthRetry, headers, ...rest } = options;
   const token = authStorage.getAccessToken();
 
+  const activeStoreId = authStorage.getActiveStoreId();
   const finalHeaders: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(activeStoreId ? { 'X-Store-Id': activeStoreId } : {}),
     ...(headers as Record<string, string>),
   };
 

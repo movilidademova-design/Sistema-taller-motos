@@ -2,9 +2,9 @@ import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { SuppliersService } from './suppliers.service';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/supplier.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Role } from '../../generated/prisma/enums';
+import { CurrentStore } from '../../common/decorators/current-store.decorator';
 
 @ApiBearerAuth()
 @ApiTags('inventory')
@@ -12,32 +12,43 @@ import { Role } from '../../generated/prisma/enums';
 export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
 
+  @RequirePermission('inventory.view')
   @Get()
-  findAll(@CurrentUser('tenantId') tenantId: string) {
-    return this.suppliersService.findAll(tenantId);
+  findAll(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+  ) {
+    return this.suppliersService.findAll(tenantId, storeId);
   }
 
+  @RequirePermission('inventory.view')
   @Get(':id')
-  findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.suppliersService.findOne(tenantId, id);
+  findOne(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.suppliersService.findOne(tenantId, storeId, id);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateSupplierDto,
   ) {
-    return this.suppliersService.create(tenantId, dto);
+    return this.suppliersService.create(tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateSupplierDto,
   ) {
-    return this.suppliersService.update(tenantId, id, dto);
+    return this.suppliersService.update(tenantId, storeId, id, dto);
   }
 }

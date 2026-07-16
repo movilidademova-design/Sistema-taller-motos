@@ -10,8 +10,8 @@ export class DiagnosisService {
     private readonly ordersService: OrdersService,
   ) {}
 
-  async findOne(tenantId: string, orderId: string) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async findOne(tenantId: string, storeId: string | null, orderId: string) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     const diagnosis = await this.prisma.diagnosis.findUnique({
       where: { orderId },
       include: { requiredParts: true },
@@ -22,11 +22,12 @@ export class DiagnosisService {
 
   async upsert(
     tenantId: string,
+    storeId: string | null,
     orderId: string,
     technicianId: string,
     dto: UpsertDiagnosisDto,
   ) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     const { requiredParts, ...diagnosisFields } = dto;
 
     return this.prisma.$transaction(async (tx) => {

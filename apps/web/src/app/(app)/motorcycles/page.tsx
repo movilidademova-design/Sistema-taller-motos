@@ -22,13 +22,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
-import { getErrorMessage } from '@/components/providers/auth-provider';
+import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
 import { VEHICLE_TYPE_LABELS, type VehicleType } from '@taller/shared';
 import type { Client, Motorcycle, PaginatedResult } from '@/lib/types';
 
 export default function MotorcyclesPage() {
   const [search, setSearch] = React.useState('');
   const [open, setOpen] = React.useState(false);
+  const { user } = useAuth();
   const key = `/motorcycles?search=${encodeURIComponent(search)}`;
   const { data, isLoading } = useApiSWR<PaginatedResult<Motorcycle>>(key);
 
@@ -39,6 +40,7 @@ export default function MotorcyclesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Vehículos</h1>
           <p className="text-sm text-muted-foreground">{data?.total ?? 0} vehículos registrados</p>
         </div>
+        {!!user?.permissions['motorcycles.manage'] && (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -54,6 +56,7 @@ export default function MotorcyclesPage() {
             />
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <div className="relative max-w-sm">

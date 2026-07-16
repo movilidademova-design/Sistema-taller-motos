@@ -33,6 +33,32 @@ async function main() {
     },
   });
 
+  const storeNorte = await prisma.store.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: 'NORTE' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Sucursal Norte',
+      code: 'NORTE',
+      city: 'Bogotá',
+      address: 'Cra 45 # 12-34, Bogotá',
+      phone: '+57 300 555 0100',
+    },
+  });
+
+  const storeSur = await prisma.store.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: 'SUR' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Sucursal Sur',
+      code: 'SUR',
+      city: 'Bogotá',
+      address: 'Av. Boyacá # 45-10, Bogotá',
+      phone: '+57 300 555 0150',
+    },
+  });
+
   const quickServiceLabels = [
     'Mantenimiento 1000km',
     'Mantenimiento 3000km',
@@ -43,21 +69,29 @@ async function main() {
     'Garantía',
   ];
   for (const [index, label] of quickServiceLabels.entries()) {
-    const existing = await prisma.quickService.findFirst({ where: { tenantId: tenant.id, label } });
+    const existing = await prisma.quickService.findFirst({
+      where: { tenantId: tenant.id, storeId: storeNorte.id, label },
+    });
     if (!existing) {
-      await prisma.quickService.create({ data: { tenantId: tenant.id, label, sortOrder: index } });
+      await prisma.quickService.create({
+        data: { tenantId: tenant.id, storeId: storeNorte.id, label, sortOrder: index },
+      });
     }
   }
 
   const accessoryLabels = ['Llaves', 'Cargador', 'Casco', 'Control remoto', 'Espejos', 'Canasta'];
   for (const [index, label] of accessoryLabels.entries()) {
-    const existing = await prisma.accessoryOption.findFirst({ where: { tenantId: tenant.id, label } });
+    const existing = await prisma.accessoryOption.findFirst({
+      where: { tenantId: tenant.id, storeId: storeNorte.id, label },
+    });
     if (!existing) {
-      await prisma.accessoryOption.create({ data: { tenantId: tenant.id, label, sortOrder: index } });
+      await prisma.accessoryOption.create({
+        data: { tenantId: tenant.id, storeId: storeNorte.id, label, sortOrder: index },
+      });
     }
   }
 
-  const [admin, manager, receptionist, technician] = await Promise.all([
+  const [admin, manager, receptionist, technician, viewer] = await Promise.all([
     prisma.user.upsert({
       where: { email: 'admin@tallerdemo.com' },
       update: {},
@@ -106,13 +140,45 @@ async function main() {
         role: Role.TECHNICIAN,
       },
     }),
+    prisma.user.upsert({
+      where: { email: 'visualizador@tallerdemo.com' },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        email: 'visualizador@tallerdemo.com',
+        passwordHash,
+        firstName: 'Vicky',
+        lastName: 'Visualizadora',
+        role: Role.VIEWER,
+      },
+    }),
   ]);
+
+  // Admin y Gerente ven/administran ambas sucursales; Recepción, Técnico y
+  // Visualizador quedan asignados solo a la Sucursal Norte.
+  const memberships: [string, string][] = [
+    [admin.id, storeNorte.id],
+    [admin.id, storeSur.id],
+    [manager.id, storeNorte.id],
+    [manager.id, storeSur.id],
+    [receptionist.id, storeNorte.id],
+    [technician.id, storeNorte.id],
+    [viewer.id, storeNorte.id],
+  ];
+  for (const [userId, storeId] of memberships) {
+    await prisma.userStoreMembership.upsert({
+      where: { userId_storeId: { userId, storeId } },
+      update: {},
+      create: { userId, storeId },
+    });
+  }
 
   const client = await prisma.client.upsert({
     where: { tenantId_documentId: { tenantId: tenant.id, documentId: '1020304050' } },
     update: {},
     create: {
       tenantId: tenant.id,
+      storeId: storeNorte.id,
       firstName: 'Carlos',
       lastName: 'Ramírez',
       documentId: '1020304050',
@@ -127,6 +193,7 @@ async function main() {
     (await prisma.motorcycle.create({
       data: {
         tenantId: tenant.id,
+        storeId: storeNorte.id,
         clientId: client.id,
         brand: 'Volt',
         model: 'Urban Rider X1',
@@ -144,9 +211,9 @@ async function main() {
     }));
 
   const category = await prisma.category.upsert({
-    where: { tenantId_name: { tenantId: tenant.id, name: 'Baterías' } },
+    where: { tenantId_storeId_name: { tenantId: tenant.id, storeId: storeNorte.id, name: 'Baterías' } },
     update: {},
-    create: { tenantId: tenant.id, name: 'Baterías' },
+    create: { tenantId: tenant.id, storeId: storeNorte.id, name: 'Baterías' },
   });
 
   const supplier = await prisma.supplier.upsert({
@@ -155,6 +222,7 @@ async function main() {
     create: {
       id: '00000000-0000-0000-0000-000000000001',
       tenantId: tenant.id,
+      storeId: storeNorte.id,
       name: 'ElectroPartes S.A.S.',
       contactName: 'Laura Gómez',
       phone: '+57 601 555 0200',
@@ -163,10 +231,13 @@ async function main() {
   });
 
   const product = await prisma.product.upsert({
-    where: { tenantId_sku: { tenantId: tenant.id, sku: 'BAT-48V-20AH' } },
+    where: {
+      tenantId_storeId_sku: { tenantId: tenant.id, storeId: storeNorte.id, sku: 'BAT-48V-20AH' },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
+      storeId: storeNorte.id,
       categoryId: category.id,
       supplierId: supplier.id,
       sku: 'BAT-48V-20AH',
@@ -189,6 +260,7 @@ async function main() {
     const order = await prisma.order.create({
       data: {
         tenantId: tenant.id,
+        storeId: storeNorte.id,
         orderNumber: tenantForOrder.nextOrderNumber - 1,
         clientId: client.id,
         motorcycleId: motorcycle.id,
@@ -227,11 +299,13 @@ async function main() {
 
   console.log('\nSeed completado.');
   console.log(`Taller: ${tenant.name} (${tenant.slug})`);
+  console.log(`Sucursales: ${storeNorte.name} (${storeNorte.code}), ${storeSur.name} (${storeSur.code})`);
   console.log('Usuarios de prueba (misma contraseña para todos):');
-  console.log(`  Admin:        ${admin.email} / ${password}`);
-  console.log(`  Gerente:      ${manager.email} / ${password}`);
-  console.log(`  Recepción:    ${receptionist.email} / ${password}`);
-  console.log(`  Técnico:      ${technician.email} / ${password}`);
+  console.log(`  Admin:         ${admin.email} / ${password}`);
+  console.log(`  Gerente:       ${manager.email} / ${password}`);
+  console.log(`  Recepción:     ${receptionist.email} / ${password}`);
+  console.log(`  Técnico:       ${technician.email} / ${password}`);
+  console.log(`  Visualizador:  ${viewer.email} / ${password}`);
   console.log(`Producto demo: ${product.name} (stock ${product.quantity})`);
 }
 

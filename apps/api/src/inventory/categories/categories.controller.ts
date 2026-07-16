@@ -10,9 +10,9 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Role } from '../../generated/prisma/enums';
+import { CurrentStore } from '../../common/decorators/current-store.decorator';
 
 @ApiBearerAuth()
 @ApiTags('inventory')
@@ -20,33 +20,43 @@ import { Role } from '../../generated/prisma/enums';
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
+  @RequirePermission('inventory.view')
   @Get()
-  findAll(@CurrentUser('tenantId') tenantId: string) {
-    return this.categoriesService.findAll(tenantId);
+  findAll(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+  ) {
+    return this.categoriesService.findAll(tenantId, storeId);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateCategoryDto,
   ) {
-    return this.categoriesService.create(tenantId, dto);
+    return this.categoriesService.create(tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
   ) {
-    return this.categoriesService.update(tenantId, id, dto);
+    return this.categoriesService.update(tenantId, storeId, id, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Delete(':id')
-  remove(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.categoriesService.remove(tenantId, id);
+  remove(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.categoriesService.remove(tenantId, storeId, id);
   }
 }

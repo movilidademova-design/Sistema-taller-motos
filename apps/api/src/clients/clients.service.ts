@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -8,11 +8,12 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 export class ClientsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(tenantId: string, query: PaginationQueryDto) {
+  async findAll(tenantId: string, storeId: string | null, query: PaginationQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
+      ...(storeId ? { storeId } : {}),
       isActive: true,
       ...(query.search
         ? {
@@ -66,18 +67,18 @@ export class ClientsService {
     };
   }
 
-  async lookupByDocument(tenantId: string, documentId: string) {
+  async lookupByDocument(tenantId: string, storeId: string | null, documentId: string) {
     const client = await this.prisma.client.findFirst({
-      where: { tenantId, documentId, isActive: true },
+      where: { tenantId, ...(storeId ? { storeId } : {}), documentId, isActive: true },
       include: { motorcycles: { orderBy: { createdAt: 'desc' } } },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     return client;
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, storeId: string | null, id: string) {
     const client = await this.prisma.client.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
       include: {
         motorcycles: { orderBy: { createdAt: 'desc' } },
         orders: {
@@ -93,18 +94,22 @@ export class ClientsService {
     return client;
   }
 
-  async create(tenantId: string, dto: CreateClientDto) {
+  async create(tenantId: string, storeId: string | null, dto: CreateClientDto) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear un cliente');
+    }
     return this.prisma.client.create({
       data: {
         ...dto,
         tenantId,
+        storeId,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
       },
     });
   }
 
-  async update(tenantId: string, id: string, dto: UpdateClientDto) {
-    await this.assertExists(tenantId, id);
+  async update(tenantId: string, storeId: string | null, id: string, dto: UpdateClientDto) {
+    await this.assertExists(tenantId, storeId, id);
     return this.prisma.client.update({
       where: { id },
       data: {
@@ -114,8 +119,8 @@ export class ClientsService {
     });
   }
 
-  async remove(tenantId: string, id: string) {
-    await this.assertExists(tenantId, id);
+  async remove(tenantId: string, storeId: string | null, id: string) {
+    await this.assertExists(tenantId, storeId, id);
     // Soft-delete only: client history must never be destroyed.
     return this.prisma.client.update({
       where: { id },
@@ -123,9 +128,9 @@ export class ClientsService {
     });
   }
 
-  private async assertExists(tenantId: string, id: string) {
+  private async assertExists(tenantId: string, storeId: string | null, id: string) {
     const client = await this.prisma.client.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     return client;

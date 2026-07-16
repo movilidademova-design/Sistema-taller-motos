@@ -20,7 +20,7 @@ enum Role {
   MANAGER
   RECEPTIONIST
   TECHNICIAN
-  CLIENT
+  VIEWER
 }
 
 enum OrderStatus {
@@ -185,8 +185,90 @@ model Tenant {
   quickServices    QuickService[]
   accessoryOptions AccessoryOption[]
   orderNotifications OrderNotification[]
+  stores           Store[]
+  expenses         Expense[]
 
   @@map("tenants")
+}
+
+model Store {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  code      String
+  address   String?
+  city      String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships        UserStoreMembership[]
+  clients            Client[]
+  motorcycles        Motorcycle[]
+  orders             Order[]
+  products           Product[]
+  categories         Category[]
+  suppliers          Supplier[]
+  purchaseOrders     PurchaseOrder[]
+  payments           Payment[]
+  invoices           Invoice[]
+  appointments       Appointment[]
+  warranties         Warranty[]
+  inventoryMovements InventoryMovement[]
+  quickServices      QuickService[]
+  accessoryOptions   AccessoryOption[]
+  expenses           Expense[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("stores")
+}
+
+model UserStoreMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, storeId])
+  @@index([storeId])
+  @@map("user_store_memberships")
+}
+
+model UserPermissionOverride {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission String
+  granted    Boolean
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, permission])
+  @@map("user_permission_overrides")
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  concept     String
+  category    String
+  amount      Decimal  @db.Decimal(10, 2)
+  expenseDate DateTime @default(now())
+  notes       String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, storeId])
+  @@map("expenses")
 }
 
 model User {
@@ -217,6 +299,9 @@ model User {
   assignedAppointments Appointment[]
   orderNotificationsCreated  OrderNotification[] @relation("OrderNotificationCreatedBy")
   orderNotificationsNotified OrderNotification[] @relation("OrderNotificationNotifiedBy")
+  storeMemberships     UserStoreMembership[]
+  permissionOverrides  UserPermissionOverride[]
+  expensesCreated      Expense[]
 
   @@index([tenantId])
   @@map("users")
@@ -245,6 +330,8 @@ model Client {
   id         String    @id @default(uuid())
   tenantId   String
   tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
   firstName  String
   lastName   String
   documentId String?
@@ -266,6 +353,7 @@ model Client {
 
   @@unique([tenantId, documentId])
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("clients")
 }
 
@@ -273,6 +361,8 @@ model Motorcycle {
   id               String      @id @default(uuid())
   tenantId         String
   tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId          String
+  store            Store       @relation(fields: [storeId], references: [id], onDelete: Restrict)
   clientId         String
   client           Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
   vehicleType      VehicleType @default(BICIMOTO)
@@ -301,6 +391,7 @@ model Motorcycle {
 
   @@index([tenantId])
   @@index([clientId])
+  @@index([tenantId, storeId])
   @@map("motorcycles")
 }
 
@@ -312,6 +403,8 @@ model Order {
   id                   String      @id @default(uuid())
   tenantId             String
   tenant               Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId              String
+  store                Store       @relation(fields: [storeId], references: [id], onDelete: Restrict)
   orderNumber          Int
   clientId             String
   client               Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
@@ -354,6 +447,7 @@ model Order {
   @@unique([tenantId, orderNumber])
   @@unique([tenantId, exitCode])
   @@index([tenantId, status])
+  @@index([tenantId, storeId])
   @@map("orders")
 }
 
@@ -381,6 +475,8 @@ model QuickService {
   id        String   @id @default(uuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
   label     String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
@@ -389,6 +485,7 @@ model QuickService {
   orders Order[]
 
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("quick_services")
 }
 
@@ -396,6 +493,8 @@ model AccessoryOption {
   id        String   @id @default(uuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
   label     String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
@@ -404,6 +503,7 @@ model AccessoryOption {
   orders Order[]
 
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("accessory_options")
 }
 
@@ -544,6 +644,8 @@ model Category {
   id       String     @id @default(uuid())
   tenantId String
   tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId  String
+  store    Store      @relation(fields: [storeId], references: [id], onDelete: Restrict)
   name     String
   parentId String?
   parent   Category?  @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: SetNull)
@@ -551,7 +653,8 @@ model Category {
 
   products Product[]
 
-  @@unique([tenantId, name])
+  @@unique([tenantId, storeId, name])
+  @@index([tenantId, storeId])
   @@map("categories")
 }
 
@@ -559,6 +662,8 @@ model Supplier {
   id          String   @id @default(uuid())
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Restrict)
   name        String
   contactName String?
   phone       String?
@@ -571,6 +676,7 @@ model Supplier {
   purchaseOrders PurchaseOrder[]
 
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("suppliers")
 }
 
@@ -578,6 +684,8 @@ model Product {
   id          String    @id @default(uuid())
   tenantId    String
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Restrict)
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   supplierId  String?
@@ -601,8 +709,9 @@ model Product {
   purchaseOrderItems PurchaseOrderItem[]
   movements          InventoryMovement[]
 
-  @@unique([tenantId, sku])
+  @@unique([tenantId, storeId, sku])
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("products")
 }
 
@@ -610,6 +719,8 @@ model InventoryMovement {
   id              String                @id @default(uuid())
   tenantId        String
   tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           Store                 @relation(fields: [storeId], references: [id], onDelete: Restrict)
   productId       String
   product         Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
   orderId         String?
@@ -623,6 +734,7 @@ model InventoryMovement {
   createdAt       DateTime              @default(now())
 
   @@index([tenantId, productId])
+  @@index([tenantId, storeId])
   @@map("inventory_movements")
 }
 
@@ -630,6 +742,8 @@ model PurchaseOrder {
   id         String              @id @default(uuid())
   tenantId   String
   tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId    String
+  store      Store               @relation(fields: [storeId], references: [id], onDelete: Restrict)
   supplierId String
   supplier   Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   status     PurchaseOrderStatus @default(DRAFT)
@@ -644,6 +758,7 @@ model PurchaseOrder {
   movements InventoryMovement[]
 
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("purchase_orders")
 }
 
@@ -668,6 +783,8 @@ model Warranty {
   id             String         @id @default(uuid())
   tenantId       String
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId        String
+  store          Store          @relation(fields: [storeId], references: [id], onDelete: Restrict)
   orderId        String
   order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   motorcycleId   String
@@ -685,6 +802,7 @@ model Warranty {
   createdAt      DateTime       @default(now())
 
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("warranties")
 }
 
@@ -692,6 +810,8 @@ model Payment {
   id             String        @id @default(uuid())
   tenantId       String
   tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId        String
+  store          Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
   orderId        String?
   order          Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
   invoiceId      String?
@@ -708,6 +828,7 @@ model Payment {
 
   @@unique([tenantId, receiptNumber])
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("payments")
 }
 
@@ -715,6 +836,8 @@ model Invoice {
   id            String        @id @default(uuid())
   tenantId      String
   tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId       String
+  store         Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
   orderId       String        @unique
   order         Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
   clientId      String
@@ -735,6 +858,7 @@ model Invoice {
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
+  @@index([tenantId, storeId])
   @@map("invoices")
 }
 
@@ -763,6 +887,8 @@ model Appointment {
   id           String            @id @default(uuid())
   tenantId     String
   tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  storeId      String
+  store        Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
   clientId     String
   client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   motorcycleId String?
@@ -780,5 +906,6 @@ model Appointment {
   updatedAt    DateTime          @updatedAt
 
   @@index([tenantId, scheduledAt])
+  @@index([tenantId, storeId])
   @@map("appointments")
 }

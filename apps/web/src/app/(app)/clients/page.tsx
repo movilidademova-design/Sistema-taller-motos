@@ -22,12 +22,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
-import { getErrorMessage } from '@/components/providers/auth-provider';
+import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
 import type { Client, PaginatedResult } from '@/lib/types';
 
 export default function ClientsPage() {
   const [search, setSearch] = React.useState('');
   const [open, setOpen] = React.useState(false);
+  const { user } = useAuth();
   const key = `/clients?search=${encodeURIComponent(search)}`;
   const { data, isLoading } = useApiSWR<PaginatedResult<Client>>(key);
 
@@ -38,21 +39,23 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
           <p className="text-sm text-muted-foreground">{data?.total ?? 0} clientes registrados</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus /> Nuevo cliente
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <NewClientForm
-              onSuccess={() => {
-                setOpen(false);
-                mutate((k) => typeof k === 'string' && k.startsWith('/clients'));
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {!!user?.permissions['clients.create'] && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus /> Nuevo cliente
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <NewClientForm
+                onSuccess={() => {
+                  setOpen(false);
+                  mutate((k) => typeof k === 'string' && k.startsWith('/clients'));
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="relative max-w-sm">

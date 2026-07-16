@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
-import { getErrorMessage } from '@/components/providers/auth-provider';
+import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
 import type { Category, InventoryMovement, PaginatedResult, Product, Supplier } from '@/lib/types';
 
 export default function InventoryPage() {
@@ -58,6 +58,8 @@ export default function InventoryPage() {
 }
 
 function ProductsPanel() {
+  const { user } = useAuth();
+  const canManage = !!user?.permissions['inventory.manage'];
   const [search, setSearch] = React.useState('');
   const [lowStockOnly, setLowStockOnly] = React.useState(false);
   const [open, setOpen] = React.useState(false);
@@ -88,21 +90,23 @@ function ProductsPanel() {
             <AlertTriangle /> Bajo stock
           </Button>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus /> Nuevo producto
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <NewProductForm
-              onSuccess={() => {
-                setOpen(false);
-                mutate((k) => typeof k === 'string' && k.startsWith('/inventory/products'));
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {canManage && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus /> Nuevo producto
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <NewProductForm
+                onSuccess={() => {
+                  setOpen(false);
+                  mutate((k) => typeof k === 'string' && k.startsWith('/inventory/products'));
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="rounded-lg border">
@@ -150,7 +154,7 @@ function ProductsPanel() {
                 <TableCell className="text-right">${Number(product.unitCost).toLocaleString('es-CO')}</TableCell>
                 <TableCell className="text-right">${Number(product.unitPrice).toLocaleString('es-CO')}</TableCell>
                 <TableCell className="text-right">
-                  <AdjustStockDialog product={product} />
+                  {canManage && <AdjustStockDialog product={product} />}
                 </TableCell>
               </TableRow>
             ))}
@@ -352,6 +356,8 @@ function NewProductForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 function CategoriesPanel() {
+  const { user } = useAuth();
+  const canManage = !!user?.permissions['inventory.manage'];
   const { data: categories, mutate: mutateCategories } = useApiSWR<Category[]>('/inventory/categories');
   const [name, setName] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -372,12 +378,14 @@ function CategoriesPanel() {
 
   return (
     <div className="flex flex-col gap-4 pt-4">
-      <form onSubmit={handleSubmit} className="flex max-w-sm gap-2">
-        <Input placeholder="Nueva categoría" value={name} onChange={(e) => setName(e.target.value)} required />
-        <Button type="submit" disabled={isSubmitting}>
-          <Plus />
-        </Button>
-      </form>
+      {canManage && (
+        <form onSubmit={handleSubmit} className="flex max-w-sm gap-2">
+          <Input placeholder="Nueva categoría" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Button type="submit" disabled={isSubmitting}>
+            <Plus />
+          </Button>
+        </form>
+      )}
       <div className="flex flex-wrap gap-2">
         {categories?.map((c) => (
           <Badge key={c.id} variant="secondary">
@@ -390,6 +398,8 @@ function CategoriesPanel() {
 }
 
 function SuppliersPanel() {
+  const { user } = useAuth();
+  const canManage = !!user?.permissions['inventory.manage'];
   const { data: suppliers, mutate: mutateSuppliers } = useApiSWR<Supplier[]>('/inventory/suppliers');
   const [form, setForm] = React.useState({ name: '', contactName: '', phone: '', email: '' });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -410,32 +420,34 @@ function SuppliersPanel() {
 
   return (
     <div className="flex flex-col gap-4 pt-4">
-      <form onSubmit={handleSubmit} className="grid max-w-2xl grid-cols-2 gap-2 sm:grid-cols-5">
-        <Input
-          placeholder="Nombre"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
-        <Input
-          placeholder="Contacto"
-          value={form.contactName}
-          onChange={(e) => setForm({ ...form, contactName: e.target.value })}
-        />
-        <Input
-          placeholder="Teléfono"
-          value={form.phone}
-          onChange={(e) => setForm({ ...form, phone: e.target.value })}
-        />
-        <Input
-          placeholder="Correo"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-        <Button type="submit" disabled={isSubmitting}>
-          <Plus /> Agregar
-        </Button>
-      </form>
+      {canManage && (
+        <form onSubmit={handleSubmit} className="grid max-w-2xl grid-cols-2 gap-2 sm:grid-cols-5">
+          <Input
+            placeholder="Nombre"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+          />
+          <Input
+            placeholder="Contacto"
+            value={form.contactName}
+            onChange={(e) => setForm({ ...form, contactName: e.target.value })}
+          />
+          <Input
+            placeholder="Teléfono"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+          <Input
+            placeholder="Correo"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+          <Button type="submit" disabled={isSubmitting}>
+            <Plus /> Agregar
+          </Button>
+        </form>
+      )}
       <Table>
         <TableHeader>
           <TableRow>

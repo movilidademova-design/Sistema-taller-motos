@@ -13,10 +13,10 @@ import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentStore } from '../common/decorators/current-store.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
-import { Role } from '../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('clients')
@@ -24,52 +24,67 @@ import { Role } from '../generated/prisma/enums';
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
+  @RequirePermission('clients.view')
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Query() query: PaginationQueryDto,
   ) {
-    return this.clientsService.findAll(tenantId, query);
+    return this.clientsService.findAll(tenantId, storeId, query);
   }
 
+  @RequirePermission('clients.view')
   @Get('lookup/:documentId')
   lookup(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('documentId') documentId: string,
   ) {
-    return this.clientsService.lookupByDocument(tenantId, documentId);
+    return this.clientsService.lookupByDocument(tenantId, storeId, documentId);
   }
 
+  @RequirePermission('clients.view')
   @Get(':id')
-  findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.clientsService.findOne(tenantId, id);
+  findOne(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.clientsService.findOne(tenantId, storeId, id);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('clients.create')
   @Audit('Client')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateClientDto,
   ) {
-    return this.clientsService.create(tenantId, dto);
+    return this.clientsService.create(tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('clients.update')
   @Audit('Client')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateClientDto,
   ) {
-    return this.clientsService.update(tenantId, id, dto);
+    return this.clientsService.update(tenantId, storeId, id, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('clients.delete')
   @Audit('Client')
   @Delete(':id')
-  remove(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.clientsService.remove(tenantId, id);
+  remove(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.clientsService.remove(tenantId, storeId, id);
   }
 }

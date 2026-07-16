@@ -18,17 +18,17 @@ export class InvoicesService {
     private readonly emailService: EmailService,
   ) {}
 
-  findAll(tenantId: string) {
+  findAll(tenantId: string, storeId: string | null) {
     return this.prisma.invoice.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(storeId ? { storeId } : {}) },
       orderBy: { issuedAt: 'desc' },
       include: { client: true, order: { select: { orderNumber: true } } },
     });
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, storeId: string | null, id: string) {
     const invoice = await this.prisma.invoice.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
       include: {
         client: true,
         order: { include: { quotation: { include: { items: true } } } },
@@ -39,9 +39,12 @@ export class InvoicesService {
     return invoice;
   }
 
-  async generateFromOrder(tenantId: string, dto: CreateInvoiceDto) {
+  async generateFromOrder(tenantId: string, storeId: string | null, dto: CreateInvoiceDto) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para generar una factura');
+    }
     const order = await this.prisma.order.findFirst({
-      where: { id: dto.orderId, tenantId },
+      where: { id: dto.orderId, tenantId, storeId },
       include: { quotation: { include: { items: true } }, client: true },
     });
     if (!order) throw new NotFoundException('Orden no encontrada');
@@ -69,6 +72,7 @@ export class InvoicesService {
       return tx.invoice.create({
         data: {
           tenantId,
+          storeId,
           orderId: order.id,
           clientId: order.clientId,
           invoiceNumber,
@@ -83,11 +87,11 @@ export class InvoicesService {
       });
     });
 
-    return this.findOne(tenantId, invoice.id);
+    return this.findOne(tenantId, storeId, invoice.id);
   }
 
-  async renderPdf(tenantId: string, id: string): Promise<Buffer> {
-    const invoice = await this.findOne(tenantId, id);
+  async renderPdf(tenantId: string, storeId: string | null, id: string): Promise<Buffer> {
+    const invoice = await this.findOne(tenantId, storeId, id);
     const tenant = await this.prisma.tenant.findUniqueOrThrow({
       where: { id: tenantId },
     });
@@ -121,12 +125,12 @@ export class InvoicesService {
     });
   }
 
-  async sendByEmail(tenantId: string, id: string) {
-    const invoice = await this.findOne(tenantId, id);
+  async sendByEmail(tenantId: string, storeId: string | null, id: string) {
+    const invoice = await this.findOne(tenantId, storeId, id);
     if (!invoice.client.email) {
       throw new BadRequestException('El cliente no tiene correo registrado');
     }
-    const pdf = await this.renderPdf(tenantId, id);
+    const pdf = await this.renderPdf(tenantId, storeId, id);
     await this.emailService.sendInvoice(
       invoice.client.email,
       invoice.invoiceNumber,

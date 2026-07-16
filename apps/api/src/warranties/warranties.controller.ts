@@ -11,10 +11,10 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { WarrantiesService } from './warranties.service';
 import { CreateWarrantyDto } from './dto/create-warranty.dto';
 import { ResolveWarrantyDto } from './dto/resolve-warranty.dto';
-import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentStore } from '../common/decorators/current-store.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
-import { Role } from '../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('warranties')
@@ -23,58 +23,69 @@ export class WarrantiesController {
   constructor(private readonly warrantiesService: WarrantiesService) {}
 
   @Get()
-  findAll(@CurrentUser('tenantId') tenantId: string) {
-    return this.warrantiesService.findAll(tenantId);
+  findAll(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+  ) {
+    return this.warrantiesService.findAll(tenantId, storeId);
   }
 
   @Get(':id')
-  findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.warrantiesService.findOne(tenantId, id);
+  findOne(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.warrantiesService.findOne(tenantId, storeId, id);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('warranties.manage')
   @Audit('Warranty')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateWarrantyDto,
   ) {
-    return this.warrantiesService.create(tenantId, dto);
+    return this.warrantiesService.create(tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('warranties.manage')
   @Audit('Warranty')
   @HttpCode(HttpStatus.OK)
   @Post(':id/approve')
   approve(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
   ) {
-    return this.warrantiesService.approve(tenantId, id, userId);
+    return this.warrantiesService.approve(tenantId, storeId, id, userId);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('warranties.manage')
   @Audit('Warranty')
   @HttpCode(HttpStatus.OK)
   @Post(':id/reject')
   reject(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
   ) {
-    return this.warrantiesService.reject(tenantId, id, userId);
+    return this.warrantiesService.reject(tenantId, storeId, id, userId);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.TECHNICIAN)
+  @RequirePermission('warranties.manage')
   @Audit('Warranty')
   @HttpCode(HttpStatus.OK)
   @Post(':id/resolve')
   resolve(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: ResolveWarrantyDto,
   ) {
-    return this.warrantiesService.resolve(tenantId, id, dto);
+    return this.warrantiesService.resolve(tenantId, storeId, id, dto);
   }
 }

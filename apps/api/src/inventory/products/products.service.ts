@@ -19,12 +19,14 @@ export class ProductsService {
 
   async findAll(
     tenantId: string,
+    storeId: string | null,
     query: PaginationQueryDto & { categoryId?: string; lowStock?: boolean },
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
+      ...(storeId ? { storeId } : {}),
       isActive: true,
       ...(query.categoryId ? { categoryId: query.categoryId } : {}),
       ...(query.search
@@ -66,36 +68,40 @@ export class ProductsService {
     };
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(tenantId: string, storeId: string | null, id: string) {
     const product = await this.prisma.product.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
       include: { category: true, supplier: true },
     });
     if (!product) throw new NotFoundException('Producto no encontrado');
     return product;
   }
 
-  async create(tenantId: string, dto: CreateProductDto) {
+  async create(tenantId: string, storeId: string | null, dto: CreateProductDto) {
+    if (!storeId) {
+      throw new BadRequestException('Selecciona una sucursal específica para crear un producto');
+    }
     const existing = await this.prisma.product.findUnique({
-      where: { tenantId_sku: { tenantId, sku: dto.sku } },
+      where: { tenantId_storeId_sku: { tenantId, storeId, sku: dto.sku } },
     });
     if (existing)
       throw new ConflictException('Ya existe un producto con ese SKU');
-    return this.prisma.product.create({ data: { ...dto, tenantId } });
+    return this.prisma.product.create({ data: { ...dto, tenantId, storeId } });
   }
 
-  async update(tenantId: string, id: string, dto: UpdateProductDto) {
-    await this.assertExists(tenantId, id);
+  async update(tenantId: string, storeId: string | null, id: string, dto: UpdateProductDto) {
+    await this.assertExists(tenantId, storeId, id);
     return this.prisma.product.update({ where: { id }, data: dto });
   }
 
   async adjustStock(
     tenantId: string,
+    storeId: string | null,
     id: string,
     userId: string,
     dto: AdjustStockDto,
   ) {
-    const product = await this.assertExists(tenantId, id);
+    const product = await this.assertExists(tenantId, storeId, id);
     const newQuantity = product.quantity + dto.delta;
     if (newQuantity < 0) {
       throw new BadRequestException(
@@ -111,6 +117,7 @@ export class ProductsService {
       await tx.inventoryMovement.create({
         data: {
           tenantId,
+          storeId: product.storeId,
           productId: id,
           type:
             dto.delta >= 0
@@ -125,9 +132,9 @@ export class ProductsService {
     });
   }
 
-  private async assertExists(tenantId: string, id: string) {
+  private async assertExists(tenantId: string, storeId: string | null, id: string) {
     const product = await this.prisma.product.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { storeId } : {}) },
     });
     if (!product) throw new NotFoundException('Producto no encontrado');
     return product;

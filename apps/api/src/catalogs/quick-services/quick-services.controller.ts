@@ -6,10 +6,10 @@ import {
   ReorderCatalogDto,
   UpdateCatalogItemDto,
 } from '../dto/catalog-item.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentStore } from '../../common/decorators/current-store.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
-import { Role } from '../../generated/prisma/enums';
 
 const MODEL = 'quickService' as const;
 
@@ -22,46 +22,54 @@ export class QuickServicesController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Query('includeInactive') includeInactive?: string,
   ) {
-    return this.catalog.findAll(MODEL, tenantId, includeInactive === 'true');
+    return this.catalog.findAll(MODEL, tenantId, storeId, includeInactive === 'true');
   }
 
-  @Roles(Role.ADMIN)
+  @RequirePermission('catalogs.manage')
   @Audit('QuickService')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateCatalogItemDto,
   ) {
-    return this.catalog.create(MODEL, tenantId, dto);
+    return this.catalog.create(MODEL, tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN)
+  @RequirePermission('catalogs.manage')
   @Audit('QuickService')
   @Patch('reorder')
   reorder(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: ReorderCatalogDto,
   ) {
-    return this.catalog.reorder(MODEL, tenantId, dto.orderedIds);
+    return this.catalog.reorder(MODEL, tenantId, storeId, dto.orderedIds);
   }
 
-  @Roles(Role.ADMIN)
+  @RequirePermission('catalogs.manage')
   @Audit('QuickService')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateCatalogItemDto,
   ) {
-    return this.catalog.update(MODEL, tenantId, id, dto);
+    return this.catalog.update(MODEL, tenantId, storeId, id, dto);
   }
 
-  @Roles(Role.ADMIN)
+  @RequirePermission('catalogs.manage')
   @Audit('QuickService')
   @Delete(':id')
-  remove(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.catalog.remove(MODEL, tenantId, id);
+  remove(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.catalog.remove(MODEL, tenantId, storeId, id);
   }
 }

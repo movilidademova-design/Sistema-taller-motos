@@ -12,8 +12,8 @@ export class PhotosService {
     private readonly ordersService: OrdersService,
   ) {}
 
-  async findAll(tenantId: string, orderId: string) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async findAll(tenantId: string, storeId: string | null, orderId: string) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     return this.prisma.orderPhoto.findMany({
       where: { orderId },
       orderBy: { uploadedAt: 'desc' },
@@ -22,11 +22,12 @@ export class PhotosService {
 
   async upload(
     tenantId: string,
+    storeId: string | null,
     orderId: string,
     category: PhotoCategory,
     file: Express.Multer.File,
   ) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     const url = await this.storage.upload(
       file.buffer,
       file.originalname,
@@ -36,8 +37,13 @@ export class PhotosService {
     return this.prisma.orderPhoto.create({ data: { orderId, category, url } });
   }
 
-  async remove(tenantId: string, orderId: string, photoId: string) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async remove(
+    tenantId: string,
+    storeId: string | null,
+    orderId: string,
+    photoId: string,
+  ) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     return this.prisma.orderPhoto.delete({ where: { id: photoId } });
   }
 }

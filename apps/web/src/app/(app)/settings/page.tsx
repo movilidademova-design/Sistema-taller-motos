@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Settings2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -22,17 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
-import { getErrorMessage } from '@/components/providers/auth-provider';
-import { Role } from '@taller/shared';
-import type { AccessoryOption, QuickService, UserSummary } from '@/lib/types';
-
-const ROLE_LABELS: Record<Role, string> = {
-  ADMIN: 'Administrador',
-  MANAGER: 'Gerente',
-  RECEPTIONIST: 'Recepcionista',
-  TECHNICIAN: 'Técnico',
-  CLIENT: 'Cliente',
-};
+import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
+import { Role, ROLE_LABELS } from '@taller/shared';
+import type { AccessoryOption, PermissionEntry, QuickService, Store, UserSummary } from '@/lib/types';
 
 interface TenantSettings {
   name: string;
@@ -47,6 +40,9 @@ interface TenantSettings {
 }
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -56,6 +52,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="general">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          {isAdmin && <TabsTrigger value="stores">Sucursales</TabsTrigger>}
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="quick-services">Servicios rápidos</TabsTrigger>
           <TabsTrigger value="accessory-options">Accesorios</TabsTrigger>
@@ -63,6 +60,11 @@ export default function SettingsPage() {
         <TabsContent value="general">
           <GeneralSettings />
         </TabsContent>
+        {isAdmin && (
+          <TabsContent value="stores">
+            <StoresSettings />
+          </TabsContent>
+        )}
         <TabsContent value="users">
           <UsersSettings />
         </TabsContent>
@@ -170,9 +172,155 @@ function GeneralSettings() {
   );
 }
 
+function StoresSettings() {
+  const { data: stores, mutate } = useApiSWR<Store[]>('/stores');
+  const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<Store | null>(null);
+
+  return (
+    <div className="mt-4 flex flex-col gap-4">
+      <div>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) setEditing(null);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Plus /> Nueva sucursal
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <StoreForm
+              store={editing}
+              onSuccess={() => {
+                setOpen(false);
+                setEditing(null);
+                mutate();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nombre</TableHead>
+            <TableHead>Código</TableHead>
+            <TableHead>Ciudad</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {stores?.map((s) => (
+            <TableRow key={s.id}>
+              <TableCell className="font-medium">{s.name}</TableCell>
+              <TableCell>{s.code}</TableCell>
+              <TableCell>{s.city ?? '—'}</TableCell>
+              <TableCell>
+                <Badge variant={s.isActive ? 'success' : 'destructive'}>
+                  {s.isActive ? 'Activa' : 'Inactiva'}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditing(s);
+                    setOpen(true);
+                  }}
+                >
+                  Editar
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function StoreForm({ store, onSuccess }: { store: Store | null; onSuccess: () => void }) {
+  const [form, setForm] = React.useState({
+    name: store?.name ?? '',
+    code: store?.code ?? '',
+    address: store?.address ?? '',
+    city: store?.city ?? '',
+    phone: store?.phone ?? '',
+    email: store?.email ?? '',
+  });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (store) {
+        await api.patch(`/stores/${store.id}`, form);
+        toast.success('Sucursal actualizada');
+      } else {
+        await api.post('/stores', form);
+        toast.success('Sucursal creada');
+      }
+      onSuccess();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>{store ? 'Editar sucursal' : 'Nueva sucursal'}</DialogTitle>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-3 py-4">
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Nombre</Label>
+          <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Código interno</Label>
+          <Input required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Ciudad</Label>
+          <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Dirección</Label>
+          <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Teléfono</Label>
+          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Correo</Label>
+          <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Guardando...' : store ? 'Guardar cambios' : 'Crear sucursal'}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
 function UsersSettings() {
   const { data: users, mutate } = useApiSWR<UserSummary[]>('/users');
+  const { data: stores } = useApiSWR<Store[]>('/stores');
+  const { user: currentUser } = useAuth();
   const [open, setOpen] = React.useState(false);
+  const [permissionsUser, setPermissionsUser] = React.useState<UserSummary | null>(null);
 
   return (
     <div className="mt-4 flex flex-col gap-4">
@@ -185,6 +333,7 @@ function UsersSettings() {
           </DialogTrigger>
           <DialogContent>
             <NewUserForm
+              stores={stores ?? []}
               onSuccess={() => {
                 setOpen(false);
                 mutate();
@@ -199,7 +348,9 @@ function UsersSettings() {
             <TableHead>Nombre</TableHead>
             <TableHead>Correo</TableHead>
             <TableHead>Rol</TableHead>
+            <TableHead>Sucursales</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -213,19 +364,42 @@ function UsersSettings() {
                 <Badge variant="secondary">{ROLE_LABELS[u.role]}</Badge>
               </TableCell>
               <TableCell>
+                <div className="flex flex-wrap gap-1">
+                  {u.stores.map((s) => (
+                    <Badge key={s.id} variant="outline">
+                      {s.code}
+                    </Badge>
+                  ))}
+                </div>
+              </TableCell>
+              <TableCell>
                 <Badge variant={u.isActive ? 'success' : 'destructive'}>
                   {u.isActive ? 'Activo' : 'Inactivo'}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                {currentUser?.role === 'ADMIN' && u.role !== 'ADMIN' && (
+                  <Button variant="ghost" size="sm" onClick={() => setPermissionsUser(u)}>
+                    <Settings2 className="size-4" /> Permisos
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <Dialog open={!!permissionsUser} onOpenChange={(v) => !v && setPermissionsUser(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          {permissionsUser && (
+            <UserPermissionsForm user={permissionsUser} onClose={() => setPermissionsUser(null)} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
+function NewUserForm({ stores, onSuccess }: { stores: Store[]; onSuccess: () => void }) {
   const [form, setForm] = React.useState({
     firstName: '',
     lastName: '',
@@ -233,11 +407,23 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
     password: '',
     phone: '',
     role: Role.RECEPTIONIST as Role,
+    storeIds: [] as string[],
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
+  function toggleStore(id: string) {
+    setForm((f) => ({
+      ...f,
+      storeIds: f.storeIds.includes(id) ? f.storeIds.filter((s) => s !== id) : [...f.storeIds, id],
+    }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (form.storeIds.length === 0) {
+      toast.error('Selecciona al menos una sucursal');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.post('/users', form);
@@ -290,15 +476,30 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ROLE_LABELS)
-                .filter(([value]) => value !== 'CLIENT')
-                .map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
+              {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Sucursales</Label>
+          <div className="flex flex-col gap-2 rounded-md border p-3">
+            {stores.map((s) => (
+              <label key={s.id} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.storeIds.includes(s.id)}
+                  onCheckedChange={() => toggleStore(s.id)}
+                />
+                {s.name}
+              </label>
+            ))}
+            {stores.length === 0 && (
+              <p className="text-sm text-muted-foreground">No hay sucursales creadas todavía</p>
+            )}
+          </div>
         </div>
       </div>
       <DialogFooter>
@@ -307,6 +508,74 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function UserPermissionsForm({ user, onClose }: { user: UserSummary; onClose: () => void }) {
+  const { data } = useApiSWR<{ role: Role; permissions: PermissionEntry[] }>(
+    `/users/${user.id}/permissions`,
+  );
+  const [values, setValues] = React.useState<Record<string, boolean> | null>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (data && !values) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setValues(Object.fromEntries(data.permissions.map((p) => [p.key, p.effective])));
+    }
+  }, [data, values]);
+
+  async function handleSave() {
+    if (!data || !values) return;
+    const overrides = data.permissions
+      .filter((p) => values[p.key] !== p.roleDefault)
+      .map((p) => ({ permission: p.key, granted: values[p.key] }));
+    setIsSaving(true);
+    try {
+      await api.put(`/users/${user.id}/permissions`, { overrides });
+      toast.success('Permisos actualizados');
+      onClose();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <DialogHeader>
+        <DialogTitle>
+          Permisos de {user.firstName} {user.lastName}
+        </DialogTitle>
+      </DialogHeader>
+      <p className="py-2 text-sm text-muted-foreground">
+        El rol <strong>{ROLE_LABELS[user.role]}</strong> trae permisos por defecto — puedes activar o
+        desactivar cualquiera individualmente para este usuario.
+      </p>
+      <div className="grid max-h-96 grid-cols-1 gap-2 overflow-y-auto py-2 sm:grid-cols-2">
+        {values &&
+          data?.permissions.map((p) => (
+            <label key={p.key} className="flex items-center gap-2 rounded-md border p-2 text-sm">
+              <Checkbox
+                checked={values[p.key]}
+                onCheckedChange={(checked) => setValues({ ...values, [p.key]: checked === true })}
+              />
+              <span className="flex-1 font-mono text-xs">{p.key}</span>
+              {p.override !== null && (
+                <Badge variant="outline" className="text-[10px]">
+                  personalizado
+                </Badge>
+              )}
+            </label>
+          ))}
+      </div>
+      <DialogFooter>
+        <Button onClick={handleSave} disabled={isSaving || !values}>
+          {isSaving ? 'Guardando...' : 'Guardar permisos'}
+        </Button>
+      </DialogFooter>
+    </div>
   );
 }
 

@@ -8,6 +8,8 @@ import { PdfModule } from './common/pdf/pdf.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TenantsModule } from './tenants/tenants.module';
+import { StoresModule } from './stores/stores.module';
+import { ExpensesModule } from './expenses/expenses.module';
 import { ClientsModule } from './clients/clients.module';
 import { MotorcyclesModule } from './motorcycles/motorcycles.module';
 import { OrdersModule } from './orders/orders.module';
@@ -26,6 +28,8 @@ import { AuditModule } from './audit/audit.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
+import { StoreScopeGuard } from './common/guards/store-scope.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 @Module({
@@ -40,6 +44,8 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     AuthModule,
     UsersModule,
     TenantsModule,
+    StoresModule,
+    ExpensesModule,
     ClientsModule,
     MotorcyclesModule,
     OrdersModule,
@@ -58,6 +64,8 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_GUARD, useClass: StoreScopeGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],

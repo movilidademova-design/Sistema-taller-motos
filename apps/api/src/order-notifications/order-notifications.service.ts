@@ -10,9 +10,13 @@ export class OrderNotificationsService {
     private readonly email: EmailService,
   ) {}
 
-  findPending(tenantId: string) {
+  findPending(tenantId: string, storeId: string | null) {
     return this.prisma.orderNotification.findMany({
-      where: { tenantId, isNotified: false },
+      where: {
+        tenantId,
+        isNotified: false,
+        ...(storeId ? { order: { storeId } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         order: {
@@ -40,17 +44,22 @@ export class OrderNotificationsService {
     });
   }
 
-  async markNotified(tenantId: string, id: string, userId: string) {
-    await this.assertExists(tenantId, id);
+  async markNotified(tenantId: string, storeId: string | null, id: string, userId: string) {
+    await this.assertExists(tenantId, storeId, id);
     return this.prisma.orderNotification.update({
       where: { id },
       data: { isNotified: true, notifiedAt: new Date(), notifiedById: userId },
     });
   }
 
-  async sendEmailAndMarkNotified(tenantId: string, id: string, userId: string) {
+  async sendEmailAndMarkNotified(
+    tenantId: string,
+    storeId: string | null,
+    id: string,
+    userId: string,
+  ) {
     const notification = await this.prisma.orderNotification.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { order: { storeId } } : {}) },
       include: {
         order: { include: { client: { select: { email: true } } } },
       },
@@ -72,9 +81,9 @@ export class OrderNotificationsService {
     });
   }
 
-  private async assertExists(tenantId: string, id: string) {
+  private async assertExists(tenantId: string, storeId: string | null, id: string) {
     const notification = await this.prisma.orderNotification.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...(storeId ? { order: { storeId } } : {}) },
     });
     if (!notification) throw new NotFoundException('Notificación no encontrada');
     return notification;

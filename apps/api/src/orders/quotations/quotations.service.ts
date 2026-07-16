@@ -22,8 +22,8 @@ export class QuotationsService {
     private readonly whatsapp: WhatsappService,
   ) {}
 
-  async findOne(tenantId: string, orderId: string) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async findOne(tenantId: string, storeId: string | null, orderId: string) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     const quotation = await this.prisma.quotation.findUnique({
       where: { orderId },
       include: { items: true },
@@ -32,8 +32,17 @@ export class QuotationsService {
     return quotation;
   }
 
-  async upsert(tenantId: string, orderId: string, dto: UpsertQuotationDto) {
-    const order = await this.ordersService.assertOrderExists(tenantId, orderId);
+  async upsert(
+    tenantId: string,
+    storeId: string | null,
+    orderId: string,
+    dto: UpsertQuotationDto,
+  ) {
+    const order = await this.ordersService.assertOrderExists(
+      tenantId,
+      storeId,
+      orderId,
+    );
 
     const partsCost = sumByType(dto.items, [
       QuotationItemType.PART,
@@ -115,11 +124,20 @@ export class QuotationsService {
         .catch(() => undefined);
     }
 
-    return this.findOne(tenantId, orderId);
+    return this.findOne(tenantId, storeId, orderId);
   }
 
-  async decide(tenantId: string, orderId: string, approve: boolean) {
-    const order = await this.ordersService.assertOrderExists(tenantId, orderId);
+  async decide(
+    tenantId: string,
+    storeId: string | null,
+    orderId: string,
+    approve: boolean,
+  ) {
+    const order = await this.ordersService.assertOrderExists(
+      tenantId,
+      storeId,
+      orderId,
+    );
     const quotation = await this.prisma.quotation.findUnique({
       where: { orderId },
       include: { items: true },
@@ -134,7 +152,7 @@ export class QuotationsService {
         where: { id: quotation.id },
         data: { status: QuotationStatus.REJECTED, rejectedAt: new Date() },
       });
-      return this.findOne(tenantId, orderId);
+      return this.findOne(tenantId, storeId, orderId);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -160,6 +178,7 @@ export class QuotationsService {
         await tx.inventoryMovement.create({
           data: {
             tenantId,
+            storeId: product.storeId,
             productId: item.productId,
             orderId,
             type: InventoryMovementType.SALE_OUT,
@@ -190,7 +209,7 @@ export class QuotationsService {
       }
     });
 
-    return this.findOne(tenantId, orderId);
+    return this.findOne(tenantId, storeId, orderId);
   }
 }
 

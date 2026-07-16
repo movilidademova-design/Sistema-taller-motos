@@ -7,12 +7,14 @@ export class MovementsService {
 
   findAll(
     tenantId: string,
+    storeId: string | null,
     query: { productId?: string; page?: number; pageSize?: number },
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 30;
     const where = {
       tenantId,
+      ...(storeId ? { storeId } : {}),
       ...(query.productId ? { productId: query.productId } : {}),
     };
     return this.prisma

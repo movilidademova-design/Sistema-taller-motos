@@ -15,10 +15,10 @@ import {
   AdjustStockDto,
 } from './dto/product.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentStore } from '../../common/decorators/current-store.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
-import { Role } from '../../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('inventory')
@@ -26,50 +26,60 @@ import { Role } from '../../generated/prisma/enums';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  @RequirePermission('inventory.view', 'inventory.lookup')
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Query()
     query: PaginationQueryDto & { categoryId?: string; lowStock?: boolean },
   ) {
-    return this.productsService.findAll(tenantId, query);
+    return this.productsService.findAll(tenantId, storeId, query);
   }
 
+  @RequirePermission('inventory.view', 'inventory.lookup')
   @Get(':id')
-  findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.productsService.findOne(tenantId, id);
+  findOne(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.productsService.findOne(tenantId, storeId, id);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Audit('Product')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateProductDto,
   ) {
-    return this.productsService.create(tenantId, dto);
+    return this.productsService.create(tenantId, storeId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Audit('Product')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateProductDto,
   ) {
-    return this.productsService.update(tenantId, id, dto);
+    return this.productsService.update(tenantId, storeId, id, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @RequirePermission('inventory.manage')
   @Audit('Product')
   @Patch(':id/adjust-stock')
   adjustStock(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: AdjustStockDto,
   ) {
-    return this.productsService.adjustStock(tenantId, id, userId, dto);
+    return this.productsService.adjustStock(tenantId, storeId, id, userId, dto);
   }
 }

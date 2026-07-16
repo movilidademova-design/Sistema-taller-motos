@@ -8,6 +8,8 @@ import { authStorage, StoredUser } from '@/lib/auth-storage';
 interface AuthContextValue {
   user: StoredUser | null;
   isLoading: boolean;
+  activeStoreId: string | null;
+  setActiveStore: (storeId: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   registerTenant: (payload: {
     workshopName: string;
@@ -28,10 +30,27 @@ interface AuthResponse {
   refreshToken: string;
 }
 
+/** `null` = "todas las tiendas" (solo válido para ADMIN). */
+function resolveActiveStore(user: StoredUser): string | null {
+  const stored = authStorage.getActiveStoreId();
+  if (stored === 'all') return user.role === 'ADMIN' ? null : (user.stores[0]?.id ?? null);
+  if (stored && user.stores.some((s) => s.id === stored)) return stored;
+  if (user.role === 'ADMIN') return null;
+  return user.stores[0]?.id ?? null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<StoredUser | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [activeStoreId, setActiveStoreId] = React.useState<string | null>(null);
   const router = useRouter();
+
+  const applySession = React.useCallback((sessionUser: StoredUser) => {
+    setUser(sessionUser);
+    const resolved = resolveActiveStore(sessionUser);
+    authStorage.setActiveStoreId(resolved);
+    setActiveStoreId(resolved);
+  }, []);
 
   React.useEffect(() => {
     // One-time hydration from localStorage, which only exists client-side.
@@ -40,18 +59,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (stored && token) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(stored);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveStoreId(resolveActiveStore(stored));
     }
     setIsLoading(false);
+  }, []);
+
+  const setActiveStore = React.useCallback((storeId: string | null) => {
+    authStorage.setActiveStoreId(storeId);
+    setActiveStoreId(storeId);
   }, []);
 
   const login = React.useCallback(
     async (email: string, password: string) => {
       const data = await api.post<AuthResponse>('/auth/login', { email, password });
       authStorage.setSession(data.accessToken, data.refreshToken, data.user);
-      setUser(data.user);
+      applySession(data.user);
       router.push('/dashboard');
     },
-    [router],
+    [router, applySession],
   );
 
   const registerTenant = React.useCallback(
@@ -65,10 +91,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }) => {
       const data = await api.post<AuthResponse>('/auth/register-tenant', payload);
       authStorage.setSession(data.accessToken, data.refreshToken, data.user);
-      setUser(data.user);
+      applySession(data.user);
       router.push('/dashboard');
     },
-    [router],
+    [router, applySession],
   );
 
   const logout = React.useCallback(async () => {
@@ -80,11 +106,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     authStorage.clear();
     setUser(null);
+    setActiveStoreId(null);
     router.push('/login');
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, registerTenant, logout }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, activeStoreId, setActiveStore, login, registerTenant, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

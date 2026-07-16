@@ -21,8 +21,9 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CreateOrderIntakeDto } from './dto/create-order-intake.dto';
 import { NotifyOrderDto } from './dto/notify-order.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { Roles } from '../common/decorators/roles.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentStore } from '../common/decorators/current-store.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { OrderStatus, Role } from '../generated/prisma/enums';
 
@@ -37,6 +38,7 @@ export class OrdersController {
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
     @CurrentUser('role') role: Role,
+    @CurrentStore() storeId: string | null,
     @Query()
     query: PaginationQueryDto & {
       status?: OrderStatus;
@@ -47,16 +49,26 @@ export class OrdersController {
     // Technicians only ever see orders assigned to them.
     const scoped =
       role === Role.TECHNICIAN ? { ...query, technicianId: userId } : query;
-    return this.ordersService.findAll(tenantId, scoped);
+    return this.ordersService.findAll(tenantId, storeId, scoped);
+  }
+
+  @Get('search')
+  search(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
+    @Query('orderNumber') orderNumber: string,
+  ) {
+    return this.ordersService.searchByOrderNumber(tenantId, storeId, Number(orderNumber));
   }
 
   @Get(':id')
   async findOne(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('role') role: Role,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
   ) {
-    const order = await this.ordersService.findOne(tenantId, id);
+    const order = await this.ordersService.findOne(tenantId, storeId, id);
     // La clave de salida solo la deben ver quienes entregan el vehículo.
     if (role === Role.TECHNICIAN) {
       const { exitCode: _exitCode, ...rest } = order;
@@ -65,18 +77,19 @@ export class OrdersController {
     return order;
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('orders.create')
   @Audit('Order')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentStore() storeId: string | null,
     @Body() dto: CreateOrderDto,
   ) {
-    return this.ordersService.create(tenantId, userId, dto);
+    return this.ordersService.create(tenantId, storeId, userId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('orders.create')
   @Audit('Order')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
@@ -89,6 +102,7 @@ export class OrdersController {
   async createIntake(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentStore() storeId: string | null,
     @Body('payload') payloadJson: string,
     @UploadedFiles()
     files: {
@@ -99,6 +113,7 @@ export class OrdersController {
     const dto = await this.parseIntakePayload(payloadJson);
     return this.ordersService.createIntake(
       tenantId,
+      storeId,
       userId,
       dto,
       files?.photos ?? [],
@@ -106,14 +121,15 @@ export class OrdersController {
     );
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('notifications.send')
   @Post(':id/notify')
   notify(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: NotifyOrderDto,
   ) {
-    return this.ordersService.notify(tenantId, id, dto.channel);
+    return this.ordersService.notify(tenantId, storeId, id, dto.channel);
   }
 
   /**
@@ -143,27 +159,29 @@ export class OrdersController {
     return dto;
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('orders.update')
   @Audit('Order')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateOrderDto,
   ) {
-    return this.ordersService.update(tenantId, id, dto);
+    return this.ordersService.update(tenantId, storeId, id, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST, Role.TECHNICIAN)
+  @RequirePermission('orders.changeStatus')
   @Audit('Order')
   @Patch(':id/status')
   updateStatus(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
-    return this.ordersService.updateStatus(tenantId, id, userId, dto);
+    return this.ordersService.updateStatus(tenantId, storeId, id, userId, dto);
   }
 
   /**
@@ -172,14 +190,15 @@ export class OrdersController {
    * el cliente?" — crea la notificación interna pendiente, no envía nada
    * directamente al cliente.
    */
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST, Role.TECHNICIAN)
+  @RequirePermission('orders.changeStatus')
   @Audit('OrderNotification')
   @Post(':id/notifications')
   requestClientNotification(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentStore() storeId: string | null,
     @Param('id') id: string,
   ) {
-    return this.ordersService.requestClientNotification(tenantId, id, userId);
+    return this.ordersService.requestClientNotification(tenantId, storeId, id, userId);
   }
 }

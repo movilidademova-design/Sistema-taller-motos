@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { computeEffectivePermissions } from '../../common/permissions/permission.constants';
 
 export interface JwtPayload {
   sub: string;
@@ -30,6 +31,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
+      include: {
+        storeMemberships: { select: { storeId: true } },
+        permissionOverrides: { select: { permission: true, granted: true } },
+      },
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Usuario inválido o inactivo');
@@ -39,6 +44,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: user.tenantId,
       email: user.email,
       role: user.role,
+      storeIds: user.storeMemberships.map((m) => m.storeId),
+      permissions: computeEffectivePermissions(user.role, user.permissionOverrides),
     };
   }
 }

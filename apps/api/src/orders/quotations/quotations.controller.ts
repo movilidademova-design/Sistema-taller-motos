@@ -11,10 +11,10 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { QuotationsService } from './quotations.service';
 import { UpsertQuotationDto } from './dto/upsert-quotation.dto';
-import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentStore } from '../../common/decorators/current-store.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
-import { Role } from '../../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('orders')
@@ -25,41 +25,45 @@ export class QuotationsController {
   @Get()
   findOne(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('orderId') orderId: string,
   ) {
-    return this.quotationsService.findOne(tenantId, orderId);
+    return this.quotationsService.findOne(tenantId, storeId, orderId);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.TECHNICIAN, Role.RECEPTIONIST)
+  @RequirePermission('quotations.manage')
   @Audit('Quotation')
   @Put()
   upsert(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('orderId') orderId: string,
     @Body() dto: UpsertQuotationDto,
   ) {
-    return this.quotationsService.upsert(tenantId, orderId, dto);
+    return this.quotationsService.upsert(tenantId, storeId, orderId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('quotations.approve')
   @Audit('Quotation')
   @HttpCode(HttpStatus.OK)
   @Post('approve')
   approve(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('orderId') orderId: string,
   ) {
-    return this.quotationsService.decide(tenantId, orderId, true);
+    return this.quotationsService.decide(tenantId, storeId, orderId, true);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @RequirePermission('quotations.approve')
   @Audit('Quotation')
   @HttpCode(HttpStatus.OK)
   @Post('reject')
   reject(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentStore() storeId: string | null,
     @Param('orderId') orderId: string,
   ) {
-    return this.quotationsService.decide(tenantId, orderId, false);
+    return this.quotationsService.decide(tenantId, storeId, orderId, false);
   }
 }

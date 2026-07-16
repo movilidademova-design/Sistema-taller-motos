@@ -6,9 +6,17 @@ export const Role = {
   MANAGER: 'MANAGER',
   RECEPTIONIST: 'RECEPTIONIST',
   TECHNICIAN: 'TECHNICIAN',
-  CLIENT: 'CLIENT',
+  VIEWER: 'VIEWER',
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
+
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: 'Super Administrador',
+  MANAGER: 'Administrador de Tienda',
+  RECEPTIONIST: 'Recepción',
+  TECHNICIAN: 'Técnico',
+  VIEWER: 'Visualizador',
+};
 
 export const OrderStatus = {
   RECEIVED: 'RECEIVED',

@@ -10,8 +10,8 @@ export class LaborService {
     private readonly ordersService: OrdersService,
   ) {}
 
-  async findAll(tenantId: string, orderId: string) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async findAll(tenantId: string, storeId: string | null, orderId: string) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     return this.prisma.laborEntry.findMany({
       where: { orderId },
       orderBy: { startTime: 'desc' },
@@ -19,8 +19,13 @@ export class LaborService {
     });
   }
 
-  async create(tenantId: string, orderId: string, dto: CreateLaborEntryDto) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async create(
+    tenantId: string,
+    storeId: string | null,
+    orderId: string,
+    dto: CreateLaborEntryDto,
+  ) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     const startTime = new Date(dto.startTime);
     const endTime = dto.endTime ? new Date(dto.endTime) : undefined;
     const hours = endTime
@@ -40,8 +45,13 @@ export class LaborService {
     });
   }
 
-  async remove(tenantId: string, orderId: string, entryId: string) {
-    await this.ordersService.assertOrderExists(tenantId, orderId);
+  async remove(
+    tenantId: string,
+    storeId: string | null,
+    orderId: string,
+    entryId: string,
+  ) {
+    await this.ordersService.assertOrderExists(tenantId, storeId, orderId);
     return this.prisma.laborEntry.delete({ where: { id: entryId } });
   }
 }

@@ -15,6 +15,12 @@ import {
   parseDurationToMs,
   parseDurationToSeconds,
 } from '../common/utils/duration.util';
+import { computeEffectivePermissions } from '../common/permissions/permission.constants';
+
+const USER_ACCESS_INCLUDE = {
+  storeMemberships: { include: { store: { select: { id: true, name: true, code: true } } } },
+  permissionOverrides: { select: { permission: true, granted: true } },
+} as const;
 
 interface TokenPair {
   accessToken: string;
@@ -52,6 +58,9 @@ export class AuthService {
           slug: dto.slug,
         },
       });
+      const store = await tx.store.create({
+        data: { tenantId: tenant.id, name: 'Sucursal Principal', code: 'PRINCIPAL' },
+      });
       const user = await tx.user.create({
         data: {
           tenantId: tenant.id,
@@ -60,7 +69,9 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           role: Role.ADMIN,
+          storeMemberships: { create: { storeId: store.id } },
         },
+        include: USER_ACCESS_INCLUDE,
       });
       return { tenant, user };
     });
@@ -82,6 +93,7 @@ export class AuthService {
   async login(dto: LoginDto, ip?: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      include: USER_ACCESS_INCLUDE,
     });
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Credenciales inválidas');
@@ -110,7 +122,7 @@ export class AuthService {
     const tokenHash = this.hashToken(rawRefreshToken);
     const stored = await this.prisma.refreshToken.findFirst({
       where: { tokenHash },
-      include: { user: true },
+      include: { user: { include: USER_ACCESS_INCLUDE } },
     });
 
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
@@ -197,6 +209,8 @@ export class AuthService {
     firstName: string;
     lastName: string;
     role: Role;
+    storeMemberships: { store: { id: string; name: string; code: string } }[];
+    permissionOverrides: { permission: string; granted: boolean }[];
   }) {
     return {
       id: user.id,
@@ -205,6 +219,8 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      stores: user.storeMemberships.map((m) => m.store),
+      permissions: computeEffectivePermissions(user.role, user.permissionOverrides),
     };
   }
 }
