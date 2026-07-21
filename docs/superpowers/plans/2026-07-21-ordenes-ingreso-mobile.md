@@ -825,7 +825,39 @@ Add this private method inside the class, right after `assertOrderExists`:
   }
 ```
 
-- [ ] **Step 3: Make `create()` also generate a pickup code**
+- [ ] **Step 3: Add a helper that reactivates a soft-deleted client instead of colliding on `documentId`**
+
+`Client.documentId` has a `@@unique([tenantId, documentId])` constraint that is NOT relaxed by `isActive: false` (soft-delete). If a client was previously deactivated and later comes back with the same cédula through the "cliente nuevo" branch of the intake wizard, a blind `tx.client.create(...)` would throw an uncaught Prisma `P2002` (raw 500). Add this private method right after `generateUniquePickupCode`:
+
+```ts
+  private async createOrReactivateClient(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    newClient: {
+      documentId: string;
+      firstName: string;
+      lastName: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+    },
+  ) {
+    const inactive = await tx.client.findFirst({
+      where: { tenantId, documentId: newClient.documentId, isActive: false },
+    });
+    if (inactive) {
+      return tx.client.update({
+        where: { id: inactive.id },
+        data: { ...newClient, isActive: true },
+      });
+    }
+    return tx.client.create({ data: { tenantId, ...newClient } });
+  }
+```
+
+This mirrors the reactivation-over-recreation approach for the common real-world case (a returning customer), rather than surfacing a raw uniqueness error at the front desk.
+
+- [ ] **Step 4: Make `create()` also generate a pickup code**
 
 In the existing `create()` method, inside the `$transaction`, add the pickup code generation and pass it to `tx.order.create`:
 
@@ -856,7 +888,7 @@ In the existing `create()` method, inside the `$transaction`, add the pickup cod
 
 (Leave the rest of `create()` — the `orderStatusHistory.create` call and the `return created;` — unchanged.)
 
-- [ ] **Step 4: Block manually setting `DELIVERED` in `updateStatus()`**
+- [ ] **Step 5: Block manually setting `DELIVERED` in `updateStatus()`**
 
 In `updateStatus()`, right after `const order = await this.assertOrderExists(tenantId, id);`, add:
 
@@ -868,7 +900,7 @@ In `updateStatus()`, right after `const order = await this.assertOrderExists(ten
     }
 ```
 
-- [ ] **Step 5: Add the `intake()` method**
+- [ ] **Step 6: Add the `intake()` method**
 
 Add this method after `update()`:
 
@@ -924,7 +956,7 @@ Add this method after `update()`:
     const order = await this.prisma.$transaction(async (tx) => {
       const client = dto.clientId
         ? await tx.client.findFirstOrThrow({ where: { id: dto.clientId, tenantId } })
-        : await tx.client.create({ data: { tenantId, ...dto.newClient! } });
+        : await this.createOrReactivateClient(tx, tenantId, dto.newClient!);
 
       const motorcycle = dto.motorcycleId
         ? await tx.motorcycle.findFirstOrThrow({
@@ -990,7 +1022,7 @@ Add this method after `update()`:
   }
 ```
 
-- [ ] **Step 6: Add the `deliver()` method**
+- [ ] **Step 7: Add the `deliver()` method**
 
 Add this method after `intake()`:
 
@@ -1038,7 +1070,7 @@ Add this method after `intake()`:
   }
 ```
 
-- [ ] **Step 7: Add `sendIntakeConfirmationEmail()`**
+- [ ] **Step 8: Add `sendIntakeConfirmationEmail()`**
 
 Add this method after `deliver()`:
 
@@ -1061,12 +1093,12 @@ Add this method after `deliver()`:
   }
 ```
 
-- [ ] **Step 8: Verify it builds**
+- [ ] **Step 9: Verify it builds**
 
 Run: `pnpm --filter @taller/api build`
 Expected: TypeScript error about `EmailService.sendIntakeConfirmation` not existing yet — that's expected, it's added in Task 9. Confirm there are no *other* errors (all errors mention only `sendIntakeConfirmation`).
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add apps/api/src/orders/orders.service.ts
