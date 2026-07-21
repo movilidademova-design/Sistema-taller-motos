@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuickServiceDto } from './dto/create-quick-service.dto';
 import { UpdateQuickServiceDto } from './dto/update-quick-service.dto';
@@ -16,6 +16,12 @@ export class QuickServicesService {
   }
 
   async create(tenantId: string, dto: CreateQuickServiceDto) {
+    const existing = await this.prisma.quickService.findFirst({
+      where: { tenantId, label: dto.label },
+    });
+    if (existing) {
+      throw new ConflictException('Ya existe una etiqueta con ese nombre');
+    }
     const last = await this.prisma.quickService.findFirst({
       where: { tenantId },
       orderBy: { position: 'desc' },
@@ -27,6 +33,14 @@ export class QuickServicesService {
 
   async update(tenantId: string, id: string, dto: UpdateQuickServiceDto) {
     await this.assertExists(tenantId, id);
+    if (dto.label) {
+      const existing = await this.prisma.quickService.findFirst({
+        where: { tenantId, label: dto.label, NOT: { id } },
+      });
+      if (existing) {
+        throw new ConflictException('Ya existe una etiqueta con ese nombre');
+      }
+    }
     return this.prisma.quickService.update({ where: { id }, data: dto });
   }
 
