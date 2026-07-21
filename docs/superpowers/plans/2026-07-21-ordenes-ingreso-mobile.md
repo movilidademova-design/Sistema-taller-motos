@@ -651,9 +651,12 @@ export class NewVehicleIntakeDto {
 
 - [ ] **Step 3: `intake-order.dto.ts`**
 
+`@Type()` cannot be combined with a `@Transform()` that JSON-parses a multipart string field — `class-transformer` resolves `@Type()`'s nested instantiation against the pre-`@Transform` raw value, so a string is never promoted to a real DTO instance and `@ValidateNested()` then rejects every request. Do the JSON parse *and* the class instantiation inside one `@Transform`:
+
 ```ts
+import { BadRequestException } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { plainToInstance, Transform } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
@@ -665,8 +668,22 @@ import {
 import { NewClientIntakeDto } from './new-client-intake.dto';
 import { NewVehicleIntakeDto } from './new-vehicle-intake.dto';
 
-function parseIfString(value: unknown) {
-  return typeof value === 'string' ? JSON.parse(value) : value;
+function parseIfJsonString(value: unknown, fieldName: string): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new BadRequestException(`El campo "${fieldName}" no es JSON válido`);
+  }
+}
+
+function parseNestedField<T extends object>(
+  value: unknown,
+  dtoClass: new () => T,
+  fieldName: string,
+): T | undefined {
+  if (value === undefined || value === null) return undefined;
+  return plainToInstance(dtoClass, parseIfJsonString(value, fieldName));
 }
 
 export class IntakeOrderDto {
@@ -677,9 +694,8 @@ export class IntakeOrderDto {
 
   @ApiProperty({ required: false, type: NewClientIntakeDto })
   @IsOptional()
-  @Transform(({ value }) => parseIfString(value))
+  @Transform(({ value }) => parseNestedField(value, NewClientIntakeDto, 'newClient'))
   @ValidateNested()
-  @Type(() => NewClientIntakeDto)
   newClient?: NewClientIntakeDto;
 
   @ApiProperty({ required: false })
@@ -689,16 +705,15 @@ export class IntakeOrderDto {
 
   @ApiProperty({ required: false, type: NewVehicleIntakeDto })
   @IsOptional()
-  @Transform(({ value }) => parseIfString(value))
+  @Transform(({ value }) => parseNestedField(value, NewVehicleIntakeDto, 'newMotorcycle'))
   @ValidateNested()
-  @Type(() => NewVehicleIntakeDto)
   newMotorcycle?: NewVehicleIntakeDto;
 
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
-  @Transform(({ value }) => parseIfString(value))
+  @Transform(({ value }) => parseIfJsonString(value, 'quickServiceIds'))
   quickServiceIds?: string[];
 
   @ApiProperty()
@@ -712,20 +727,74 @@ export class IntakeOrderDto {
 
 ```ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, Length } from 'class-validator';
+import { IsString, Length, Matches } from 'class-validator';
 
 export class DeliverOrderDto {
   @ApiProperty({ example: '482931' })
   @IsString()
   @Length(6, 6)
+  @Matches(/^\d{6}$/, { message: 'La clave de retiro debe tener 6 dígitos' })
   pickupCode: string;
 }
 ```
 
-- [ ] **Step 5: Verify it builds**
+- [ ] **Step 4b: Add a regression test proving the nested multipart JSON validation actually works**
+
+Create `apps/api/src/orders/dto/intake-order.dto.spec.ts`:
+
+```ts
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { IntakeOrderDto } from './intake-order.dto';
+
+describe('IntakeOrderDto', () => {
+  it('validates successfully with a JSON-string newClient and newMotorcycle (as arrives via multipart/form-data)', async () => {
+    const raw = {
+      newClient: JSON.stringify({ documentId: '123', firstName: 'Ana', lastName: 'Gómez' }),
+      newMotorcycle: JSON.stringify({ vehicleType: 'MOTO', brand: 'Volt', model: 'X1' }),
+      description: 'No enciende',
+    };
+    const dto = plainToInstance(IntakeOrderDto, raw);
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects a newClient missing required fields', async () => {
+    const raw = {
+      newClient: JSON.stringify({ documentId: '123' }),
+      newMotorcycle: JSON.stringify({ vehicleType: 'MOTO', brand: 'Volt', model: 'X1' }),
+      description: 'No enciende',
+    };
+    const dto = plainToInstance(IntakeOrderDto, raw);
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'newClient')).toBe(true);
+  });
+
+  it('allows omitting newClient/newMotorcycle entirely when clientId/motorcycleId are used instead', async () => {
+    const raw = {
+      clientId: '11111111-1111-4111-8111-111111111111',
+      motorcycleId: '22222222-2222-4222-8222-222222222222',
+      description: 'No enciende',
+    };
+    const dto = plainToInstance(IntakeOrderDto, raw);
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('throws a BadRequestException for malformed JSON in newClient', () => {
+    const raw = { newClient: '{not valid json', description: 'x' };
+    expect(() => plainToInstance(IntakeOrderDto, raw)).toThrow('newClient');
+  });
+});
+```
+
+- [ ] **Step 5: Verify it builds and the new tests pass**
 
 Run: `pnpm --filter @taller/api build`
-Expected: no TypeScript errors (these DTOs aren't wired up yet, so this just checks syntax).
+Expected: no TypeScript errors (these DTOs aren't wired up to a controller yet, so this just checks syntax).
+
+Run: `pnpm --filter @taller/api test intake-order.dto`
+Expected: PASS (4 tests) — this is the regression test for the `@Transform`/nested-validation bug described in Step 3.
 
 - [ ] **Step 6: Commit**
 
