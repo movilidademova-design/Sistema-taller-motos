@@ -18,6 +18,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { QuickServicesModule } from './quick-services/quick-services.module';
 import { StorageModule } from './storage/storage.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule } from './audit/audit.module';
@@ -48,6 +49,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     InvoicesModule,
     DashboardModule,
     AppointmentsModule,
+    QuickServicesModule,
     AuditModule,
   ],
   controllers: [AppController],
