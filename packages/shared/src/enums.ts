@@ -179,3 +179,16 @@ export const AppointmentStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 export type AppointmentStatus = (typeof AppointmentStatus)[keyof typeof AppointmentStatus];
+
+export const VehicleType = {
+  BICIMOTO: 'BICIMOTO',
+  PATINETA: 'PATINETA',
+  MOTO: 'MOTO',
+} as const;
+export type VehicleType = (typeof VehicleType)[keyof typeof VehicleType];
+
+export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
+  BICIMOTO: 'Bicimoto',
+  PATINETA: 'Patineta',
+  MOTO: 'Moto',
+};
