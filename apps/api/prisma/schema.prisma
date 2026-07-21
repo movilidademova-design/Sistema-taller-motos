@@ -23,6 +23,12 @@ enum Role {
   CLIENT
 }
 
+enum VehicleType {
+  BICIMOTO
+  PATINETA
+  MOTO
+}
+
 enum OrderStatus {
   RECEIVED
   DIAGNOSING
@@ -175,8 +181,23 @@ model Tenant {
   auditLogs        AuditLog[]
   appointments     Appointment[]
   inventoryMovements InventoryMovement[]
+  quickServices      QuickService[]
 
   @@map("tenants")
+}
+
+model QuickService {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label     String
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, label])
+  @@index([tenantId])
+  @@map("quick_services")
 }
 
 model User {
@@ -265,6 +286,7 @@ model Motorcycle {
   client           Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
   brand            String
   model            String
+  vehicleType      VehicleType @default(MOTO)
   color            String?
   year             Int?
   serialNumber     String?
@@ -315,6 +337,10 @@ model Order {
   estimatedDeliveryAt  DateTime?
   deliveredAt          DateTime?
   cancelReason         String?
+  pickupCode           String?
+  pickupCodeVerifiedAt DateTime?
+  signatureUrl         String?
+  signedAt             DateTime?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
@@ -351,7 +377,7 @@ model OrderPhoto {
   id         String        @id @default(uuid())
   orderId    String
   order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  category   PhotoCategory
+  category   PhotoCategory?
   url        String
   uploadedAt DateTime      @default(now())
 
