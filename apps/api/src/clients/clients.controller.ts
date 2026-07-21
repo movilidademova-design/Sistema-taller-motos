@@ -32,6 +32,14 @@ export class ClientsController {
     return this.clientsService.findAll(tenantId, query);
   }
 
+  @Get('by-document/:documentId')
+  findByDocumentId(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.clientsService.findByDocumentId(tenantId, documentId);
+  }
+
   @Get(':id')
   findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
     return this.clientsService.findOne(tenantId, id);
