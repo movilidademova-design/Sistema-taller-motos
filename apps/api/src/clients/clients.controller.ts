@@ -32,6 +32,7 @@ export class ClientsController {
     return this.clientsService.findAll(tenantId, query);
   }
 
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
   @Get('by-document/:documentId')
   findByDocumentId(
     @CurrentUser('tenantId') tenantId: string,
