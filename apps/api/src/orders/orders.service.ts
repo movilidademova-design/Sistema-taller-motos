@@ -145,6 +145,13 @@ export class OrdersService {
     return order;
   }
 
+  /**
+   * Only safe to call AFTER `tx.tenant.update({ data: { nextOrderNumber: { increment: 1 } } })`
+   * in the same transaction — that update takes a row lock on the tenant that serializes
+   * concurrent order-creating transactions, which is what makes this uniqueness check race-free.
+   * Calling this before that update (or in a transaction that doesn't touch the tenant row)
+   * would not be safe under Postgres's default READ COMMITTED isolation.
+   */
   private async generateUniquePickupCode(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -186,7 +193,40 @@ export class OrdersService {
         data: { ...newClient, isActive: true },
       });
     }
-    return tx.client.create({ data: { tenantId, ...newClient } });
+    try {
+      return await tx.client.create({ data: { tenantId, ...newClient } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await tx.client.findFirst({
+          where: { tenantId, documentId: newClient.documentId },
+        });
+        if (existing) return existing;
+      }
+      throw error;
+    }
+  }
+
+  private async mustFindTenantClient(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    clientId: string,
+  ) {
+    const client = await tx.client.findFirst({ where: { id: clientId, tenantId } });
+    if (!client) throw new NotFoundException('Cliente no encontrado');
+    return client;
+  }
+
+  private async mustFindTenantMotorcycle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    motorcycleId: string,
+    clientId: string,
+  ) {
+    const motorcycle = await tx.motorcycle.findFirst({
+      where: { id: motorcycleId, tenantId, clientId },
+    });
+    if (!motorcycle) throw new NotFoundException('Vehículo no encontrado');
+    return motorcycle;
   }
 
   async create(tenantId: string, receptionistId: string, dto: CreateOrderDto) {
@@ -311,13 +351,11 @@ export class OrdersService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       const client = dto.clientId
-        ? await tx.client.findFirstOrThrow({ where: { id: dto.clientId, tenantId } })
+        ? await this.mustFindTenantClient(tx, tenantId, dto.clientId)
         : await this.createOrReactivateClient(tx, tenantId, dto.newClient!);
 
       const motorcycle = dto.motorcycleId
-        ? await tx.motorcycle.findFirstOrThrow({
-            where: { id: dto.motorcycleId, tenantId, clientId: client.id },
-          })
+        ? await this.mustFindTenantMotorcycle(tx, tenantId, dto.motorcycleId, client.id)
         : await tx.motorcycle.create({
             data: {
               tenantId,
