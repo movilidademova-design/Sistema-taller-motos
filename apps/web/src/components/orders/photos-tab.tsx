@@ -87,7 +87,7 @@ export function PhotosTab({
               <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted">
                 <Image
                   src={photo.url.startsWith('http') ? photo.url : `${API_ORIGIN}${photo.url}`}
-                  alt={photo.category ? CATEGORY_LABELS[photo.category] : 'Sin categoría'}
+                  alt={photo.category ? CATEGORY_LABELS[photo.category] : 'Foto de la orden'}
                   fill
                   className="object-cover"
                   unoptimized

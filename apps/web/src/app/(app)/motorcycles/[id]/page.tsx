@@ -32,13 +32,13 @@ export default function MotorcycleDetailPage({ params }: { params: Promise<{ id:
     );
   }
 
-  if (!moto) return <p>Bicimoto no encontrada.</p>;
+  if (!moto) return <p>Vehículo no encontrado.</p>;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <Link href="/motorcycles" className="flex items-center gap-1 text-sm text-muted-foreground hover:underline">
-          <ArrowLeft className="size-4" /> Bicimotos
+          <ArrowLeft className="size-4" /> Vehículos
         </Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
           {moto.brand} {moto.model}

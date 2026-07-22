@@ -66,7 +66,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
       <Tabs defaultValue="motorcycles">
         <TabsList>
-          <TabsTrigger value="motorcycles">Bicimotos ({client.motorcycles?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="motorcycles">Vehículos ({client.motorcycles?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="orders">Órdenes ({client.orders?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="invoices">Facturas ({client.invoices?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="payments">Pagos ({client.payments?.length ?? 0})</TabsTrigger>
