@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -6,12 +7,17 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { IntakeOrderDto } from './dto/intake-order.dto';
+import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -60,6 +66,44 @@ export class OrdersController {
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
   @Audit('Order')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'photos', maxCount: 10 },
+        { name: 'signature', maxCount: 1 },
+      ],
+      {
+        limits: { fileSize: 8 * 1024 * 1024 },
+        fileFilter: (_req, file, callback) => {
+          if (!/^image\/(jpeg|png|webp)$/.test(file.mimetype)) {
+            callback(
+              new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'),
+              false,
+            );
+            return;
+          }
+          callback(null, true);
+        },
+      },
+    ),
+  )
+  @Post('intake')
+  intake(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: IntakeOrderDto,
+    @UploadedFiles()
+    files: {
+      photos?: Express.Multer.File[];
+      signature?: Express.Multer.File[];
+    },
+  ) {
+    return this.ordersService.intake(tenantId, userId, dto, files);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @Audit('Order')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
@@ -79,5 +123,26 @@ export class OrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateStatus(tenantId, id, userId, dto);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @Audit('Order')
+  @Post(':id/deliver')
+  deliver(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+    @Body() dto: DeliverOrderDto,
+  ) {
+    return this.ordersService.deliver(tenantId, id, userId, dto);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @Post(':id/send-intake-message')
+  sendIntakeMessage(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.ordersService.sendIntakeConfirmationEmail(tenantId, id);
   }
 }
