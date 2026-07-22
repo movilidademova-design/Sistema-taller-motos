@@ -77,4 +77,28 @@ export class EmailService {
       html: `<p>Tu bicimoto (orden <strong>#${orderNumber}</strong>) ahora está: <strong>${statusLabel}</strong>.</p>`,
     });
   }
+
+  async sendIntakeConfirmation(
+    to: string,
+    data: {
+      clientFirstName: string;
+      orderNumber: number;
+      pickupCode: string;
+      tenantName: string;
+    },
+  ) {
+    return this.send({
+      to,
+      subject: `Hemos recibido tu vehículo — Orden #${data.orderNumber}`,
+      html: `
+        <p>Hola ${data.clientFirstName}.</p>
+        <p>Hemos recibido correctamente tu vehículo en nuestro taller.</p>
+        <p>📋 Número de Orden: <strong>${data.orderNumber}</strong><br/>
+        🔐 Clave de salida: <strong>${data.pickupCode}</strong></p>
+        <p>Esta clave será necesaria para retirar tu vehículo. Por favor, consérvala y no la compartas con terceros.</p>
+        <p>Puedes utilizar el número de orden para realizar consultas sobre el estado de la reparación.</p>
+        <p>Gracias por confiar en nosotros. Será un gusto atenderte.<br/>Equipo ${data.tenantName}</p>
+      `,
+    });
+  }
 }
