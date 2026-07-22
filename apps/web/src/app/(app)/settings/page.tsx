@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +23,7 @@ import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import { Role } from '@taller/shared';
-import type { UserSummary } from '@/lib/types';
+import type { QuickService, UserSummary } from '@/lib/types';
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador',
@@ -56,12 +56,16 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="users">Usuarios</TabsTrigger>
+          <TabsTrigger value="quick-services">Servicios rápidos</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralSettings />
         </TabsContent>
         <TabsContent value="users">
           <UsersSettings />
+        </TabsContent>
+        <TabsContent value="quick-services">
+          <QuickServicesSettings />
         </TabsContent>
       </Tabs>
     </div>
@@ -295,6 +299,141 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
       <DialogFooter>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Guardando...' : 'Crear usuario'}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function QuickServicesSettings() {
+  const { data: services, mutate } = useApiSWR<QuickService[]>('/quick-services');
+  const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<QuickService | null>(null);
+
+  async function handleMove(index: number, direction: -1 | 1) {
+    if (!services) return;
+    const next = [...services];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    await api.patch('/quick-services/reorder', { orderedIds: next.map((s) => s.id) });
+    mutate();
+  }
+
+  async function handleDelete(id: string) {
+    await api.delete(`/quick-services/${id}`);
+    mutate();
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-4">
+      <div>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) setEditing(null);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button size="sm" onClick={() => setEditing(null)}>
+              <Plus /> Nuevo servicio rápido
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <QuickServiceForm
+              editing={editing}
+              onSuccess={() => {
+                setOpen(false);
+                setEditing(null);
+                mutate();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div className="flex flex-col gap-2">
+        {services?.map((service, index) => (
+          <div key={service.id} className="flex items-center gap-2 rounded-lg border p-2">
+            <div className="flex flex-col">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => handleMove(index, -1)}
+                className="disabled:opacity-30"
+              >
+                <ChevronUp className="size-4" />
+              </button>
+              <button
+                type="button"
+                disabled={index === services.length - 1}
+                onClick={() => handleMove(index, 1)}
+                className="disabled:opacity-30"
+              >
+                <ChevronDown className="size-4" />
+              </button>
+            </div>
+            <span className="flex-1 text-sm">{service.label}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditing(service);
+                setOpen(true);
+              }}
+            >
+              Editar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => handleDelete(service.id)}>
+              Eliminar
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuickServiceForm({
+  editing,
+  onSuccess,
+}: {
+  editing: QuickService | null;
+  onSuccess: () => void;
+}) {
+  const [label, setLabel] = React.useState(editing?.label ?? '');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (editing) {
+        await api.patch(`/quick-services/${editing.id}`, { label });
+      } else {
+        await api.post('/quick-services', { label });
+      }
+      toast.success('Guardado');
+      onSuccess();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>{editing ? 'Editar servicio rápido' : 'Nuevo servicio rápido'}</DialogTitle>
+      </DialogHeader>
+      <div className="flex flex-col gap-1.5 py-4">
+        <Label>Nombre</Label>
+        <Input required value={label} onChange={(e) => setLabel(e.target.value)} />
+      </div>
+      <DialogFooter>
+        <Button type="submit" disabled={isSubmitting || !label}>
+          {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
       </DialogFooter>
     </form>
