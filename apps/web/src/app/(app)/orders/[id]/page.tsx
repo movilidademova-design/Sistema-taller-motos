@@ -100,6 +100,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <StatusChanger orderId={order.id} currentStatus={order.status} onUpdated={() => mutate()} />
+            {order.status === 'READY_FOR_DELIVERY' && (
+              <DeliverVehicleDialog orderId={order.id} onUpdated={() => mutate()} />
+            )}
             <InvoiceActions order={order} onUpdated={() => mutate()} />
           </CardContent>
         </Card>
@@ -169,11 +172,13 @@ function StatusChanger({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
-            <SelectItem key={value} value={value}>
-              {label}
-            </SelectItem>
-          ))}
+          {Object.entries(ORDER_STATUS_LABELS)
+            .filter(([value]) => value !== 'DELIVERED')
+            .map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
     </div>
@@ -231,6 +236,57 @@ function InvoiceActions({ order, onUpdated }: { order: Order; onUpdated: () => v
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdated: () => void }) {
+  const [open, setOpen] = React.useState(false);
+  const [pickupCode, setPickupCode] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.post(`/orders/${orderId}/deliver`, { pickupCode });
+      toast.success('Vehículo entregado');
+      setOpen(false);
+      setPickupCode('');
+      onUpdated();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm">Entregar vehículo</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Entregar vehículo</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5 py-4">
+            <Label>Clave de retiro</Label>
+            <Input
+              required
+              maxLength={6}
+              value={pickupCode}
+              onChange={(e) => setPickupCode(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={isSubmitting || pickupCode.length !== 6}>
+              {isSubmitting ? 'Verificando...' : 'Confirmar entrega'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
