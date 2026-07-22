@@ -173,7 +173,7 @@ function StatusChanger({
         </SelectTrigger>
         <SelectContent>
           {Object.entries(ORDER_STATUS_LABELS)
-            .filter(([value]) => value !== 'DELIVERED')
+            .filter(([value]) => value !== 'DELIVERED' || value === currentStatus)
             .map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
