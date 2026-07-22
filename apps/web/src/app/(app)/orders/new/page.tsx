@@ -127,6 +127,7 @@ export default function NewOrderWizardPage() {
   }
 
   async function handleSubmit() {
+    if (isSubmitting) return;
     if (signatureRef.current?.isEmpty()) {
       toast.error('Falta la firma del cliente');
       return;
@@ -512,6 +513,12 @@ export default function NewOrderWizardPage() {
                 <Button variant="outline" onClick={() => void handleSendEmail(result.order.id)}>
                   Enviar por correo
                 </Button>
+              )}
+              {!result.whatsappPhone && !result.order.client?.email && (
+                <p className="text-xs text-muted-foreground">
+                  El cliente no tiene teléfono ni correo registrado — copia el mensaje para
+                  entregárselo manualmente.
+                </p>
               )}
               <Button
                 variant="outline"
