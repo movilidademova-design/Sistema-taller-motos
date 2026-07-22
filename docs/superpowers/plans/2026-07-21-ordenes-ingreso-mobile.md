@@ -1766,20 +1766,32 @@ function QuickServicesSettings() {
   const { data: services, mutate } = useApiSWR<QuickService[]>('/quick-services');
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<QuickService | null>(null);
+  const [isReordering, setIsReordering] = React.useState(false);
 
   async function handleMove(index: number, direction: -1 | 1) {
-    if (!services) return;
+    if (!services || isReordering) return;
     const next = [...services];
     const target = index + direction;
     if (target < 0 || target >= next.length) return;
     [next[index], next[target]] = [next[target], next[index]];
-    await api.patch('/quick-services/reorder', { orderedIds: next.map((s) => s.id) });
-    mutate();
+    setIsReordering(true);
+    try {
+      await api.patch('/quick-services/reorder', { orderedIds: next.map((s) => s.id) });
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsReordering(false);
+    }
   }
 
   async function handleDelete(id: string) {
-    await api.delete(`/quick-services/${id}`);
-    mutate();
+    try {
+      await api.delete(`/quick-services/${id}`);
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   }
 
   return (
@@ -1815,16 +1827,18 @@ function QuickServicesSettings() {
             <div className="flex flex-col">
               <button
                 type="button"
-                disabled={index === 0}
+                disabled={index === 0 || isReordering}
                 onClick={() => handleMove(index, -1)}
+                aria-label="Mover arriba"
                 className="disabled:opacity-30"
               >
                 <ChevronUp className="size-4" />
               </button>
               <button
                 type="button"
-                disabled={index === services.length - 1}
+                disabled={index === services.length - 1 || isReordering}
                 onClick={() => handleMove(index, 1)}
+                aria-label="Mover abajo"
                 className="disabled:opacity-30"
               >
                 <ChevronDown className="size-4" />
