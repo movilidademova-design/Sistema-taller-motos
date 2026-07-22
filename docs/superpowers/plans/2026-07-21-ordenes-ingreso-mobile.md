@@ -873,6 +873,13 @@ export class OrdersService {
 Add this private method inside the class, right after `assertOrderExists`:
 
 ```ts
+  /**
+   * Only safe to call AFTER `tx.tenant.update({ data: { nextOrderNumber: { increment: 1 } } })`
+   * in the same transaction — that update takes a row lock on the tenant that serializes
+   * concurrent order-creating transactions, which is what makes this uniqueness check race-free.
+   * Calling this before that update (or in a transaction that doesn't touch the tenant row)
+   * would not be safe under Postgres's default READ COMMITTED isolation.
+   */
   private async generateUniquePickupCode(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -920,11 +927,50 @@ Add this private method inside the class, right after `assertOrderExists`:
         data: { ...newClient, isActive: true },
       });
     }
-    return tx.client.create({ data: { tenantId, ...newClient } });
+    try {
+      return await tx.client.create({ data: { tenantId, ...newClient } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await tx.client.findFirst({
+          where: { tenantId, documentId: newClient.documentId },
+        });
+        if (existing) return existing;
+      }
+      throw error;
+    }
   }
 ```
 
-This mirrors the reactivation-over-recreation approach for the common real-world case (a returning customer), rather than surfacing a raw uniqueness error at the front desk.
+This mirrors the reactivation-over-recreation approach for the common real-world case (a returning customer), rather than surfacing a raw uniqueness error at the front desk. The `try/catch` around the `create` additionally covers the case of two concurrent intake requests creating the same brand-new `documentId` at the same time — the loser reuses the winner's row instead of crashing with an unhandled `P2002`.
+
+- [ ] **Step 3b: Add helpers for consistent 404s on the in-transaction client/motorcycle re-check**
+
+`intake()` (Step 6 below) validates `clientId`/`motorcycleId` ownership once before uploading files, then must re-validate inside the transaction immediately before use. Using Prisma's `findFirstOrThrow` there would throw Prisma's own error type instead of this file's usual `NotFoundException`. Add these two private methods right after `createOrReactivateClient`:
+
+```ts
+  private async mustFindTenantClient(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    clientId: string,
+  ) {
+    const client = await tx.client.findFirst({ where: { id: clientId, tenantId } });
+    if (!client) throw new NotFoundException('Cliente no encontrado');
+    return client;
+  }
+
+  private async mustFindTenantMotorcycle(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    motorcycleId: string,
+    clientId: string,
+  ) {
+    const motorcycle = await tx.motorcycle.findFirst({
+      where: { id: motorcycleId, tenantId, clientId },
+    });
+    if (!motorcycle) throw new NotFoundException('Vehículo no encontrado');
+    return motorcycle;
+  }
+```
 
 - [ ] **Step 4: Make `create()` also generate a pickup code**
 
@@ -1024,13 +1070,11 @@ Add this method after `update()`:
 
     const order = await this.prisma.$transaction(async (tx) => {
       const client = dto.clientId
-        ? await tx.client.findFirstOrThrow({ where: { id: dto.clientId, tenantId } })
+        ? await this.mustFindTenantClient(tx, tenantId, dto.clientId)
         : await this.createOrReactivateClient(tx, tenantId, dto.newClient!);
 
       const motorcycle = dto.motorcycleId
-        ? await tx.motorcycle.findFirstOrThrow({
-            where: { id: dto.motorcycleId, tenantId, clientId: client.id },
-          })
+        ? await this.mustFindTenantMotorcycle(tx, tenantId, dto.motorcycleId, client.id)
         : await tx.motorcycle.create({
             data: {
               tenantId,
