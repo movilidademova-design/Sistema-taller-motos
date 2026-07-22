@@ -1930,7 +1930,7 @@ import { QuickServiceChips } from '@/components/orders/quick-service-chips';
 import { PhotoCaptureGrid } from '@/components/orders/photo-capture-grid';
 import { SignaturePad, type SignaturePadHandle } from '@/components/orders/signature-pad';
 import { useApiSWR } from '@/hooks/use-api-swr';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import { VehicleType, VEHICLE_TYPE_LABELS } from '@taller/shared';
 import type { Client, Motorcycle, Order, QuickService } from '@/lib/types';
@@ -2009,17 +2009,21 @@ export default function NewOrderWizardPage() {
 
   async function handleSearchClient() {
     setIsSearching(true);
-    setSearchedOnce(false);
     try {
       const client = await api.get<Client & { motorcycles: Motorcycle[] }>(
         `/clients/by-document/${encodeURIComponent(documentId)}`,
       );
       setFoundClient(client);
-    } catch {
-      setFoundClient(null);
+      setSearchedOnce(true);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        setFoundClient(null);
+        setSearchedOnce(true);
+      } else {
+        toast.error(getErrorMessage(error));
+      }
     } finally {
       setIsSearching(false);
-      setSearchedOnce(true);
     }
   }
 
@@ -2060,6 +2064,8 @@ export default function NewOrderWizardPage() {
                     setDocumentId(e.target.value);
                     setFoundClient(null);
                     setSearchedOnce(false);
+                    setSelectedMotorcycleId('');
+                    setIsNewVehicle(false);
                   }}
                   placeholder="1020304050"
                 />
