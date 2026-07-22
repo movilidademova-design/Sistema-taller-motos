@@ -2847,6 +2847,22 @@ And update the `alt` prop of the `<Image>` above it similarly:
                   alt={photo.category ? CATEGORY_LABELS[photo.category] : 'Foto de la orden'}
 ```
 
+- [ ] **Step 4b: Fix the terminology inconsistency the rename creates on the destination pages**
+
+Renaming the nav label to "Vehículos" while the pages it links to still say "Bicimotos" is a jarring, self-inflicted inconsistency. Update these additional files in the same commit:
+
+- `apps/web/src/app/(app)/motorcycles/page.tsx`: `<h1>Bicimotos</h1>` → `<h1>Vehículos</h1>`; "Nueva bicimoto" (button + dialog title) → "Nuevo vehículo"; "No hay bicimotos registradas" → "No hay vehículos registrados"; `toast.success('Bicimoto registrada')` → `toast.success('Vehículo registrado')`; "Guardar bicimoto" → "Guardar vehículo".
+- `apps/web/src/app/(app)/motorcycles/[id]/page.tsx`: `"Bicimoto no encontrada."` → `"Vehículo no encontrado."`; back-link text `Bicimotos` → `Vehículos`.
+- `apps/web/src/app/(app)/clients/[id]/page.tsx`: tab label `Bicimotos ({...})` → `Vehículos ({...})`.
+
+Also fix the alt-text fallback in `photos-tab.tsx` to describe image content rather than repeat "no category" (alt text and the "no category" badge shouldn't share the same string):
+```tsx
+                  alt={photo.category ? CATEGORY_LABELS[photo.category] : 'Foto de la orden'}
+```
+(leave the badge fallback as `'Sin categoría'` — only the `alt` fallback changes.)
+
+Do not rename "Taller Bicimotos"/similar occurrences that refer to the product/brand name (`layout.tsx`, `login/page.tsx`, `register/page.tsx`, `sidebar-nav.tsx`, `main.ts`) — those are out of scope.
+
 - [ ] **Step 5: Verify both apps build**
 
 Run: `pnpm --filter @taller/api build && pnpm --filter @taller/web build`
