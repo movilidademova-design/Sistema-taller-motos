@@ -11,6 +11,7 @@ import type {
   InvoiceStatus,
   AppointmentType,
   AppointmentStatus,
+  VehicleType,
 } from '@taller/shared';
 
 export interface PaginatedResult<T> {
@@ -56,6 +57,7 @@ export interface Client {
 export interface Motorcycle {
   id: string;
   clientId: string;
+  vehicleType: VehicleType;
   client?: Pick<Client, 'id' | 'firstName' | 'lastName'>;
   brand: string;
   model: string;
@@ -78,6 +80,13 @@ export interface Motorcycle {
   warranties?: Warranty[];
 }
 
+export interface QuickService {
+  id: string;
+  label: string;
+  position: number;
+  isActive: boolean;
+}
+
 export interface ChecklistItem {
   id: string;
   item: ChecklistItemType;
@@ -87,7 +96,7 @@ export interface ChecklistItem {
 
 export interface OrderPhoto {
   id: string;
-  category: PhotoCategory;
+  category?: PhotoCategory | null;
   url: string;
   uploadedAt: string;
 }
@@ -173,6 +182,10 @@ export interface Order {
   estimatedDeliveryAt?: string | null;
   deliveredAt?: string | null;
   cancelReason?: string | null;
+  pickupCode?: string | null;
+  pickupCodeVerifiedAt?: string | null;
+  signatureUrl?: string | null;
+  signedAt?: string | null;
   createdAt: string;
   client?: Client;
   motorcycle?: Motorcycle;

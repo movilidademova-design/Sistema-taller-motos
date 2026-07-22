@@ -87,14 +87,14 @@ export function PhotosTab({
               <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted">
                 <Image
                   src={photo.url.startsWith('http') ? photo.url : `${API_ORIGIN}${photo.url}`}
-                  alt={CATEGORY_LABELS[photo.category]}
+                  alt={photo.category ? CATEGORY_LABELS[photo.category] : 'Sin categoría'}
                   fill
                   className="object-cover"
                   unoptimized
                 />
               </div>
               <Badge variant="secondary" className="w-fit">
-                {CATEGORY_LABELS[photo.category]}
+                {photo.category ? CATEGORY_LABELS[photo.category] : 'Sin categoría'}
               </Badge>
             </div>
           ))}
