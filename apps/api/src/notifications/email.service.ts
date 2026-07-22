@@ -9,6 +9,16 @@ interface SendMailOptions {
   attachments?: { filename: string; content: Buffer }[];
 }
 
+/** Escapes free-text values before interpolating them into an HTML email body. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -91,13 +101,13 @@ export class EmailService {
       to,
       subject: `Hemos recibido tu vehículo — Orden #${data.orderNumber}`,
       html: `
-        <p>Hola ${data.clientFirstName}.</p>
+        <p>Hola ${escapeHtml(data.clientFirstName)}.</p>
         <p>Hemos recibido correctamente tu vehículo en nuestro taller.</p>
         <p>📋 Número de Orden: <strong>${data.orderNumber}</strong><br/>
         🔐 Clave de salida: <strong>${data.pickupCode}</strong></p>
         <p>Esta clave será necesaria para retirar tu vehículo. Por favor, consérvala y no la compartas con terceros.</p>
         <p>Puedes utilizar el número de orden para realizar consultas sobre el estado de la reparación.</p>
-        <p>Gracias por confiar en nosotros. Será un gusto atenderte.<br/>Equipo ${data.tenantName}</p>
+        <p>Gracias por confiar en nosotros. Será un gusto atenderte.<br/>Equipo ${escapeHtml(data.tenantName)}</p>
       `,
     });
   }
