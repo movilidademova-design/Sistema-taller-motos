@@ -83,6 +83,7 @@ export default function NewOrderWizardPage() {
   });
 
   const { data: quickServices } = useApiSWR<QuickService[]>('/quick-services');
+  const { data: tenant } = useApiSWR<{ name: string }>('/tenant/settings');
   const [selectedQuickServiceIds, setSelectedQuickServiceIds] = React.useState<string[]>([]);
   const [description, setDescription] = React.useState('');
 
@@ -123,6 +124,66 @@ export default function NewOrderWizardPage() {
   function goBack() {
     const index = STEP_ORDER.indexOf(step);
     setStep(STEP_ORDER[Math.max(index - 1, 0)]);
+  }
+
+  async function handleSubmit() {
+    if (signatureRef.current?.isEmpty()) {
+      toast.error('Falta la firma del cliente');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      if (foundClient) {
+        formData.append('clientId', foundClient.id);
+      } else {
+        formData.append(
+          'newClient',
+          JSON.stringify({ documentId, ...newClientForm }),
+        );
+      }
+      const usingExistingVehicle =
+        !isNewVehicle && !!foundClient && foundClient.motorcycles.length > 0;
+      if (usingExistingVehicle) {
+        formData.append('motorcycleId', selectedMotorcycleId);
+      } else {
+        formData.append('newMotorcycle', JSON.stringify(newVehicleForm));
+      }
+      if (selectedQuickServiceIds.length) {
+        formData.append('quickServiceIds', JSON.stringify(selectedQuickServiceIds));
+      }
+      formData.append('description', description);
+      photos.forEach((file) => formData.append('photos', file));
+      const signatureBlob = await signatureRef.current?.toBlob();
+      if (signatureBlob) formData.append('signature', signatureBlob, 'signature.png');
+
+      const order = await api.upload<Order>('/orders/intake', formData);
+      const message = buildIntakeMessage({
+        firstName: order.client?.firstName ?? '',
+        orderNumber: order.orderNumber,
+        pickupCode: order.pickupCode ?? '',
+        tenantName: tenant?.name ?? '',
+      });
+      setResult({
+        order,
+        message,
+        whatsappPhone: order.client?.phone ? order.client.phone.replace(/\D/g, '') : null,
+      });
+      setStep('done');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSendEmail(orderId: string) {
+    try {
+      await api.post(`/orders/${orderId}/send-intake-message`);
+      toast.success('Correo enviado');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   }
 
   return (
@@ -385,9 +446,107 @@ export default function NewOrderWizardPage() {
         </Card>
       )}
 
-      {(step === 'photos' || step === 'signature' || step === 'done') && (
-        <p className="text-sm text-muted-foreground">(continúa en la siguiente tarea)</p>
+      {step === 'photos' && (
+        <Card>
+          <CardContent className="flex flex-col gap-4 pt-6">
+            <Label>Fotos del vehículo (hasta 10)</Label>
+            <PhotoCaptureGrid files={photos} onChange={setPhotos} />
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={goBack}>
+                <ArrowLeft className="size-4" /> Atrás
+              </Button>
+              <Button className="flex-1" onClick={goNext}>
+                Siguiente <ArrowRight className="size-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 'signature' && (
+        <Card>
+          <CardContent className="flex flex-col gap-4 pt-6">
+            <Label>Firma del cliente</Label>
+            <SignaturePad ref={signatureRef} />
+            <p className="text-xs text-muted-foreground">
+              Al firmar, el cliente acepta los términos y condiciones del servicio de recepción
+              y reparación de este taller.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={goBack} disabled={isSubmitting}>
+                <ArrowLeft className="size-4" /> Atrás
+              </Button>
+              <Button className="flex-1" onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? 'Creando orden...' : 'Confirmar y crear orden'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 'done' && result && (
+        <Card>
+          <CardContent className="flex flex-col gap-4 pt-6 text-center">
+            <div>
+              <p className="text-sm text-muted-foreground">Número de orden</p>
+              <p className="text-3xl font-bold">#{result.order.orderNumber}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Clave de salida</p>
+              <p className="text-3xl font-bold tracking-widest">{result.order.pickupCode}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {result.whatsappPhone && (
+                <Button
+                  onClick={() =>
+                    window.open(
+                      `https://wa.me/${result.whatsappPhone}?text=${encodeURIComponent(result.message)}`,
+                      '_blank',
+                    )
+                  }
+                >
+                  Enviar por WhatsApp
+                </Button>
+              )}
+              {result.order.client?.email && (
+                <Button variant="outline" onClick={() => void handleSendEmail(result.order.id)}>
+                  Enviar por correo
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(result.message);
+                  toast.success('Mensaje copiado');
+                }}
+              >
+                Copiar mensaje
+              </Button>
+              <Button variant="ghost" onClick={() => router.push(`/orders/${result.order.id}`)}>
+                Ver la orden
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
+}
+
+function buildIntakeMessage(data: {
+  firstName: string;
+  orderNumber: number;
+  pickupCode: string;
+  tenantName: string;
+}) {
+  return [
+    `Hola ${data.firstName}.`,
+    'Hemos recibido correctamente tu vehículo en nuestro taller.',
+    `📋 Número de Orden: ${data.orderNumber}`,
+    `🔐 Clave de salida: ${data.pickupCode}`,
+    'Esta clave será necesaria para retirar tu vehículo. Por favor, consérvala y no la compartas con terceros.',
+    'Puedes utilizar el número de orden para realizar consultas sobre el estado de la reparación.',
+    'Gracias por confiar en nosotros. Será un gusto atenderte.',
+    `Equipo ${data.tenantName}`,
+  ].join('\n');
 }
