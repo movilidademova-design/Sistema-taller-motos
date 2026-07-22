@@ -2622,12 +2622,13 @@ Replace:
 ```
 with:
 ```tsx
-        <Link href="/orders/new">
-          <Button>
+        <Button asChild>
+          <Link href="/orders/new">
             <Plus /> Nueva orden
-          </Button>
-        </Link>
+          </Link>
+        </Button>
 ```
+(`Button asChild` renders via Radix `Slot` onto the `Link`'s own `<a>`, avoiding an invalid `<button>`-inside-`<a>` nesting — matches the pattern already used everywhere else in this codebase for `DialogTrigger asChild`.)
 
 - [ ] **Step 3: Remove the now-unused `open` state**
 
