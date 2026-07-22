@@ -85,6 +85,7 @@ export interface QuickService {
   label: string;
   position: number;
   isActive: boolean;
+  createdAt: string;
 }
 
 export interface ChecklistItem {
