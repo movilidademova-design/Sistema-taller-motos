@@ -1,5 +1,6 @@
+import { BadRequestException } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { plainToInstance, Transform } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
@@ -11,8 +12,22 @@ import {
 import { NewClientIntakeDto } from './new-client-intake.dto';
 import { NewVehicleIntakeDto } from './new-vehicle-intake.dto';
 
-function parseIfString(value: unknown) {
-  return typeof value === 'string' ? JSON.parse(value) : value;
+function parseIfJsonString(value: unknown, fieldName: string): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new BadRequestException(`El campo "${fieldName}" no es JSON válido`);
+  }
+}
+
+function parseNestedField<T extends object>(
+  value: unknown,
+  dtoClass: new () => T,
+  fieldName: string,
+): T | undefined {
+  if (value === undefined || value === null) return undefined;
+  return plainToInstance(dtoClass, parseIfJsonString(value, fieldName));
 }
 
 export class IntakeOrderDto {
@@ -23,9 +38,8 @@ export class IntakeOrderDto {
 
   @ApiProperty({ required: false, type: NewClientIntakeDto })
   @IsOptional()
-  @Transform(({ value }) => parseIfString(value))
+  @Transform(({ value }) => parseNestedField(value, NewClientIntakeDto, 'newClient'))
   @ValidateNested()
-  @Type(() => NewClientIntakeDto)
   newClient?: NewClientIntakeDto;
 
   @ApiProperty({ required: false })
@@ -35,16 +49,15 @@ export class IntakeOrderDto {
 
   @ApiProperty({ required: false, type: NewVehicleIntakeDto })
   @IsOptional()
-  @Transform(({ value }) => parseIfString(value))
+  @Transform(({ value }) => parseNestedField(value, NewVehicleIntakeDto, 'newMotorcycle'))
   @ValidateNested()
-  @Type(() => NewVehicleIntakeDto)
   newMotorcycle?: NewVehicleIntakeDto;
 
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
-  @Transform(({ value }) => parseIfString(value))
+  @Transform(({ value }) => parseIfJsonString(value, 'quickServiceIds'))
   quickServiceIds?: string[];
 
   @ApiProperty()
