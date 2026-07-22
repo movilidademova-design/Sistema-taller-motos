@@ -23,7 +23,7 @@ export class PhotosService {
   async upload(
     tenantId: string,
     orderId: string,
-    category: PhotoCategory,
+    category: PhotoCategory | undefined,
     file: Express.Multer.File,
   ) {
     await this.ordersService.assertOrderExists(tenantId, orderId);
@@ -33,7 +33,9 @@ export class PhotosService {
       file.mimetype,
       'orders',
     );
-    return this.prisma.orderPhoto.create({ data: { orderId, category, url } });
+    return this.prisma.orderPhoto.create({
+      data: { orderId, category: category || undefined, url },
+    });
   }
 
   async remove(tenantId: string, orderId: string, photoId: string) {

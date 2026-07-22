@@ -25,7 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
   { href: '/orders', label: 'Órdenes', icon: ClipboardList },
   { href: '/clients', label: 'Clientes', icon: Users, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
-  { href: '/motorcycles', label: 'Bicimotos', icon: Bike, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
+  { href: '/motorcycles', label: 'Vehículos', icon: Bike, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
   { href: '/inventory', label: 'Inventario', icon: Package, roles: ['ADMIN', 'MANAGER'] },
   { href: '/purchases', label: 'Compras', icon: ShoppingCart, roles: ['ADMIN', 'MANAGER'] },
   { href: '/warranties', label: 'Garantías', icon: ShieldCheck, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },

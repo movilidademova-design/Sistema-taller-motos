@@ -34,7 +34,7 @@ export function PhotosTab({
   photos: OrderPhoto[];
   onUpdated: () => void;
 }) {
-  const [category, setCategory] = React.useState<PhotoCategory>(PhotoCategory.FRONT);
+  const [category, setCategory] = React.useState<PhotoCategory | undefined>(undefined);
   const [isUploading, setIsUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -45,7 +45,7 @@ export function PhotosTab({
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('category', category);
+      if (category) formData.append('category', category);
       await api.upload(`/orders/${orderId}/photos`, formData);
       toast.success('Foto subida');
       onUpdated();
@@ -62,7 +62,7 @@ export function PhotosTab({
       <div className="flex flex-wrap items-center gap-3">
         <Select value={category} onValueChange={(v) => setCategory(v as PhotoCategory)}>
           <SelectTrigger className="w-56">
-            <SelectValue />
+            <SelectValue placeholder="Sin categoría (opcional)" />
           </SelectTrigger>
           <SelectContent>
             {Object.entries(CATEGORY_LABELS).map(([value, label]) => (

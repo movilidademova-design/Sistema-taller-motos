@@ -38,7 +38,7 @@ export class PhotosController {
   upload(
     @CurrentUser('tenantId') tenantId: string,
     @Param('orderId') orderId: string,
-    @Body('category') category: PhotoCategory,
+    @Body('category') category: PhotoCategory | undefined,
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.photosService.upload(tenantId, orderId, category, file);
