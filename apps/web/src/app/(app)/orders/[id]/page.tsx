@@ -246,6 +246,7 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       await api.post(`/orders/${orderId}/deliver`, { pickupCode });
@@ -261,7 +262,13 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setPickupCode('');
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm">Entregar vehículo</Button>
       </DialogTrigger>
@@ -274,13 +281,14 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
             <Label>Clave de retiro</Label>
             <Input
               required
+              inputMode="numeric"
               maxLength={6}
               value={pickupCode}
-              onChange={(e) => setPickupCode(e.target.value)}
+              onChange={(e) => setPickupCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting || pickupCode.length !== 6}>
+            <Button type="submit" disabled={isSubmitting || !/^\d{6}$/.test(pickupCode)}>
               {isSubmitting ? 'Verificando...' : 'Confirmar entrega'}
             </Button>
           </DialogFooter>
