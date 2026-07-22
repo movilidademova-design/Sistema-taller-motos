@@ -2669,10 +2669,10 @@ In `StatusChanger`, change:
 to:
 ```tsx
           {Object.entries(ORDER_STATUS_LABELS)
-            .filter(([value]) => value !== 'DELIVERED')
+            .filter(([value]) => value !== 'DELIVERED' || value === currentStatus)
             .map(([value, label]) => (
 ```
-(and close the added `.filter(...)` parenthesis correctly — the existing `<SelectItem>` block and its closing `))}` stay the same, just now chained after `.filter(...)`.)
+(and close the added `.filter(...)` parenthesis correctly — the existing `<SelectItem>` block and its closing `))}` stay the same, just now chained after `.filter(...)`. The `|| value === currentStatus` clause keeps `DELIVERED` selectable-as-display only for an order that's already delivered — without it, a delivered order's `<SelectValue>` has no matching item in the list and renders blank instead of "Entregada". Found via manual end-to-end testing in Task 19.)
 
 - [ ] **Step 2: Add the `DeliverVehicleDialog` component**
 
