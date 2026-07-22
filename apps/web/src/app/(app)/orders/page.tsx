@@ -33,11 +33,11 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Órdenes de trabajo</h1>
           <p className="text-sm text-muted-foreground">{data?.total ?? 0} órdenes</p>
         </div>
-        <Link href="/orders/new">
-          <Button>
+        <Button asChild>
+          <Link href="/orders/new">
             <Plus /> Nueva orden
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
