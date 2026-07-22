@@ -2433,6 +2433,12 @@ with:
                   Enviar por correo
                 </Button>
               )}
+              {!result.whatsappPhone && !result.order.client?.email && (
+                <p className="text-xs text-muted-foreground">
+                  El cliente no tiene teléfono ni correo registrado — copia el mensaje para
+                  entregárselo manualmente.
+                </p>
+              )}
               <Button
                 variant="outline"
                 onClick={async () => {
@@ -2468,6 +2474,7 @@ Add these right after `goBack()` (before the `return`):
 
 ```tsx
   async function handleSubmit() {
+    if (isSubmitting) return;
     if (signatureRef.current?.isEmpty()) {
       toast.error('Falta la firma del cliente');
       return;
