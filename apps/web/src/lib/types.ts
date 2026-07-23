@@ -88,6 +88,14 @@ export interface QuickService {
   createdAt: string;
 }
 
+export interface AccessoryOption {
+  id: string;
+  label: string;
+  position: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface ChecklistItem {
   id: string;
   item: ChecklistItemType;
