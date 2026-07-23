@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,28 +23,36 @@ export function AccessoryChecklist({
   otherText: string;
   onOtherTextChange: (value: string) => void;
 }) {
+  const otherTextId = React.useId();
+
   return (
     <div className="flex flex-col gap-3">
       {options.map((option) => (
-        <label key={option.id} className="flex items-center gap-2 text-sm">
+        <Label key={option.id} className="font-normal">
           <Checkbox
             checked={selectedIds.includes(option.id)}
             onCheckedChange={() => onToggle(option.id)}
           />
           {option.label}
-        </label>
+        </Label>
       ))}
-      <label className="flex items-center gap-2 text-sm">
+      <Label className="font-normal">
         <Checkbox
           checked={otherChecked}
           onCheckedChange={(checked) => onOtherCheckedChange(checked === true)}
         />
         Otro
-      </label>
+      </Label>
       {otherChecked && (
         <div className="flex flex-col gap-1.5 pl-6">
-          <Label className="text-xs text-muted-foreground">Especifica cuál</Label>
-          <Input value={otherText} onChange={(e) => onOtherTextChange(e.target.value)} />
+          <Label htmlFor={otherTextId} className="text-xs text-muted-foreground">
+            Especifica cuál
+          </Label>
+          <Input
+            id={otherTextId}
+            value={otherText}
+            onChange={(e) => onOtherTextChange(e.target.value)}
+          />
         </div>
       )}
     </div>
