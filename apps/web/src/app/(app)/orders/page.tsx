@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ const STATUS_OPTIONS = Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, stri
 export default function OrdersPage() {
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState<string>('ALL');
+  const router = useRouter();
 
   const params = new URLSearchParams();
   if (search) params.set('search', search);
@@ -94,7 +96,11 @@ export default function OrdersPage() {
               </TableRow>
             )}
             {data?.items.map((order) => (
-              <TableRow key={order.id}>
+              <TableRow
+                key={order.id}
+                onClick={() => router.push(`/orders/${order.id}`)}
+                className="cursor-pointer hover:bg-muted/50"
+              >
                 <TableCell className="font-medium">
                   <Link href={`/orders/${order.id}`} className="hover:underline">
                     #{order.orderNumber}
