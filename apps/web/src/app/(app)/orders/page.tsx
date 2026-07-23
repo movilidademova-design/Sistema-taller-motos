@@ -101,7 +101,7 @@ export default function OrdersPage() {
                 onClick={() => router.push(`/orders/${order.id}`)}
                 className="cursor-pointer hover:bg-muted/50"
               >
-                <TableCell className="font-medium">
+                <TableCell className="font-medium" onClick={(e) => e.stopPropagation()}>
                   <Link href={`/orders/${order.id}`} className="hover:underline">
                     #{order.orderNumber}
                   </Link>
