@@ -23,7 +23,7 @@ import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import { Role } from '@taller/shared';
-import type { QuickService, UserSummary } from '@/lib/types';
+import type { AccessoryOption, QuickService, UserSummary } from '@/lib/types';
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador',
@@ -57,6 +57,7 @@ export default function SettingsPage() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="quick-services">Servicios rápidos</TabsTrigger>
+          <TabsTrigger value="accessories">Accesorios</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralSettings />
@@ -66,6 +67,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="quick-services">
           <QuickServicesSettings />
+        </TabsContent>
+        <TabsContent value="accessories">
+          <AccessoryOptionsSettings />
         </TabsContent>
       </Tabs>
     </div>
@@ -440,6 +444,155 @@ function QuickServiceForm({
     <form onSubmit={handleSubmit}>
       <DialogHeader>
         <DialogTitle>{editing ? 'Editar servicio rápido' : 'Nuevo servicio rápido'}</DialogTitle>
+      </DialogHeader>
+      <div className="flex flex-col gap-1.5 py-4">
+        <Label>Nombre</Label>
+        <Input required value={label} onChange={(e) => setLabel(e.target.value)} />
+      </div>
+      <DialogFooter>
+        <Button type="submit" disabled={isSubmitting || !label}>
+          {isSubmitting ? 'Guardando...' : 'Guardar'}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function AccessoryOptionsSettings() {
+  const { data: options, mutate } = useApiSWR<AccessoryOption[]>('/accessory-options');
+  const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<AccessoryOption | null>(null);
+  const [isReordering, setIsReordering] = React.useState(false);
+
+  async function handleMove(index: number, direction: -1 | 1) {
+    if (!options || isReordering) return;
+    const next = [...options];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setIsReordering(true);
+    try {
+      await api.patch('/accessory-options/reorder', { orderedIds: next.map((o) => o.id) });
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsReordering(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await api.delete(`/accessory-options/${id}`);
+      mutate();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-4">
+      <div>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) setEditing(null);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button size="sm" onClick={() => setEditing(null)}>
+              <Plus /> Nuevo accesorio
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <AccessoryOptionForm
+              editing={editing}
+              onSuccess={() => {
+                setOpen(false);
+                setEditing(null);
+                mutate();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div className="flex flex-col gap-2">
+        {options?.map((option, index) => (
+          <div key={option.id} className="flex items-center gap-2 rounded-lg border p-2">
+            <div className="flex flex-col">
+              <button
+                type="button"
+                disabled={index === 0 || isReordering}
+                onClick={() => handleMove(index, -1)}
+                aria-label="Mover arriba"
+                className="disabled:opacity-30"
+              >
+                <ChevronUp className="size-4" />
+              </button>
+              <button
+                type="button"
+                disabled={index === options.length - 1 || isReordering}
+                onClick={() => handleMove(index, 1)}
+                aria-label="Mover abajo"
+                className="disabled:opacity-30"
+              >
+                <ChevronDown className="size-4" />
+              </button>
+            </div>
+            <span className="flex-1 text-sm">{option.label}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditing(option);
+                setOpen(true);
+              }}
+            >
+              Editar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => handleDelete(option.id)}>
+              Eliminar
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AccessoryOptionForm({
+  editing,
+  onSuccess,
+}: {
+  editing: AccessoryOption | null;
+  onSuccess: () => void;
+}) {
+  const [label, setLabel] = React.useState(editing?.label ?? '');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (editing) {
+        await api.patch(`/accessory-options/${editing.id}`, { label });
+      } else {
+        await api.post('/accessory-options', { label });
+      }
+      toast.success('Guardado');
+      onSuccess();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>{editing ? 'Editar accesorio' : 'Nuevo accesorio'}</DialogTitle>
       </DialogHeader>
       <div className="flex flex-col gap-1.5 py-4">
         <Label>Nombre</Label>
