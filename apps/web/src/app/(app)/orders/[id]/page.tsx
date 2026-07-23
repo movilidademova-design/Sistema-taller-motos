@@ -36,6 +36,7 @@ import type { Invoice, Order } from '@/lib/types';
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const { data: order, isLoading, mutate } = useApiSWR<Order>(`/orders/${id}`);
+  const [notifyOpen, setNotifyOpen] = React.useState(false);
 
   if (isLoading) {
     return (
@@ -100,14 +101,32 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <CardTitle className="text-sm">Acciones</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <StatusChanger orderId={order.id} currentStatus={order.status} onUpdated={() => mutate()} />
+            <StatusChanger
+              orderId={order.id}
+              currentStatus={order.status}
+              onUpdated={() => mutate()}
+              onNotify={() => setNotifyOpen(true)}
+            />
             {order.status === 'READY_FOR_DELIVERY' && (
-              <DeliverVehicleDialog orderId={order.id} onUpdated={() => mutate()} />
+              <DeliverVehicleDialog
+                orderId={order.id}
+                onUpdated={() => mutate()}
+                onNotify={() => setNotifyOpen(true)}
+              />
             )}
             <InvoiceActions order={order} onUpdated={() => mutate()} />
           </CardContent>
         </Card>
       </div>
+
+      {/*
+        Rendered here (not inside StatusChanger/DeliverVehicleDialog) because this page is
+        never conditionally unmounted the way DeliverVehicleDialog is (it disappears once
+        order.status leaves READY_FOR_DELIVERY, which happens immediately after a successful
+        delivery) — keeping the dialog's open state at this level means it survives the
+        status-driven remount of its trigger.
+      */}
+      <NotifyClientDialog orderId={order.id} open={notifyOpen} onOpenChange={setNotifyOpen} />
 
       <Tabs defaultValue="checklist">
         <TabsList className="flex-wrap h-auto">
@@ -145,13 +164,14 @@ function StatusChanger({
   orderId,
   currentStatus,
   onUpdated,
+  onNotify,
 }: {
   orderId: string;
   currentStatus: OrderStatus;
   onUpdated: () => void;
+  onNotify: () => void;
 }) {
   const [isUpdating, setIsUpdating] = React.useState(false);
-  const [notifyOpen, setNotifyOpen] = React.useState(false);
 
   async function handleChange(status: string) {
     setIsUpdating(true);
@@ -159,7 +179,7 @@ function StatusChanger({
       await api.patch(`/orders/${orderId}/status`, { status });
       toast.success('Estado actualizado');
       onUpdated();
-      setNotifyOpen(true);
+      onNotify();
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -184,7 +204,6 @@ function StatusChanger({
             ))}
         </SelectContent>
       </Select>
-      <NotifyClientDialog orderId={orderId} open={notifyOpen} onOpenChange={setNotifyOpen} />
     </div>
   );
 }
@@ -243,11 +262,18 @@ function InvoiceActions({ order, onUpdated }: { order: Order; onUpdated: () => v
   );
 }
 
-function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdated: () => void }) {
+function DeliverVehicleDialog({
+  orderId,
+  onUpdated,
+  onNotify,
+}: {
+  orderId: string;
+  onUpdated: () => void;
+  onNotify: () => void;
+}) {
   const [open, setOpen] = React.useState(false);
   const [pickupCode, setPickupCode] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [notifyOpen, setNotifyOpen] = React.useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -259,7 +285,9 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
       setOpen(false);
       setPickupCode('');
       onUpdated();
-      setNotifyOpen(true);
+      // Delay so this dialog's close animation finishes before the notify dialog
+      // opens — opening it in the same tick stacks two overlays mid-transition.
+      setTimeout(onNotify, 200);
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -268,42 +296,39 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
   }
 
   return (
-    <>
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setPickupCode('');
-        }}
-      >
-        <DialogTrigger asChild>
-          <Button size="sm">Entregar vehículo</Button>
-        </DialogTrigger>
-        <DialogContent>
-          <form onSubmit={handleSubmit}>
-            <DialogHeader>
-              <DialogTitle>Entregar vehículo</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col gap-1.5 py-4">
-              <Label>Clave de retiro</Label>
-              <Input
-                required
-                inputMode="numeric"
-                maxLength={6}
-                value={pickupCode}
-                onChange={(e) => setPickupCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmitting || !/^\d{6}$/.test(pickupCode)}>
-                {isSubmitting ? 'Verificando...' : 'Confirmar entrega'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      <NotifyClientDialog orderId={orderId} open={notifyOpen} onOpenChange={setNotifyOpen} />
-    </>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setPickupCode('');
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm">Entregar vehículo</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Entregar vehículo</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5 py-4">
+            <Label>Clave de retiro</Label>
+            <Input
+              required
+              inputMode="numeric"
+              maxLength={6}
+              value={pickupCode}
+              onChange={(e) => setPickupCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={isSubmitting || !/^\d{6}$/.test(pickupCode)}>
+              {isSubmitting ? 'Verificando...' : 'Confirmar entrega'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
