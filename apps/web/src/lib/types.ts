@@ -166,6 +166,28 @@ export interface OrderStatusHistoryEntry {
   changedBy?: { firstName: string; lastName: string };
 }
 
+export interface Notification {
+  id: string;
+  orderId: string;
+  order: {
+    orderNumber: number;
+    client: {
+      firstName: string;
+      lastName: string;
+      phone?: string | null;
+      email?: string | null;
+    };
+  };
+  toStatus: OrderStatus;
+  message: string;
+  status: 'PENDING' | 'SENT';
+  createdBy: { firstName: string; lastName: string };
+  sentAt?: string | null;
+  sentBy?: { firstName: string; lastName: string } | null;
+  sentVia?: 'WHATSAPP' | 'EMAIL' | 'COPY' | null;
+  createdAt: string;
+}
+
 export interface LaborEntry {
   id: string;
   technicianId: string;
