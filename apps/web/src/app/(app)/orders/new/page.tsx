@@ -10,20 +10,23 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { AccessoryChecklist } from '@/components/orders/accessory-checklist';
 import { QuickServiceChips } from '@/components/orders/quick-service-chips';
 import { PhotoCaptureGrid } from '@/components/orders/photo-capture-grid';
 import { SignaturePad, type SignaturePadHandle } from '@/components/orders/signature-pad';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api, ApiError } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
+import { toWhatsappPhone } from '@/lib/phone';
 import { VehicleType, VEHICLE_TYPE_LABELS } from '@taller/shared';
-import type { Client, Motorcycle, Order, QuickService } from '@/lib/types';
+import type { AccessoryOption, Client, Motorcycle, Order, QuickService } from '@/lib/types';
 
-type Step = 'client' | 'vehicle' | 'reason' | 'photos' | 'signature' | 'done';
-const STEP_ORDER: Step[] = ['client', 'vehicle', 'reason', 'photos', 'signature', 'done'];
+type Step = 'client' | 'vehicle' | 'accessories' | 'reason' | 'photos' | 'signature' | 'done';
+const STEP_ORDER: Step[] = ['client', 'vehicle', 'accessories', 'reason', 'photos', 'signature', 'done'];
 const STEP_LABELS: Record<Step, string> = {
   client: 'Cliente',
   vehicle: 'Vehículo',
+  accessories: 'Accesorios',
   reason: 'Motivo',
   photos: 'Fotos',
   signature: 'Firma',
@@ -83,6 +86,10 @@ export default function NewOrderWizardPage() {
   });
 
   const { data: quickServices } = useApiSWR<QuickService[]>('/quick-services');
+  const { data: accessoryOptions } = useApiSWR<AccessoryOption[]>('/accessory-options');
+  const [selectedAccessoryIds, setSelectedAccessoryIds] = React.useState<string[]>([]);
+  const [otherAccessoryChecked, setOtherAccessoryChecked] = React.useState(false);
+  const [otherAccessoryText, setOtherAccessoryText] = React.useState('');
   const { data: tenant } = useApiSWR<{ name: string }>('/tenant/settings');
   const [selectedQuickServiceIds, setSelectedQuickServiceIds] = React.useState<string[]>([]);
   const [description, setDescription] = React.useState('');
@@ -153,6 +160,12 @@ export default function NewOrderWizardPage() {
       if (selectedQuickServiceIds.length) {
         formData.append('quickServiceIds', JSON.stringify(selectedQuickServiceIds));
       }
+      if (selectedAccessoryIds.length) {
+        formData.append('accessoryOptionIds', JSON.stringify(selectedAccessoryIds));
+      }
+      if (otherAccessoryChecked && otherAccessoryText.trim()) {
+        formData.append('otherAccessoryText', otherAccessoryText.trim());
+      }
       formData.append('description', description);
       photos.forEach((file) => formData.append('photos', file));
       const signatureBlob = await signatureRef.current?.toBlob();
@@ -168,7 +181,7 @@ export default function NewOrderWizardPage() {
       setResult({
         order,
         message,
-        whatsappPhone: order.client?.phone ? order.client.phone.replace(/\D/g, '') : null,
+        whatsappPhone: order.client?.phone ? toWhatsappPhone(order.client.phone) : null,
       });
       setStep('done');
     } catch (error) {
@@ -400,6 +413,35 @@ export default function NewOrderWizardPage() {
                     : !selectedMotorcycleId
                 }
               >
+                Siguiente <ArrowRight className="size-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 'accessories' && (
+        <Card>
+          <CardContent className="flex flex-col gap-4 pt-6">
+            <Label>Accesorios entregados</Label>
+            <AccessoryChecklist
+              options={accessoryOptions ?? []}
+              selectedIds={selectedAccessoryIds}
+              onToggle={(id) =>
+                setSelectedAccessoryIds((prev) =>
+                  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+                )
+              }
+              otherChecked={otherAccessoryChecked}
+              onOtherCheckedChange={setOtherAccessoryChecked}
+              otherText={otherAccessoryText}
+              onOtherTextChange={setOtherAccessoryText}
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={goBack}>
+                <ArrowLeft className="size-4" /> Atrás
+              </Button>
+              <Button className="flex-1" onClick={goNext}>
                 Siguiente <ArrowRight className="size-4" />
               </Button>
             </div>
