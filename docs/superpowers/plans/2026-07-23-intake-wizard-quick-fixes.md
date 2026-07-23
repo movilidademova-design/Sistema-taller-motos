@@ -515,6 +515,9 @@ export interface AccessoryOption {
  * invalid country code and reports the number as nonexistent. Numbers that
  * already carry a country code (any other digit count, or one already
  * starting with "57") are passed through unchanged.
+ * Assumes Colombia (this workshop is single-tenant/single-country, no
+ * country selector) — a foreign 10-digit number starting with "3", or a
+ * Colombian landline (which won't start with "3"), won't be handled correctly.
  */
 export function toWhatsappPhone(phone: string): string | null {
   const digits = phone.replace(/\D/g, '');
