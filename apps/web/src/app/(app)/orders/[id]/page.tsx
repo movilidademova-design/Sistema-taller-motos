@@ -20,6 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { OrderStatusBadge } from '@/components/shared/order-status-badge';
+import { NotifyClientDialog } from '@/components/orders/notify-client-dialog';
 import { ChecklistTab } from '@/components/orders/checklist-tab';
 import { PhotosTab } from '@/components/orders/photos-tab';
 import { DiagnosisTab } from '@/components/orders/diagnosis-tab';
@@ -150,6 +151,7 @@ function StatusChanger({
   onUpdated: () => void;
 }) {
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [notifyOpen, setNotifyOpen] = React.useState(false);
 
   async function handleChange(status: string) {
     setIsUpdating(true);
@@ -157,6 +159,7 @@ function StatusChanger({
       await api.patch(`/orders/${orderId}/status`, { status });
       toast.success('Estado actualizado');
       onUpdated();
+      setNotifyOpen(true);
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -181,6 +184,7 @@ function StatusChanger({
             ))}
         </SelectContent>
       </Select>
+      <NotifyClientDialog orderId={orderId} open={notifyOpen} onOpenChange={setNotifyOpen} />
     </div>
   );
 }
@@ -243,6 +247,7 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
   const [open, setOpen] = React.useState(false);
   const [pickupCode, setPickupCode] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [notifyOpen, setNotifyOpen] = React.useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -254,6 +259,7 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
       setOpen(false);
       setPickupCode('');
       onUpdated();
+      setNotifyOpen(true);
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -262,39 +268,42 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setPickupCode('');
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm">Entregar vehículo</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Entregar vehículo</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-1.5 py-4">
-            <Label>Clave de retiro</Label>
-            <Input
-              required
-              inputMode="numeric"
-              maxLength={6}
-              value={pickupCode}
-              onChange={(e) => setPickupCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting || !/^\d{6}$/.test(pickupCode)}>
-              {isSubmitting ? 'Verificando...' : 'Confirmar entrega'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setPickupCode('');
+        }}
+      >
+        <DialogTrigger asChild>
+          <Button size="sm">Entregar vehículo</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>Entregar vehículo</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-1.5 py-4">
+              <Label>Clave de retiro</Label>
+              <Input
+                required
+                inputMode="numeric"
+                maxLength={6}
+                value={pickupCode}
+                onChange={(e) => setPickupCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isSubmitting || !/^\d{6}$/.test(pickupCode)}>
+                {isSubmitting ? 'Verificando...' : 'Confirmar entrega'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <NotifyClientDialog orderId={orderId} open={notifyOpen} onOpenChange={setNotifyOpen} />
+    </>
   );
 }
 
