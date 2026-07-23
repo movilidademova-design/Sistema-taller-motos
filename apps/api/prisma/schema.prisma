@@ -182,6 +182,7 @@ model Tenant {
   appointments     Appointment[]
   inventoryMovements InventoryMovement[]
   quickServices      QuickService[]
+  accessoryOptions   AccessoryOption[]
 
   @@map("tenants")
 }
@@ -198,6 +199,20 @@ model QuickService {
   @@unique([tenantId, label])
   @@index([tenantId])
   @@map("quick_services")
+}
+
+model AccessoryOption {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label     String
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, label])
+  @@index([tenantId])
+  @@map("accessory_options")
 }
 
 model User {
