@@ -48,6 +48,17 @@ enum QuotationStatus {
   REJECTED
 }
 
+enum NotificationStatus {
+  PENDING
+  SENT
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+  COPY
+}
+
 enum ConditionRating {
   GOOD
   FAIR
@@ -183,6 +194,7 @@ model Tenant {
   inventoryMovements InventoryMovement[]
   quickServices      QuickService[]
   accessoryOptions   AccessoryOption[]
+  notifications      Notification[]
 
   @@map("tenants")
 }
@@ -241,6 +253,8 @@ model User {
   paymentsReceived    Payment[]
   warrantiesApproved  Warranty[]
   assignedAppointments Appointment[]
+  notificationsCreated Notification[] @relation("NotificationCreatedBy")
+  notificationsSent     Notification[] @relation("NotificationSentBy")
 
   @@index([tenantId])
   @@map("users")
@@ -370,6 +384,7 @@ model Order {
   invoice            Invoice?
   payments           Payment[]
   appointments       Appointment[]
+  notifications      Notification[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId, status])
@@ -486,6 +501,27 @@ model OrderStatusHistory {
 
   @@index([orderId])
   @@map("order_status_history")
+}
+
+model Notification {
+  id          String               @id @default(uuid())
+  tenantId    String
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId     String
+  order       Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  toStatus    OrderStatus
+  message     String
+  status      NotificationStatus   @default(PENDING)
+  createdById String
+  createdBy   User                 @relation("NotificationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  sentAt      DateTime?
+  sentById    String?
+  sentBy      User?                @relation("NotificationSentBy", fields: [sentById], references: [id], onDelete: SetNull)
+  sentVia     NotificationChannel?
+  createdAt   DateTime             @default(now())
+
+  @@index([tenantId, status])
+  @@map("notifications")
 }
 
 model LaborEntry {
