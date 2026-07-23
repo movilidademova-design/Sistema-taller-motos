@@ -861,19 +861,21 @@ function DeliverVehicleDialog({ orderId, onUpdated }: { orderId: string; onUpdat
 
 (Only changes: new `notifyOpen` state, `setNotifyOpen(true)` after the success toast, wrapped the return in a fragment, and the `<NotifyClientDialog>` added as a sibling of the delivery `<Dialog>` — it must be a sibling, not nested inside, so it can stay open after the delivery dialog closes.)
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/components/orders/notify-client-dialog.tsx "apps/web/src/app/(app)/orders/[id]/page.tsx"
 git commit -m "Ask to notify client after status change or delivery"
 ```
+
+**Post-review fix (commit `b2edd34`):** the literal Steps 2-3 code above has `DeliverVehicleDialog` own its own `notifyOpen` state and render its own `<NotifyClientDialog>`. Code review caught a real bug in that design: `DeliverVehicleDialog` is only rendered by the parent while `order.status === 'READY_FOR_DELIVERY'`, and a successful delivery flips the status and triggers a refetch — unmounting `DeliverVehicleDialog` (and the just-opened notify dialog nested inside it) before the user could answer. Fixed by lifting `notifyOpen` and the single `<NotifyClientDialog>` render up to the always-mounted `OrderDetailPage`, with `StatusChanger`/`DeliverVehicleDialog` taking an `onNotify: () => void` prop instead of owning the dialog themselves. `DeliverVehicleDialog` also delays its `onNotify()` call by 200ms so the pickup-code dialog's close animation finishes before the notify dialog opens, avoiding a double-overlay flicker (a secondary Important finding from the same review). See the actual committed code, not the snippets above, as the source of truth for this task.
 
 ---
 
