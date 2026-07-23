@@ -21,6 +21,7 @@ import { StorageService } from '../storage/storage.service';
 import { generatePickupCode } from '../common/utils/pickup-code.util';
 import { buildIntakeReason } from './intake-reason.util';
 import { buildAccessoriesText } from './intake-accessories.util';
+import { buildStatusChangeMessage } from './notification-message.util';
 
 export const ORDER_DETAIL_INCLUDE = {
   client: true,
@@ -465,7 +466,6 @@ export class OrdersService {
 
     const updated = await this.findOne(tenantId, id);
     this.realtime.emitOrderUpdated(tenantId, updated);
-    this.notifyStatusChange(updated).catch(() => undefined);
     return updated;
   }
 
@@ -484,6 +484,28 @@ export class OrdersService {
       tenantName: tenant.name,
     });
     return { success: true };
+  }
+
+  async notify(tenantId: string, id: string, userId: string) {
+    const order = await this.findOne(tenantId, id);
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({
+      where: { id: tenantId },
+    });
+    const message = buildStatusChangeMessage({
+      clientFirstName: order.client.firstName,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      tenantName: tenant.name,
+    });
+    return this.prisma.notification.create({
+      data: {
+        tenantId,
+        orderId: id,
+        toStatus: order.status,
+        message,
+        createdById: userId,
+      },
+    });
   }
 
   async updateStatus(
@@ -530,30 +552,6 @@ export class OrdersService {
 
     const updated = await this.findOne(tenantId, id);
     this.realtime.emitOrderUpdated(tenantId, updated);
-    this.notifyStatusChange(updated).catch(() => undefined);
     return updated;
-  }
-
-  private async notifyStatusChange(
-    order: Awaited<ReturnType<OrdersService['findOne']>>,
-  ) {
-    const phone = order.client.phone;
-    if (!phone) return;
-    switch (order.status) {
-      case OrderStatus.IN_REPAIR:
-        await this.whatsapp.notifyInRepair(phone, order.orderNumber);
-        break;
-      case OrderStatus.READY_FOR_DELIVERY:
-        await this.whatsapp.notifyReadyForPickup(phone, order.orderNumber);
-        break;
-      case OrderStatus.DELIVERED:
-        await this.whatsapp.sendThankYou(
-          phone,
-          `${order.client.firstName} ${order.client.lastName}`,
-        );
-        break;
-      default:
-        break;
-    }
   }
 }

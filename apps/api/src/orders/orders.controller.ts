@@ -145,4 +145,15 @@ export class OrdersController {
   ) {
     return this.ordersService.sendIntakeConfirmationEmail(tenantId, id);
   }
+
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST, Role.TECHNICIAN)
+  @Audit('Notification')
+  @Post(':id/notify')
+  notify(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.ordersService.notify(tenantId, id, userId);
+  }
 }
