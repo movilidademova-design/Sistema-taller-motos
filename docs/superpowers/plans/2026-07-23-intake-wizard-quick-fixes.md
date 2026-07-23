@@ -1040,7 +1040,7 @@ git commit -m "Make order list rows clickable"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Full backend build + tests**
+- [x] **Step 1: Full backend build + tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1048,26 +1048,29 @@ pnpm --filter @taller/api test
 ```
 Expected: both succeed with no errors; the new `intake-accessories.util.spec.ts` suite is included.
 
-- [ ] **Step 2: Full frontend build**
+Result: passed — 7 suites, 24 tests, 0 failures.
+
+- [x] **Step 2: Full frontend build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 3: Manual smoke test**
+Result: passed — all 18 routes generated, no TypeScript/ESLint errors.
+
+- [x] **Step 3: Manual smoke test**
 
 With both dev servers running (`pnpm --filter @taller/api start:dev`, `pnpm --filter @taller/web dev`):
-- [ ] Log in as `admin@tallerdemo.com` / `Password123!`.
-- [ ] Configuración → Accesorios: create 2-3 accessories (e.g. "Llaves", "Cargador", "Casco"), reorder them, edit one, delete one.
-- [ ] Órdenes → Nueva orden: complete the wizard up to the new "Accesorios" step, check a couple of boxes, check "Otro" and type something, continue through to submission.
-- [ ] Open the created order's detail page and confirm the "Accesorios" line under "Detalle de recepción" shows the checked labels plus the "Otro" text, comma-separated.
-- [ ] On the confirmation screen, for a client with a phone number entered WITHOUT a country code (e.g. type a brand-new client with phone `3105551234`), click "Enviar por WhatsApp" and confirm the opened URL contains `57` followed by the 10 digits (visible in the browser's address bar / new tab URL).
-- [ ] On the Órdenes list page, click anywhere on a row (not just the order number) and confirm it navigates to that order's detail page.
+- [x] Log in as `admin@tallerdemo.com` / `Password123!`.
+- [x] Configuración → Accesorios: create 2-3 accessories (e.g. "Llaves", "Cargador", "Casco"), reorder them, edit one, delete one.
+- [x] Órdenes → Nueva orden: complete the wizard up to the new "Accesorios" step, check a couple of boxes, check "Otro" and type something, continue through to submission.
+- [x] Open the created order's detail page and confirm the "Accesorios" line under "Detalle de recepción" shows the checked labels plus the "Otro" text, comma-separated.
+- [x] On the confirmation screen, for a client with a phone number entered WITHOUT a country code (e.g. type a brand-new client with phone `3105551234`), click "Enviar por WhatsApp" and confirm the opened URL contains `57` followed by the 10 digits (visible in the browser's address bar / new tab URL).
+- [x] On the Órdenes list page, click anywhere on a row (not just the order number) and confirm it navigates to that order's detail page.
 
-- [ ] **Step 4: Final commit (only if the manual pass required fixes)**
+Result: ran this pass with an automated Playwright script driving a real Chromium browser against the running dev servers (not just visual inspection). All checks passed, including confirming the WhatsApp URL contains `573105551234` and the order detail page shows the combined accessories text. Also re-confirmed (post Task-9 fix) that clicking the order-number link still navigates correctly with no double-navigation.
 
-```bash
-git add -A
-git commit -m "Fix issues found during manual verification of Group A fixes"
-```
+- [x] **Step 4: Final commit (only if the manual pass required fixes)**
+
+No app-code fixes were required by this manual pass (the double-navigation issue found during Task 9's code review was already fixed and committed as part of Task 9, commit `ae6d981`). No additional commit needed here.
