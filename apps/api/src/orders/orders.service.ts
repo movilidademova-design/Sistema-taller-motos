@@ -20,6 +20,7 @@ import { EmailService } from '../notifications/email.service';
 import { StorageService } from '../storage/storage.service';
 import { generatePickupCode } from '../common/utils/pickup-code.util';
 import { buildIntakeReason } from './intake-reason.util';
+import { buildAccessoriesText } from './intake-accessories.util';
 
 export const ORDER_DETAIL_INCLUDE = {
   client: true,
@@ -378,6 +379,16 @@ export class OrdersService {
         : [];
       const reason = buildIntakeReason(quickServices.map((s) => s.label), dto.description);
 
+      const accessoryOptions = dto.accessoryOptionIds?.length
+        ? await tx.accessoryOption.findMany({
+            where: { id: { in: dto.accessoryOptionIds }, tenantId },
+          })
+        : [];
+      const accessoriesDelivered = buildAccessoriesText(
+        accessoryOptions.map((a) => a.label),
+        dto.otherAccessoryText ?? '',
+      );
+
       const tenant = await tx.tenant.update({
         where: { id: tenantId },
         data: { nextOrderNumber: { increment: 1 } },
@@ -392,6 +403,7 @@ export class OrdersService {
           motorcycleId: motorcycle.id,
           receptionistId,
           reason,
+          accessoriesDelivered,
           status: OrderStatus.RECEIVED,
           pickupCode,
           signatureUrl,

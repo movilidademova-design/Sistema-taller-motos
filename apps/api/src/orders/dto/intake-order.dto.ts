@@ -60,6 +60,18 @@ export class IntakeOrderDto {
   @Transform(({ value }) => parseIfJsonString(value, 'quickServiceIds'))
   quickServiceIds?: string[];
 
+  @ApiProperty({ required: false, type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @Transform(({ value }) => parseIfJsonString(value, 'accessoryOptionIds'))
+  accessoryOptionIds?: string[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  otherAccessoryText?: string;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
