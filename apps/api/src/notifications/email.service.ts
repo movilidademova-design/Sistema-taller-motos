@@ -76,7 +76,11 @@ export class EmailService {
     });
   }
 
-  async sendNotificationMessage(to: string, orderNumber: number, message: string) {
+  async sendNotificationMessage(
+    to: string,
+    orderNumber: number,
+    message: string,
+  ) {
     return this.send({
       to,
       subject: `Actualización de tu orden #${orderNumber}`,
