@@ -76,15 +76,11 @@ export class EmailService {
     });
   }
 
-  async sendOrderStatusUpdate(
-    to: string,
-    orderNumber: number,
-    statusLabel: string,
-  ) {
+  async sendNotificationMessage(to: string, orderNumber: number, message: string) {
     return this.send({
       to,
       subject: `Actualización de tu orden #${orderNumber}`,
-      html: `<p>Tu bicimoto (orden <strong>#${orderNumber}</strong>) ahora está: <strong>${statusLabel}</strong>.</p>`,
+      html: `<p>${escapeHtml(message).replace(/\n/g, '<br/>')}</p>`,
     });
   }
 
