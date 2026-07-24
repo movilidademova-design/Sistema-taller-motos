@@ -999,7 +999,7 @@ git commit -m "Add shared notification action buttons (WhatsApp/Correo/Copiar)"
 **Files:**
 - Modify: `apps/web/src/components/layout/topbar.tsx`
 
-- [ ] **Step 1: Add the bell dropdown**
+- [x] **Step 1: Add the bell dropdown**
 
 In `apps/web/src/components/layout/topbar.tsx`, add these imports:
 
@@ -1068,19 +1068,21 @@ Then render it in `Topbar`, right before `<ThemeToggle />`:
       <ThemeToggle />
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/components/layout/topbar.tsx
 git commit -m "Add notification bell with pending count to topbar"
 ```
+
+**Post-review fix (commit `7fb24d1`):** code review found the icon-only bell trigger button had no `aria-label`, unlike its sibling `ThemeToggle` in the same file. Fixed by adding `aria-label={\`Notificaciones${data?.total ? \`, ${data.total} pendientes\` : ''}\`}`, which also announces the pending count dynamically.
 
 ---
 
