@@ -42,7 +42,12 @@ function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label={`Notificaciones${data?.total ? `, ${data.total} pendientes` : ''}`}
+        >
           <Bell className="size-5" />
           {!!data?.total && (
             <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
