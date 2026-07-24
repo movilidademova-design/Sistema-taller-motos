@@ -13,9 +13,6 @@ import { ConfigService } from '@nestjs/config';
 export type WhatsappTemplate =
   | 'ORDER_RECEIVED'
   | 'QUOTATION_READY'
-  | 'IN_REPAIR'
-  | 'READY_FOR_PICKUP'
-  | 'THANK_YOU'
   | 'MAINTENANCE_REMINDER';
 
 export interface WhatsappProvider {
@@ -61,22 +58,6 @@ export class WhatsappService {
     return this.provider.sendTemplate(phone, 'QUOTATION_READY', {
       orderNumber: String(orderNumber),
     });
-  }
-
-  notifyInRepair(phone: string, orderNumber: number) {
-    return this.provider.sendTemplate(phone, 'IN_REPAIR', {
-      orderNumber: String(orderNumber),
-    });
-  }
-
-  notifyReadyForPickup(phone: string, orderNumber: number) {
-    return this.provider.sendTemplate(phone, 'READY_FOR_PICKUP', {
-      orderNumber: String(orderNumber),
-    });
-  }
-
-  sendThankYou(phone: string, clientName: string) {
-    return this.provider.sendTemplate(phone, 'THANK_YOU', { clientName });
   }
 
   sendMaintenanceReminder(
