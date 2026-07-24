@@ -1195,7 +1195,7 @@ git commit -m "Add full notifications inbox page with Pendiente/Notificada tabs"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Full backend build + tests**
+- [x] **Step 1: Full backend build + tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1203,24 +1203,30 @@ pnpm --filter @taller/api test
 ```
 Expected: both succeed with no errors; `notification-message.util.spec.ts` is included and passes.
 
-- [ ] **Step 2: Full frontend build**
+Result: passed — 8 suites, 27 tests, 0 failures.
+
+- [x] **Step 2: Full frontend build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no errors; `/notifications` appears as a new route.
 
-- [ ] **Step 3: Manual smoke test**
+Result: passed — all 19 routes generated, `/notifications` present, no TypeScript/ESLint errors.
+
+- [x] **Step 3: Manual smoke test**
 
 With both dev servers running (`pnpm --filter @taller/api start:dev`, `pnpm --filter @taller/web dev`):
-- [ ] Log in as `admin@tallerdemo.com` / `Password123!`.
-- [ ] Open an existing order (or create one via the intake wizard), change its status via the "Cambiar estado" selector, confirm the "¿Desea generar una notificación?" dialog appears, click "Sí".
-- [ ] Confirm the bell icon in the topbar shows a pending count of at least 1, and the dropdown lists the new notification with the correct order number and message text.
-- [ ] From the dropdown, click "Copiar" — confirm a success toast appears and the pending count decreases by 1.
-- [ ] Go to `/notifications`, confirm the copied notification now appears under "Notificadas" with the correct "Enviada por ... vía portapapeles" line (channel labels are Spanish, see Task 10's post-review fix), and no longer appears under "Pendientes".
-- [ ] Repeat with a different order using the WhatsApp button — confirm a new tab opens to a `wa.me` link containing the message text and the `57`-prefixed phone number (reusing the Group A fix), and the notification moves to "Notificadas".
-- [ ] Drive an order to `READY_FOR_DELIVERY` and use "Entregar vehículo" with the correct pickup code — confirm the same "¿Desea notificar?" dialog appears after delivery succeeds (not just after generic status changes).
-- [ ] Confirm a technician-role user changing an order's status also sees the same dialog (per the "cualquiera que cambie el estado" decision).
+- [x] Log in as `admin@tallerdemo.com` / `Password123!`.
+- [x] Open an existing order (or create one via the intake wizard), change its status via the "Cambiar estado" selector, confirm the "¿Desea generar una notificación?" dialog appears, click "Sí".
+- [x] Confirm the bell icon in the topbar shows a pending count of at least 1, and the dropdown lists the new notification with the correct order number and message text.
+- [x] From the dropdown, click "Copiar" — confirm a success toast appears and the pending count decreases by 1.
+- [x] Go to `/notifications`, confirm the copied notification now appears under "Notificadas" with the correct "Enviada por ... vía portapapeles" line (channel labels are Spanish, see Task 10's post-review fix), and no longer appears under "Pendientes".
+- [x] Repeat with a different order using the WhatsApp button — confirm a new tab opens to a `wa.me` link containing the message text and the `57`-prefixed phone number (reusing the Group A fix), and the notification moves to "Notificadas".
+- [x] Drive an order to `READY_FOR_DELIVERY` and use "Entregar vehículo" with the correct pickup code — confirm the same "¿Desea notificar?" dialog appears after delivery succeeds (not just after generic status changes).
+- [x] Confirm a technician-role user changing an order's status also sees the same dialog (per the "cualquiera que cambie el estado" decision), and that a technician does NOT see the bell icon at all (ADMIN/MANAGER/RECEPTIONIST-only).
+
+Result: ran this pass with two automated Playwright scripts driving a real Chromium browser against the running dev servers (not just visual inspection) — one covering the status-change/bell/copy/WhatsApp/technician flow, one specifically re-driving the exact scenario Task 7's code review caught a critical bug in (the notify dialog surviving a post-delivery remount). All checks passed, including confirming the notify dialog appears and remains visible 1.5s after delivery succeeds (the fixed bug), the WhatsApp URL contains the `57`-prefixed number, the Spanish channel labels render correctly, and technicians see the notify prompt but not the bell.
 
 - [ ] **Step 4: Final commit (only if the manual pass required fixes)**
 
