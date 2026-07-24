@@ -10,6 +10,12 @@ import { NotificationActions } from '@/components/notifications/notification-act
 import { useApiSWR } from '@/hooks/use-api-swr';
 import type { Notification, PaginatedResult } from '@/lib/types';
 
+const CHANNEL_LABELS: Record<'WHATSAPP' | 'EMAIL' | 'COPY', string> = {
+  WHATSAPP: 'WhatsApp',
+  EMAIL: 'correo',
+  COPY: 'portapapeles',
+};
+
 export default function NotificationsPage() {
   return (
     <div className="flex flex-col gap-4">
@@ -66,7 +72,8 @@ function NotificationList({ status }: { status: 'PENDING' | 'SENT' }) {
             {status === 'PENDING' && <NotificationActions notification={n} onSent={() => mutate()} />}
             {status === 'SENT' && n.sentBy && (
               <p className="text-xs text-muted-foreground">
-                Enviada por {n.sentBy.firstName} {n.sentBy.lastName} vía {n.sentVia?.toLowerCase()}
+                Enviada por {n.sentBy.firstName} {n.sentBy.lastName} vía{' '}
+                {n.sentVia ? CHANNEL_LABELS[n.sentVia] : ''}
               </p>
             )}
           </CardContent>
