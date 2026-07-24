@@ -976,19 +976,21 @@ export function NotificationActions({
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds (component isn't used yet, just confirms no syntax/type error).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/components/notifications/notification-actions.tsx
 git commit -m "Add shared notification action buttons (WhatsApp/Correo/Copiar)"
 ```
+
+**Post-review fix (commit `fa9e79f`):** code review found `handleCopy`'s `navigator.clipboard.writeText(...)` call was unguarded — a rejected promise (permission denied, unfocused tab) would throw before any toast or state update, leaving the user with silent, total failure feedback. It also flagged that when the client-side action (opening WhatsApp / writing the clipboard) succeeds but the follow-up `mark-sent` call fails, the generic error toast gave no indication the external action had already happened. Fixed by wrapping the clipboard write in its own try/catch with an early return on failure, and rewording both `handleWhatsapp`'s and `handleCopy`'s `mark-sent`-failure toasts to explicitly acknowledge the already-completed action (e.g. "Se copió el mensaje, pero no se pudo marcar como enviada: ..."). See the actual committed code, not the snippet above, as the source of truth for this task.
 
 ---
 
