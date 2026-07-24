@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Menu, LogOut, User as UserIcon } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, Menu, LogOut, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -16,6 +17,9 @@ import {
 import { ThemeToggle } from './theme-toggle';
 import { SidebarNav } from './sidebar-nav';
 import { useAuth } from '@/components/providers/auth-provider';
+import { useApiSWR } from '@/hooks/use-api-swr';
+import { NotificationActions } from '@/components/notifications/notification-actions';
+import type { Notification, PaginatedResult } from '@/lib/types';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrador',
@@ -24,6 +28,50 @@ const ROLE_LABELS: Record<string, string> = {
   TECHNICIAN: 'Técnico',
   CLIENT: 'Cliente',
 };
+
+function NotificationBell() {
+  const { user } = useAuth();
+  const canSeeInbox = user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
+  const { data, mutate } = useApiSWR<PaginatedResult<Notification>>(
+    canSeeInbox ? '/notifications?status=PENDING&pageSize=5' : null,
+    { refreshInterval: 30_000 },
+  );
+
+  if (!canSeeInbox) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="size-5" />
+          {!!data?.total && (
+            <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
+              {data.total > 9 ? '9+' : data.total}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel>Notificaciones pendientes</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {(!data || data.items.length === 0) && (
+          <p className="px-2 py-3 text-sm text-muted-foreground">Sin notificaciones pendientes</p>
+        )}
+        {data?.items.map((n) => (
+          <div key={n.id} className="flex flex-col gap-1.5 border-b p-2 text-sm last:border-b-0">
+            <p className="font-medium">Orden #{n.order.orderNumber}</p>
+            <p className="text-muted-foreground">{n.message}</p>
+            <NotificationActions notification={n} onSent={() => mutate()} />
+          </div>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/notifications">Ver todas</Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function Topbar() {
   const { user, logout } = useAuth();
@@ -47,6 +95,7 @@ export function Topbar() {
 
       <div className="flex-1" />
 
+      <NotificationBell />
       <ThemeToggle />
 
       <DropdownMenu>
