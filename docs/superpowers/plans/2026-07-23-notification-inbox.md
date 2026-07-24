@@ -1091,7 +1091,7 @@ git commit -m "Add notification bell with pending count to topbar"
 **Files:**
 - Create: `apps/web/src/app/(app)/notifications/page.tsx`
 
-- [ ] **Step 1: Create the page**
+- [x] **Step 1: Create the page**
 
 ```tsx
 // apps/web/src/app/(app)/notifications/page.tsx
@@ -1173,19 +1173,21 @@ function NotificationList({ status }: { status: 'PENDING' | 'SENT' }) {
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds — new route `/notifications` appears in the build output.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "apps/web/src/app/(app)/notifications/page.tsx"
 git commit -m "Add full notifications inbox page with Pendiente/Notificada tabs"
 ```
+
+**Post-review fix (commit `c674b04`):** code review found `n.sentVia?.toLowerCase()` rendered raw English enum values ("email", "copy") into an otherwise fully Spanish UI, breaking this app's established `_LABELS`-map convention used everywhere else (`ORDER_STATUS_LABELS`, `PAYMENT_METHOD_LABELS`, etc.). Fixed with a local `CHANNEL_LABELS` map (`WHATSAPP` → "WhatsApp", `EMAIL` → "correo", `COPY` → "portapapeles"). Task 11's smoke-test checklist below was updated to match.
 
 ---
 
@@ -1215,7 +1217,7 @@ With both dev servers running (`pnpm --filter @taller/api start:dev`, `pnpm --fi
 - [ ] Open an existing order (or create one via the intake wizard), change its status via the "Cambiar estado" selector, confirm the "¿Desea generar una notificación?" dialog appears, click "Sí".
 - [ ] Confirm the bell icon in the topbar shows a pending count of at least 1, and the dropdown lists the new notification with the correct order number and message text.
 - [ ] From the dropdown, click "Copiar" — confirm a success toast appears and the pending count decreases by 1.
-- [ ] Go to `/notifications`, confirm the copied notification now appears under "Notificadas" with the correct "Enviada por ... vía copy" line, and no longer appears under "Pendientes".
+- [ ] Go to `/notifications`, confirm the copied notification now appears under "Notificadas" with the correct "Enviada por ... vía portapapeles" line (channel labels are Spanish, see Task 10's post-review fix), and no longer appears under "Pendientes".
 - [ ] Repeat with a different order using the WhatsApp button — confirm a new tab opens to a `wa.me` link containing the message text and the `57`-prefixed phone number (reusing the Group A fix), and the notification moves to "Notificadas".
 - [ ] Drive an order to `READY_FOR_DELIVERY` and use "Entregar vehículo" with the correct pickup code — confirm the same "¿Desea notificar?" dialog appears after delivery succeeds (not just after generic status changes).
 - [ ] Confirm a technician-role user changing an order's status also sees the same dialog (per the "cualquiera que cambie el estado" decision).
