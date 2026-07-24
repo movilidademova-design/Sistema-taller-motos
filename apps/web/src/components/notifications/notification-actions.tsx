@@ -22,16 +22,19 @@ export function NotificationActions({
 
   async function handleWhatsapp() {
     if (!whatsappPhone) return;
-    window.open(
-      `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(notification.message)}`,
-      '_blank',
-    );
     setIsSending(true);
     try {
+      // Opened before the mark-sent call: this is an irreversible external
+      // action (a new tab), so a failed mark-sent shouldn't look like nothing
+      // happened — the catch below says so explicitly.
+      window.open(
+        `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(notification.message)}`,
+        '_blank',
+      );
       await api.post(`/notifications/${notification.id}/mark-sent`, { channel: 'WHATSAPP' });
       onSent();
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(`Se abrió WhatsApp, pero no se pudo marcar como enviada: ${getErrorMessage(error)}`);
     } finally {
       setIsSending(false);
     }
@@ -51,14 +54,19 @@ export function NotificationActions({
   }
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(notification.message);
+    try {
+      await navigator.clipboard.writeText(notification.message);
+    } catch {
+      toast.error('No se pudo copiar el mensaje al portapapeles');
+      return;
+    }
     toast.success('Mensaje copiado');
     setIsSending(true);
     try {
       await api.post(`/notifications/${notification.id}/mark-sent`, { channel: 'COPY' });
       onSent();
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(`Se copió el mensaje, pero no se pudo marcar como enviada: ${getErrorMessage(error)}`);
     } finally {
       setIsSending(false);
     }
