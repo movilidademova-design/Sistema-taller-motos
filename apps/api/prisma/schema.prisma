@@ -439,14 +439,15 @@ model Diagnosis {
 }
 
 model DiagnosisPart {
-  id          String     @id @default(uuid())
-  diagnosisId String
-  diagnosis   Diagnosis  @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
-  productId   String?
-  product     Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
-  description String
-  quantity    Int        @default(1)
-  unitCost    Decimal    @db.Decimal(10, 2)
+  id           String     @id @default(uuid())
+  diagnosisId  String
+  diagnosis    Diagnosis  @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  description  String
+  quantity     Int        @default(1)
+  unitCost     Decimal    @db.Decimal(10, 2)
+  observations String?
 
   @@map("diagnosis_parts")
 }
