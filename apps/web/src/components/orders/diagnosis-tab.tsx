@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,13 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
+import { DiagnosisParts } from './diagnosis-parts';
 import type { Diagnosis } from '@/lib/types';
-
-interface PartDraft {
-  description: string;
-  quantity: number;
-  unitCost: number;
-}
 
 export function DiagnosisTab({
   orderId,
@@ -37,26 +31,7 @@ export function DiagnosisTab({
     estimatedTimeHours: diagnosis?.estimatedTimeHours ?? '',
     estimatedCost: diagnosis?.estimatedCost ?? '',
   });
-  const [parts, setParts] = React.useState<PartDraft[]>(
-    diagnosis?.requiredParts.map((p) => ({
-      description: p.description,
-      quantity: p.quantity,
-      unitCost: Number(p.unitCost),
-    })) ?? [],
-  );
   const [isSaving, setIsSaving] = React.useState(false);
-
-  function addPart() {
-    setParts((p) => [...p, { description: '', quantity: 1, unitCost: 0 }]);
-  }
-
-  function updatePart(index: number, patch: Partial<PartDraft>) {
-    setParts((p) => p.map((item, i) => (i === index ? { ...item, ...patch } : item)));
-  }
-
-  function removePart(index: number) {
-    setParts((p) => p.filter((_, i) => i !== index));
-  }
 
   async function handleSave() {
     setIsSaving(true);
@@ -71,7 +46,6 @@ export function DiagnosisTab({
         observations: form.observations || undefined,
         estimatedTimeHours: form.estimatedTimeHours ? Number(form.estimatedTimeHours) : undefined,
         estimatedCost: form.estimatedCost ? Number(form.estimatedCost) : undefined,
-        requiredParts: parts.filter((p) => p.description),
       });
       toast.success('Diagnóstico guardado');
       onUpdated();
@@ -146,41 +120,7 @@ export function DiagnosisTab({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <Label>Repuestos requeridos</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addPart}>
-            <Plus /> Agregar
-          </Button>
-        </div>
-        {parts.map((part, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <Input
-              placeholder="Descripción"
-              className="flex-1"
-              value={part.description}
-              onChange={(e) => updatePart(i, { description: e.target.value })}
-            />
-            <Input
-              type="number"
-              placeholder="Cant."
-              className="w-20"
-              value={part.quantity}
-              onChange={(e) => updatePart(i, { quantity: Number(e.target.value) })}
-            />
-            <Input
-              type="number"
-              placeholder="Costo unit."
-              className="w-28"
-              value={part.unitCost}
-              onChange={(e) => updatePart(i, { unitCost: Number(e.target.value) })}
-            />
-            <Button type="button" variant="ghost" size="icon" onClick={() => removePart(i)}>
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-        ))}
-      </div>
+      <DiagnosisParts orderId={orderId} parts={diagnosis?.requiredParts ?? []} onUpdated={onUpdated} />
 
       <div>
         <Button onClick={handleSave} disabled={isSaving}>
