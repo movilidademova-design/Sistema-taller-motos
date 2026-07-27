@@ -1,35 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Min,
-  ValidateNested,
-} from 'class-validator';
-
-export class DiagnosisPartDto {
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsUUID()
-  productId?: string;
-
-  @ApiProperty()
-  @IsString()
-  description: string;
-
-  @ApiProperty()
-  @IsNumber()
-  @Min(1)
-  quantity: number;
-
-  @ApiProperty()
-  @IsNumber()
-  @Min(0)
-  unitCost: number;
-}
+import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpsertDiagnosisDto {
   @ApiProperty()
@@ -76,11 +46,4 @@ export class UpsertDiagnosisDto {
   @IsNumber()
   @Min(0)
   estimatedCost?: number;
-
-  @ApiProperty({ type: [DiagnosisPartDto], required: false })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => DiagnosisPartDto)
-  requiredParts?: DiagnosisPartDto[];
 }

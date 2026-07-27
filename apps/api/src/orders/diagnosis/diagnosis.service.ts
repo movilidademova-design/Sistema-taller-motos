@@ -27,33 +27,16 @@ export class DiagnosisService {
     dto: UpsertDiagnosisDto,
   ) {
     await this.ordersService.assertOrderExists(tenantId, orderId);
-    const { requiredParts, ...diagnosisFields } = dto;
 
-    return this.prisma.$transaction(async (tx) => {
-      const diagnosis = await tx.diagnosis.upsert({
-        where: { orderId },
-        create: { orderId, technicianId, ...diagnosisFields },
-        update: diagnosisFields,
-      });
+    const diagnosis = await this.prisma.diagnosis.upsert({
+      where: { orderId },
+      create: { orderId, technicianId, ...dto },
+      update: dto,
+    });
 
-      if (requiredParts) {
-        await tx.diagnosisPart.deleteMany({
-          where: { diagnosisId: diagnosis.id },
-        });
-        if (requiredParts.length > 0) {
-          await tx.diagnosisPart.createMany({
-            data: requiredParts.map((part) => ({
-              ...part,
-              diagnosisId: diagnosis.id,
-            })),
-          });
-        }
-      }
-
-      return tx.diagnosis.findUniqueOrThrow({
-        where: { id: diagnosis.id },
-        include: { requiredParts: true },
-      });
+    return this.prisma.diagnosis.findUniqueOrThrow({
+      where: { id: diagnosis.id },
+      include: { requiredParts: true },
     });
   }
 }
