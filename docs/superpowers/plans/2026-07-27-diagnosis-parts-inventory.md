@@ -318,7 +318,7 @@ git commit -m "Add POST /orders/:orderId/diagnosis/parts with inventory deductio
 - Modify: `apps/api/src/orders/diagnosis/diagnosis.service.ts`
 - Modify: `apps/api/src/orders/diagnosis/diagnosis.controller.ts`
 
-- [ ] **Step 1: Service method**
+- [x] **Step 1: Service method**
 
 Add this method to `apps/api/src/orders/diagnosis/diagnosis.service.ts`, after `addPart`:
 
@@ -365,7 +365,7 @@ Add this method to `apps/api/src/orders/diagnosis/diagnosis.service.ts`, after `
   }
 ```
 
-- [ ] **Step 2: Controller endpoint**
+- [x] **Step 2: Controller endpoint**
 
 Add to `apps/api/src/orders/diagnosis/diagnosis.controller.ts`, after `addPart`:
 
@@ -388,19 +388,21 @@ Add `Delete` to the `@nestjs/common` import line:
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 ```
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/orders/diagnosis/diagnosis.service.ts apps/api/src/orders/diagnosis/diagnosis.controller.ts
 git commit -m "Add DELETE /orders/:orderId/diagnosis/parts/:partId with stock restoration"
 ```
+
+**Post-review fix (commit `bf4b7a2`):** code review found the product re-lookup used `tx.product.findUnique({ where: { id: part.productId } })` with no `tenantId` filter, unlike `addPart`'s tenant-scoped query — not exploitable today (since `part.productId` can only hold a value already tenant-validated when the part was added), but an inconsistency/defense-in-depth gap. Fixed to `tx.product.findFirst({ where: { id: part.productId, tenantId } })`, matching `addPart`'s pattern.
 
 ---
 
