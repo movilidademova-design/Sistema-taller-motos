@@ -156,7 +156,7 @@ git commit -m "Remove bulk requiredParts replace from diagnosis upsert"
 - Modify: `apps/api/src/orders/diagnosis/diagnosis.service.ts`
 - Modify: `apps/api/src/orders/diagnosis/diagnosis.controller.ts`
 
-- [ ] **Step 1: DTO**
+- [x] **Step 1: DTO**
 
 ```ts
 // apps/api/src/orders/diagnosis/dto/add-diagnosis-part.dto.ts
@@ -185,7 +185,7 @@ export class AddDiagnosisPartDto {
 }
 ```
 
-- [ ] **Step 2: Service method**
+- [x] **Step 2: Service method**
 
 In `apps/api/src/orders/diagnosis/diagnosis.service.ts`, add the import at the top:
 
@@ -265,7 +265,7 @@ Add this method after `upsert`:
   }
 ```
 
-- [ ] **Step 3: Controller endpoint**
+- [x] **Step 3: Controller endpoint**
 
 In `apps/api/src/orders/diagnosis/diagnosis.controller.ts`, add the import:
 
@@ -294,19 +294,21 @@ Add `Post` to the existing `@nestjs/common` import line (currently `import { Bod
 import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 ```
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/orders/diagnosis/dto/add-diagnosis-part.dto.ts apps/api/src/orders/diagnosis/diagnosis.service.ts apps/api/src/orders/diagnosis/diagnosis.controller.ts
 git commit -m "Add POST /orders/:orderId/diagnosis/parts with inventory deduction"
 ```
+
+**Post-review fix (commit `ba4cac6`):** code review found the empty-`Diagnosis` auto-create ran OUTSIDE the `$transaction` used for stock deduction + part creation, so a failed add (e.g. insufficient stock) left an orphaned empty `Diagnosis` row permanently attributed to whichever técnico's failed attempt created it. Fixed by moving the auto-create inside the same transaction (`tx.diagnosis.*` instead of `this.prisma.diagnosis.*`), so a thrown error rolls back the whole thing. Also changed `AddDiagnosisPartDto.quantity`'s validator from `@IsNumber()` to `@IsInt()`, since both `Product.quantity` and `DiagnosisPart.quantity` are integer columns. The TOCTOU race in the stock read-check-write (mirrors an existing pattern in `ProductsService.adjustStock`) was flagged but left as a follow-up item, not fixed here — out of scope for this task.
 
 ---
 
