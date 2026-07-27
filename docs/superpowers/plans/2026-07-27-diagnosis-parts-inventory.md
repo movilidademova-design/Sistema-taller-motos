@@ -784,7 +784,7 @@ git commit -m "Replace bulk-save parts list with per-item inventory-aware add/re
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Full backend build + tests**
+- [x] **Step 1: Full backend build + tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -792,28 +792,31 @@ pnpm --filter @taller/api test
 ```
 Expected: both succeed with no errors (no new automated tests were added in this plan — see Testing note in the design spec — so the existing suite count/results should be unchanged from before this feature).
 
-- [ ] **Step 2: Full frontend build**
+Result: passed — 8 suites, 27 tests, 0 failures (unchanged from before this feature, as expected).
+
+- [x] **Step 2: Full frontend build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 3: Manual smoke test**
+Result: passed — all 19 routes generated, no TypeScript/ESLint errors.
+
+- [x] **Step 3: Manual smoke test**
 
 With both dev servers running (`pnpm --filter @taller/api start:dev`, `pnpm --filter @taller/web dev`):
-- [ ] Log in as `admin@tallerdemo.com` / `Password123!`.
-- [ ] Note the current stock quantity of an existing inventory product (Configuración → Inventario, or the Inventario page).
-- [ ] Open an order's Diagnóstico tab, use "Buscar en inventario", search for that product by name, select it, set a quantity, click "Agregar" — confirm it appears in the list tagged "Inventario", and that the product's stock in Inventario decreased by exactly that quantity.
-- [ ] Click "Repuesto libre", fill in a name/quantity/observations, click "Agregar" — confirm it appears in the list tagged "Repuesto libre", and that no inventory product's stock changed.
-- [ ] Delete the inventory-linked repuesto from the list — confirm the product's stock in Inventario is restored to its original quantity.
-- [ ] Delete the repuesto libre — confirm it disappears with no inventory side effect.
-- [ ] Edit an unrelated field in the rest of the Diagnóstico form (e.g. "Falla encontrada") and click "Guardar diagnóstico" — confirm any remaining repuestos in the list are NOT affected (not duplicated, not removed).
-- [ ] Try adding an inventory part with a quantity greater than current stock — confirm a clear error message and no partial state change (no row added, no stock changed).
+- [x] Log in as `admin@tallerdemo.com` / `Password123!`.
+- [x] Note the current stock quantity of an existing inventory product (Configuración → Inventario, or the Inventario page).
+- [x] Open an order's Diagnóstico tab, use "Buscar en inventario", search for that product by name, select it, set a quantity, click "Agregar" — confirm it appears in the list tagged "Inventario", and that the product's stock in Inventario decreased by exactly that quantity.
+- [x] Click "Repuesto libre", fill in a name/quantity/observations, click "Agregar" — confirm it appears in the list tagged "Repuesto libre", and that no inventory product's stock changed.
+- [x] Delete the inventory-linked repuesto from the list — confirm the product's stock in Inventario is restored to its original quantity.
+- [x] Delete the repuesto libre — confirm it disappears with no inventory side effect.
+- [x] Edit an unrelated field in the rest of the Diagnóstico form (e.g. "Falla encontrada") and click "Guardar diagnóstico" — confirm any remaining repuestos in the list are NOT affected (not duplicated, not removed).
+- [x] Try adding an inventory part with a quantity greater than current stock — confirm a clear error message and no partial state change (no row added, no stock changed).
+
+Result: ran this pass with a Playwright script driving a real Chromium browser against the running dev servers, cross-checking stock quantities directly via the API before/after each step. All checks passed: adding 2 units of "Batería de Litio 48V 20Ah" decremented stock from 8 → 6; adding a repuesto libre ("Tornillo especial M4") left stock at 6; saving an unrelated diagnosis field succeeded with no 400 and left both parts listed; deleting both parts restored stock to exactly 8; attempting to add far more than available stock returned a clean 400 ("No hay suficiente stock disponible") with stock unchanged at 8.
 
 - [ ] **Step 4: Final commit (only if the manual pass required fixes)**
 
-```bash
-git add -A
-git commit -m "Fix issues found during manual verification of diagnosis parts inventory"
-```
+No app-code fixes were required by this manual pass. No additional commit needed here.
