@@ -99,4 +99,45 @@ export class DiagnosisService {
       });
     });
   }
+
+  async removePart(
+    tenantId: string,
+    orderId: string,
+    partId: string,
+    userId: string,
+  ) {
+    const order = await this.ordersService.assertOrderExists(tenantId, orderId);
+    const part = await this.prisma.diagnosisPart.findFirst({
+      where: { id: partId, diagnosis: { orderId } },
+    });
+    if (!part) throw new NotFoundException('Repuesto no encontrado');
+
+    await this.prisma.$transaction(async (tx) => {
+      if (part.productId) {
+        const product = await tx.product.findUnique({
+          where: { id: part.productId },
+        });
+        if (product) {
+          await tx.product.update({
+            where: { id: product.id },
+            data: { quantity: product.quantity + part.quantity },
+          });
+          await tx.inventoryMovement.create({
+            data: {
+              tenantId,
+              productId: part.productId,
+              orderId,
+              type: InventoryMovementType.ADJUSTMENT_IN,
+              quantity: part.quantity,
+              reason: `Reversión — repuesto eliminado de orden #${order.orderNumber}`,
+              createdById: userId,
+            },
+          });
+        }
+      }
+      await tx.diagnosisPart.delete({ where: { id: partId } });
+    });
+
+    return { success: true };
+  }
 }

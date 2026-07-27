@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { DiagnosisService } from './diagnosis.service';
 import { UpsertDiagnosisDto } from './dto/upsert-diagnosis.dto';
@@ -44,5 +44,17 @@ export class DiagnosisController {
     @Body() dto: AddDiagnosisPartDto,
   ) {
     return this.diagnosisService.addPart(tenantId, orderId, userId, dto);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER, Role.TECHNICIAN)
+  @Audit('Diagnosis')
+  @Delete('parts/:partId')
+  removePart(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('orderId') orderId: string,
+    @Param('partId') partId: string,
+  ) {
+    return this.diagnosisService.removePart(tenantId, orderId, partId, userId);
   }
 }
