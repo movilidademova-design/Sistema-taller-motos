@@ -114,8 +114,8 @@ export class DiagnosisService {
 
     await this.prisma.$transaction(async (tx) => {
       if (part.productId) {
-        const product = await tx.product.findUnique({
-          where: { id: part.productId },
+        const product = await tx.product.findFirst({
+          where: { id: part.productId, tenantId },
         });
         if (product) {
           await tx.product.update({
