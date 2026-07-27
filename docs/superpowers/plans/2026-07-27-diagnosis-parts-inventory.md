@@ -447,7 +447,7 @@ git commit -m "Add observations to DiagnosisPart frontend type"
 **Files:**
 - Create: `apps/web/src/components/orders/inventory-part-search.tsx`
 
-- [ ] **Step 1: Create the component**
+- [x] **Step 1: Create the component**
 
 ```tsx
 // apps/web/src/components/orders/inventory-part-search.tsx
@@ -520,19 +520,21 @@ export function InventoryPartSearch({ onSelect }: { onSelect: (product: Product)
 }
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds (component isn't used yet, just confirms no syntax/type error).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/components/orders/inventory-part-search.tsx
 git commit -m "Add reusable inventory product search popover"
 ```
+
+**Post-review fixes (commits `b899d9f`, `3507ce7`):** code review found the result list was Tab-only with no arrow-key navigation, no listbox semantics, and no highlighted-row indicator — worth fixing before this component gets reused in Task 7. Added `ArrowUp`/`ArrowDown`/`Enter` handling with wrap-around, `combobox`/`listbox`/`option` ARIA roles, and a highlighted-row style. A follow-up re-review then caught that the highlight-reset effect was keyed on `items.length` (so a same-sized-but-different result set wouldn't reset it) — fixed by keying on `debouncedQuery` instead. See the actual committed code, not the snippet above, as the source of truth for this task.
 
 ---
 
