@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OrdersService } from '../orders.service';
 import { UpsertDiagnosisDto } from './dto/upsert-diagnosis.dto';
+import { AddDiagnosisPartDto } from './dto/add-diagnosis-part.dto';
+import { InventoryMovementType } from '../../generated/prisma/enums';
 
 @Injectable()
 export class DiagnosisService {
@@ -37,6 +39,66 @@ export class DiagnosisService {
     return this.prisma.diagnosis.findUniqueOrThrow({
       where: { id: diagnosis.id },
       include: { requiredParts: true },
+    });
+  }
+
+  async addPart(
+    tenantId: string,
+    orderId: string,
+    technicianId: string,
+    dto: AddDiagnosisPartDto,
+  ) {
+    const order = await this.ordersService.assertOrderExists(tenantId, orderId);
+
+    let diagnosis = await this.prisma.diagnosis.findUnique({
+      where: { orderId },
+    });
+    if (!diagnosis) {
+      diagnosis = await this.prisma.diagnosis.create({
+        data: { orderId, technicianId, description: '', faultFound: '' },
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      let unitCost = 0;
+
+      if (dto.productId) {
+        const product = await tx.product.findFirst({
+          where: { id: dto.productId, tenantId },
+        });
+        if (!product) throw new NotFoundException('Producto no encontrado');
+        const newQuantity = product.quantity - dto.quantity;
+        if (newQuantity < 0) {
+          throw new BadRequestException('No hay suficiente stock disponible');
+        }
+        await tx.product.update({
+          where: { id: product.id },
+          data: { quantity: newQuantity },
+        });
+        await tx.inventoryMovement.create({
+          data: {
+            tenantId,
+            productId: product.id,
+            orderId,
+            type: InventoryMovementType.SALE_OUT,
+            quantity: dto.quantity,
+            reason: `Usado en diagnóstico — orden #${order.orderNumber}`,
+            createdById: technicianId,
+          },
+        });
+        unitCost = Number(product.unitCost);
+      }
+
+      return tx.diagnosisPart.create({
+        data: {
+          diagnosisId: diagnosis.id,
+          productId: dto.productId,
+          description: dto.description,
+          quantity: dto.quantity,
+          unitCost,
+          observations: dto.observations,
+        },
+      });
     });
   }
 }
