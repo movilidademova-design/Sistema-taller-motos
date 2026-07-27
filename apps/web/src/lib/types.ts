@@ -116,6 +116,7 @@ export interface DiagnosisPart {
   description: string;
   quantity: number;
   unitCost: string;
+  observations?: string | null;
 }
 
 export interface Diagnosis {
