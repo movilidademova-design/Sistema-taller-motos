@@ -544,7 +544,7 @@ git commit -m "Add reusable inventory product search popover"
 - Create: `apps/web/src/components/orders/diagnosis-parts.tsx`
 - Modify: `apps/web/src/components/orders/diagnosis-tab.tsx`
 
-- [ ] **Step 1: Create the new parts component**
+- [x] **Step 1: Create the new parts component**
 
 ```tsx
 // apps/web/src/components/orders/diagnosis-parts.tsx
@@ -745,7 +745,7 @@ export function DiagnosisParts({
 }
 ```
 
-- [ ] **Step 2: Wire it into `DiagnosisTab`, removing the old bulk parts UI**
+- [x] **Step 2: Wire it into `DiagnosisTab`, removing the old bulk parts UI**
 
 In `apps/web/src/components/orders/diagnosis-tab.tsx`:
 
@@ -764,14 +764,14 @@ Replace the entire "Repuestos requeridos" block (the `<div className="flex flex-
       <DiagnosisParts orderId={orderId} parts={diagnosis?.requiredParts ?? []} onUpdated={onUpdated} />
 ```
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/orders/diagnosis-parts.tsx apps/web/src/components/orders/diagnosis-tab.tsx
