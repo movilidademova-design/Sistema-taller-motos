@@ -112,7 +112,7 @@ export class DiagnosisService {
     });
     if (!part) throw new NotFoundException('Repuesto no encontrado');
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       if (part.productId) {
         const product = await tx.product.findFirst({
           where: { id: part.productId, tenantId },
@@ -135,9 +135,7 @@ export class DiagnosisService {
           });
         }
       }
-      await tx.diagnosisPart.delete({ where: { id: partId } });
+      return tx.diagnosisPart.delete({ where: { id: partId } });
     });
-
-    return { success: true };
   }
 }
