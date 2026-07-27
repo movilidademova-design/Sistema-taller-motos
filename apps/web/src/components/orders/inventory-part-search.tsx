@@ -28,7 +28,7 @@ export function InventoryPartSearch({ onSelect }: { onSelect: (product: Product)
 
   React.useEffect(() => {
     setHighlightedIndex(0);
-  }, [items.length]);
+  }, [debouncedQuery]);
 
   function selectProduct(product: Product) {
     onSelect(product);
