@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class AddDiagnosisPartDto {
   @ApiProperty({ required: false })
@@ -12,7 +12,7 @@ export class AddDiagnosisPartDto {
   description: string;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
   @Min(1)
   quantity: number;
 

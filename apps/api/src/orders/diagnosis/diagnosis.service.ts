@@ -50,16 +50,14 @@ export class DiagnosisService {
   ) {
     const order = await this.ordersService.assertOrderExists(tenantId, orderId);
 
-    let diagnosis = await this.prisma.diagnosis.findUnique({
-      where: { orderId },
-    });
-    if (!diagnosis) {
-      diagnosis = await this.prisma.diagnosis.create({
-        data: { orderId, technicianId, description: '', faultFound: '' },
-      });
-    }
-
     return this.prisma.$transaction(async (tx) => {
+      let diagnosis = await tx.diagnosis.findUnique({ where: { orderId } });
+      if (!diagnosis) {
+        diagnosis = await tx.diagnosis.create({
+          data: { orderId, technicianId, description: '', faultFound: '' },
+        });
+      }
+
       let unitCost = 0;
 
       if (dto.productId) {
