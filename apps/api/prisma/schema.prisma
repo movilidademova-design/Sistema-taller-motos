@@ -195,6 +195,7 @@ model Tenant {
   quickServices      QuickService[]
   accessoryOptions   AccessoryOption[]
   notifications      Notification[]
+  branches           Branch[]
 
   @@map("tenants")
 }
@@ -227,6 +228,41 @@ model AccessoryOption {
   @@map("accessory_options")
 }
 
+model Branch {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  code            String
+  address         String?
+  city            String?
+  phone           String?
+  email           String?
+  isActive        Boolean  @default(true)
+  nextOrderNumber Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userBranches UserBranch[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model UserBranch {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, branchId])
+  @@index([branchId])
+  @@map("user_branches")
+}
+
 model User {
   id           String    @id @default(uuid())
   tenantId     String
@@ -255,6 +291,7 @@ model User {
   assignedAppointments Appointment[]
   notificationsCreated Notification[] @relation("NotificationCreatedBy")
   notificationsSent     Notification[] @relation("NotificationSentBy")
+  branches             UserBranch[]
 
   @@index([tenantId])
   @@map("users")
