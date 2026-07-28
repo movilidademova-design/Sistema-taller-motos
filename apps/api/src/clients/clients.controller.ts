@@ -15,6 +15,7 @@ import { UpdateClientDto } from './dto/update-client.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { Role } from '../generated/prisma/enums';
 
@@ -27,18 +28,24 @@ export class ClientsController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Query() query: PaginationQueryDto,
   ) {
-    return this.clientsService.findAll(tenantId, query);
+    return this.clientsService.findAll(tenantId, { ...query, branchId });
   }
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
   @Get('by-document/:documentId')
   findByDocumentId(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Param('documentId') documentId: string,
   ) {
-    return this.clientsService.findByDocumentId(tenantId, documentId);
+    return this.clientsService.findByDocumentId(
+      tenantId,
+      branchId,
+      documentId,
+    );
   }
 
   @Get(':id')
@@ -51,9 +58,10 @@ export class ClientsController {
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: CreateClientDto,
   ) {
-    return this.clientsService.create(tenantId, dto);
+    return this.clientsService.create(tenantId, branchId, dto);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)

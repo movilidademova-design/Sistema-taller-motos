@@ -8,12 +8,16 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 export class ClientsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(tenantId: string, query: PaginationQueryDto) {
+  async findAll(
+    tenantId: string,
+    query: PaginationQueryDto & { branchId?: string },
+  ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
       isActive: true,
+      ...(query.branchId ? { branchId: query.branchId } : {}),
       ...(query.search
         ? {
             OR: [
@@ -84,20 +88,25 @@ export class ClientsService {
     return client;
   }
 
-  async findByDocumentId(tenantId: string, documentId: string) {
+  async findByDocumentId(
+    tenantId: string,
+    branchId: string,
+    documentId: string,
+  ) {
     const client = await this.prisma.client.findFirst({
-      where: { tenantId, documentId, isActive: true },
+      where: { tenantId, branchId, documentId, isActive: true },
       include: { motorcycles: { orderBy: { createdAt: 'desc' } } },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     return client;
   }
 
-  async create(tenantId: string, dto: CreateClientDto) {
+  async create(tenantId: string, branchId: string, dto: CreateClientDto) {
     return this.prisma.client.create({
       data: {
         ...dto,
         tenantId,
+        branchId,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
       },
     });
