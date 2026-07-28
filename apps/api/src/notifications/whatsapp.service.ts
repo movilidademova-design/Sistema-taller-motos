@@ -48,15 +48,15 @@ export class WhatsappService {
     this.provider = new NoopWhatsappProvider();
   }
 
-  notifyOrderReceived(phone: string, orderNumber: number) {
+  notifyOrderReceived(phone: string, orderNumber: string) {
     return this.provider.sendTemplate(phone, 'ORDER_RECEIVED', {
-      orderNumber: String(orderNumber),
+      orderNumber,
     });
   }
 
-  notifyQuotationReady(phone: string, orderNumber: number) {
+  notifyQuotationReady(phone: string, orderNumber: string) {
     return this.provider.sendTemplate(phone, 'QUOTATION_READY', {
-      orderNumber: String(orderNumber),
+      orderNumber,
     });
   }
 

@@ -19,7 +19,7 @@ const STATUS_LABELS_ES: Record<OrderStatus, string> = {
 
 export function buildStatusChangeMessage(params: {
   clientFirstName: string;
-  orderNumber: number;
+  orderNumber: string;
   status: OrderStatus;
   tenantName: string;
 }): string {

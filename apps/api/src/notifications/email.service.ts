@@ -54,7 +54,7 @@ export class EmailService {
     });
   }
 
-  async sendQuotationReady(to: string, orderNumber: number, pdfBuffer: Buffer) {
+  async sendQuotationReady(to: string, orderNumber: string, pdfBuffer: Buffer) {
     return this.send({
       to,
       subject: `Cotización disponible — Orden #${orderNumber}`,
@@ -78,7 +78,7 @@ export class EmailService {
 
   async sendNotificationMessage(
     to: string,
-    orderNumber: number,
+    orderNumber: string,
     message: string,
   ) {
     return this.send({
@@ -92,7 +92,7 @@ export class EmailService {
     to: string,
     data: {
       clientFirstName: string;
-      orderNumber: number;
+      orderNumber: string;
       pickupCode: string;
       tenantName: string;
     },

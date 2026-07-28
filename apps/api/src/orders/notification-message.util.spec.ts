@@ -4,24 +4,24 @@ describe('buildStatusChangeMessage', () => {
   it('builds a generic status-change message', () => {
     const message = buildStatusChangeMessage({
       clientFirstName: 'Carlos',
-      orderNumber: 123,
+      orderNumber: '20560123',
       status: 'IN_REPAIR',
       tenantName: 'Taller Demo',
     });
     expect(message).toBe(
-      'Hola Carlos. Tu vehículo (Orden #123) cambió de estado a: En reparación.\nCualquier duda, contáctanos.\nEquipo Taller Demo',
+      'Hola Carlos. Tu vehículo (Orden #20560123) cambió de estado a: En reparación.\nCualquier duda, contáctanos.\nEquipo Taller Demo',
     );
   });
 
   it('builds a thank-you message for DELIVERED', () => {
     const message = buildStatusChangeMessage({
       clientFirstName: 'Ana',
-      orderNumber: 456,
+      orderNumber: '20560456',
       status: 'DELIVERED',
       tenantName: 'Taller Demo',
     });
     expect(message).toBe(
-      'Hola Ana. Gracias por confiar en nosotros — tu vehículo (Orden #456) fue entregado exitosamente. ¡Será un gusto atenderte de nuevo!\nEquipo Taller Demo',
+      'Hola Ana. Gracias por confiar en nosotros — tu vehículo (Orden #20560456) fue entregado exitosamente. ¡Será un gusto atenderte de nuevo!\nEquipo Taller Demo',
     );
   });
 
@@ -41,7 +41,7 @@ describe('buildStatusChangeMessage', () => {
     for (const status of statuses) {
       const message = buildStatusChangeMessage({
         clientFirstName: 'Cliente',
-        orderNumber: 1,
+        orderNumber: '00010001',
         status,
         tenantName: 'Taller',
       });
