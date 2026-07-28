@@ -7,6 +7,7 @@ import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Role } from '../generated/prisma/enums';
 
 const SAFE_SELECT = {
   id: true,
@@ -79,6 +80,50 @@ export class UsersService {
       where: { id },
       data: { isActive: false },
       select: SAFE_SELECT,
+    });
+  }
+
+  async findMyBranches(tenantId: string, userId: string, role: Role) {
+    if (role === Role.ADMIN) {
+      return this.prisma.branch.findMany({
+        where: { tenantId, isActive: true },
+        orderBy: { name: 'asc' },
+      });
+    }
+    const assignments = await this.prisma.userBranch.findMany({
+      where: { userId },
+      include: { branch: true },
+    });
+    return assignments
+      .map((a) => a.branch)
+      .filter((b) => b.tenantId === tenantId && b.isActive);
+  }
+
+  async assignBranches(tenantId: string, userId: string, branchIds: string[]) {
+    await this.findOne(tenantId, userId);
+    const branches = await this.prisma.branch.findMany({
+      where: { id: { in: branchIds }, tenantId },
+    });
+    if (branches.length !== branchIds.length) {
+      throw new NotFoundException('Alguna sucursal no pertenece a este taller');
+    }
+    await this.prisma.$transaction([
+      this.prisma.userBranch.deleteMany({ where: { userId } }),
+      this.prisma.userBranch.createMany({
+        data: branchIds.map((branchId) => ({ userId, branchId })),
+      }),
+    ]);
+    return this.prisma.userBranch.findMany({
+      where: { userId },
+      include: { branch: true },
+    });
+  }
+
+  async findUserBranches(tenantId: string, userId: string) {
+    await this.findOne(tenantId, userId);
+    return this.prisma.userBranch.findMany({
+      where: { userId },
+      include: { branch: true },
     });
   }
 }

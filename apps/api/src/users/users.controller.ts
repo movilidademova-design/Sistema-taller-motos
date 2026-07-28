@@ -11,6 +11,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AssignBranchesDto } from './dto/assign-branches.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
@@ -32,6 +33,15 @@ export class UsersController {
   @Get('technicians')
   findTechnicians(@CurrentUser('tenantId') tenantId: string) {
     return this.usersService.findTechnicians(tenantId);
+  }
+
+  @Get('me/branches')
+  findMyBranches(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: Role,
+  ) {
+    return this.usersService.findMyBranches(tenantId, userId, role);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
@@ -66,5 +76,25 @@ export class UsersController {
   @Delete(':id')
   remove(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
     return this.usersService.remove(tenantId, id);
+  }
+
+  @Roles(Role.ADMIN)
+  @Audit('User')
+  @Post(':id/branches')
+  assignBranches(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: AssignBranchesDto,
+  ) {
+    return this.usersService.assignBranches(tenantId, id, dto.branchIds);
+  }
+
+  @Roles(Role.ADMIN)
+  @Get(':id/branches')
+  getUserBranches(
+    @CurrentUser('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.findUserBranches(tenantId, id);
   }
 }
