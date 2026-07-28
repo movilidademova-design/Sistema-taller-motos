@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -88,6 +89,11 @@ export class ClientsService {
     return client;
   }
 
+  // Scoped to the current branch, not just the tenant: a client search during
+  // intake should only surface people already served at this branch, per this
+  // phase's design (see docs/superpowers/specs/2026-07-28-sucursales-fase1-design.md).
+  // A client with the same documentId in another branch of the same tenant won't
+  // be found here — see the P2002 handling in `create` for what happens next.
   async findByDocumentId(
     tenantId: string,
     branchId: string,
@@ -102,14 +108,23 @@ export class ClientsService {
   }
 
   async create(tenantId: string, branchId: string, dto: CreateClientDto) {
-    return this.prisma.client.create({
-      data: {
-        ...dto,
-        tenantId,
-        branchId,
-        birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-      },
-    });
+    try {
+      return await this.prisma.client.create({
+        data: {
+          ...dto,
+          tenantId,
+          branchId,
+          birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(
+          'Ya existe un cliente con esa cédula, posiblemente en otra sucursal',
+        );
+      }
+      throw error;
+    }
   }
 
   async update(tenantId: string, id: string, dto: UpdateClientDto) {
