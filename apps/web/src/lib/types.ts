@@ -96,6 +96,18 @@ export interface AccessoryOption {
   createdAt: string;
 }
 
+export interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  address?: string | null;
+  city?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface ChecklistItem {
   id: string;
   item: ChecklistItemType;
@@ -171,7 +183,7 @@ export interface Notification {
   id: string;
   orderId: string;
   order: {
-    orderNumber: number;
+    orderNumber: string;
     client: {
       firstName: string;
       lastName: string;
@@ -202,7 +214,7 @@ export interface LaborEntry {
 
 export interface Order {
   id: string;
-  orderNumber: number;
+  orderNumber: string;
   clientId: string;
   motorcycleId: string;
   receptionistId: string;
@@ -306,7 +318,7 @@ export interface PurchaseOrder {
 export interface Warranty {
   id: string;
   orderId: string;
-  order?: { orderNumber: number };
+  order?: { orderNumber: string };
   motorcycleId: string;
   motorcycle?: Motorcycle;
   clientId: string;
@@ -324,7 +336,7 @@ export interface Warranty {
 export interface Payment {
   id: string;
   orderId?: string | null;
-  order?: { orderNumber: number };
+  order?: { orderNumber: string };
   invoiceId?: string | null;
   clientId: string;
   client?: { firstName: string; lastName: string };
@@ -339,7 +351,7 @@ export interface Payment {
 export interface Invoice {
   id: string;
   orderId: string;
-  order?: { orderNumber: number };
+  order?: { orderNumber: string };
   clientId: string;
   client?: Client;
   invoiceNumber: string;
