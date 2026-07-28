@@ -407,7 +407,7 @@ Note in the commit message or a plan comment that `pnpm build` is expected to fa
 - Create: `apps/api/src/common/guards/branch-context.guard.ts`
 - Modify: `apps/api/src/app.module.ts`
 
-- [ ] **Step 1: The decorator**
+- [x] **Step 1: The decorator**
 
 ```ts
 // apps/api/src/common/decorators/current-branch.decorator.ts
@@ -428,7 +428,7 @@ export const CurrentBranch = createParamDecorator(
 );
 ```
 
-- [ ] **Step 2: The guard**
+- [x] **Step 2: The guard**
 
 ```ts
 // apps/api/src/common/guards/branch-context.guard.ts
@@ -473,7 +473,7 @@ export class BranchContextGuard implements CanActivate {
 }
 ```
 
-- [ ] **Step 3: Register globally, after `RolesGuard`**
+- [x] **Step 3: Register globally, after `RolesGuard`**
 
 In `apps/api/src/app.module.ts`, add the import:
 ```ts
@@ -486,14 +486,14 @@ Add to the `providers` array, right after the `RolesGuard` entry:
     { provide: APP_GUARD, useClass: BranchContextGuard },
 ```
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: still fails for the same `orders.service.ts` reasons as Task 4 — confirm no NEW errors were introduced by this task's files specifically.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/common/decorators/current-branch.decorator.ts apps/api/src/common/guards/branch-context.guard.ts apps/api/src/app.module.ts
@@ -512,7 +512,7 @@ git commit -m "Add BranchContextGuard and @CurrentBranch() decorator"
 - Create: `apps/api/src/branches/branches.module.ts`
 - Modify: `apps/api/src/app.module.ts`
 
-- [ ] **Step 1: DTOs**
+- [x] **Step 1: DTOs**
 
 ```ts
 // apps/api/src/branches/dto/create-branch.dto.ts
@@ -564,7 +564,7 @@ export class UpdateBranchDto extends PartialType(CreateBranchDto) {
 }
 ```
 
-- [ ] **Step 2: Service**
+- [x] **Step 2: Service**
 
 ```ts
 // apps/api/src/branches/branches.service.ts
@@ -615,7 +615,7 @@ export class BranchesService {
 }
 ```
 
-- [ ] **Step 3: Controller**
+- [x] **Step 3: Controller**
 
 ```ts
 // apps/api/src/branches/branches.controller.ts
@@ -659,7 +659,7 @@ export class BranchesController {
 }
 ```
 
-- [ ] **Step 4: Module**
+- [x] **Step 4: Module**
 
 ```ts
 // apps/api/src/branches/branches.module.ts
@@ -675,7 +675,7 @@ import { BranchesController } from './branches.controller';
 export class BranchesModule {}
 ```
 
-- [ ] **Step 5: Register in `AppModule`**
+- [x] **Step 5: Register in `AppModule`**
 
 Add the import and add `BranchesModule` to the `imports` array, right after `AccessoryOptionsModule,`:
 ```ts
@@ -686,14 +686,14 @@ import { BranchesModule } from './branches/branches.module';
     BranchesModule,
 ```
 
-- [ ] **Step 6: Verify build**
+- [x] **Step 6: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: still fails for the pre-existing `orders.service.ts` reasons only — confirm no new errors from this task's files.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/src/branches apps/api/src/app.module.ts
@@ -709,7 +709,7 @@ git commit -m "Add BranchesModule (list, create, update)"
 - Modify: `apps/api/src/users/users.controller.ts`
 - Create: `apps/api/src/users/dto/assign-branches.dto.ts`
 
-- [ ] **Step 1: DTO**
+- [x] **Step 1: DTO**
 
 ```ts
 // apps/api/src/users/dto/assign-branches.dto.ts
@@ -724,7 +724,7 @@ export class AssignBranchesDto {
 }
 ```
 
-- [ ] **Step 2: Service methods**
+- [x] **Step 2: Service methods**
 
 Add to `apps/api/src/users/users.service.ts` (read the file first to match its existing constructor/import style exactly, then add these two methods):
 
@@ -765,7 +765,7 @@ Add to `apps/api/src/users/users.service.ts` (read the file first to match its e
 
 You will need to import `Role` from `../generated/prisma/enums` in this file if it isn't already imported, and confirm `assertExists` (or whatever the existing private existence-check helper is named in this file) matches — read the file first and adapt the exact helper name/signature used, don't guess.
 
-- [ ] **Step 3: Controller endpoints**
+- [x] **Step 3: Controller endpoints**
 
 Add to `apps/api/src/users/users.controller.ts`. Add `@Get('me/branches')` **before** the existing `@Get(':id')` handler (NestJS matches routes in declaration order — placing it after `:id` would make `:id` greedily match the literal path `me/branches` as an id value instead), mirroring how `findTechnicians` (`'technicians'`) is already placed before `:id` in this file:
 
@@ -798,14 +798,14 @@ Add this near the other `@Roles(Role.ADMIN)` mutation endpoints:
 
 Add the import: `import { AssignBranchesDto } from './dto/assign-branches.dto';`
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: still fails only for the pre-existing `orders.service.ts` reasons.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/users/users.service.ts apps/api/src/users/users.controller.ts apps/api/src/users/dto/assign-branches.dto.ts
