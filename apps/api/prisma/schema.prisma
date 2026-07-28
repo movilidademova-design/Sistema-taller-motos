@@ -399,6 +399,7 @@ model Order {
   branchId             String?
   branch               Branch?     @relation(fields: [branchId], references: [id], onDelete: Restrict)
   orderNumber          Int
+  orderNumberText      String?
   clientId             String
   client               Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
   motorcycleId         String
