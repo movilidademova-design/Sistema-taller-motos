@@ -91,26 +91,25 @@ export class UsersService {
       });
     }
     const assignments = await this.prisma.userBranch.findMany({
-      where: { userId },
+      where: { userId, branch: { tenantId, isActive: true } },
       include: { branch: true },
     });
-    return assignments
-      .map((a) => a.branch)
-      .filter((b) => b.tenantId === tenantId && b.isActive);
+    return assignments.map((a) => a.branch);
   }
 
   async assignBranches(tenantId: string, userId: string, branchIds: string[]) {
     await this.findOne(tenantId, userId);
+    const uniqueBranchIds = [...new Set(branchIds)];
     const branches = await this.prisma.branch.findMany({
-      where: { id: { in: branchIds }, tenantId },
+      where: { id: { in: uniqueBranchIds }, tenantId },
     });
-    if (branches.length !== branchIds.length) {
+    if (branches.length !== uniqueBranchIds.length) {
       throw new NotFoundException('Alguna sucursal no pertenece a este taller');
     }
     await this.prisma.$transaction([
       this.prisma.userBranch.deleteMany({ where: { userId } }),
       this.prisma.userBranch.createMany({
-        data: branchIds.map((branchId) => ({ userId, branchId })),
+        data: uniqueBranchIds.map((branchId) => ({ userId, branchId })),
       }),
     ]);
     return this.prisma.userBranch.findMany({
