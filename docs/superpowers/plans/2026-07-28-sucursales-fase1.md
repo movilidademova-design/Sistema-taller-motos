@@ -149,7 +149,7 @@ git commit -m "Add nullable branchId to Client, Motorcycle, Order"
 **Files:**
 - Create: `apps/api/prisma/backfill-branches.ts`
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 ```ts
 // apps/api/prisma/backfill-branches.ts
@@ -243,7 +243,7 @@ main()
 
 Note: this script writes to a field named `orderNumberText`, which does not exist yet — that's intentional and added in the next step, since we need a temporary parallel column to hold the reformatted value before safely replacing the original `orderNumber` column in Task 4 (see the plan header's note on why this expand/backfill/contract sequence is used).
 
-- [ ] **Step 2: Add the temporary `orderNumberText` column**
+- [x] **Step 2: Add the temporary `orderNumberText` column**
 
 Add to `model Order` in `apps/api/prisma/schema.prisma`, right after `orderNumber          Int`:
 ```prisma
@@ -254,7 +254,7 @@ Add to `model Order` in `apps/api/prisma/schema.prisma`, right after `orderNumbe
 pnpm --filter @taller/api exec prisma migrate dev --name order_number_text_temp
 ```
 
-- [ ] **Step 3: Run the backfill script**
+- [x] **Step 3: Run the backfill script**
 
 ```bash
 pnpm --filter @taller/api exec tsx prisma/backfill-branches.ts
@@ -262,7 +262,7 @@ pnpm --filter @taller/api exec tsx prisma/backfill-branches.ts
 
 Expected output: one "Created branch..." + "Backfilled..." + "Reformatted..." block per tenant, ending in "Done."
 
-- [ ] **Step 4: Verify the backfill**
+- [x] **Step 4: Verify the backfill**
 
 Run a quick manual check via Prisma Studio or a one-off query — confirm every `Client`/`Motorcycle`/`Order` row now has a non-null `branchId`, and every `Order.orderNumberText` looks like `00010001`, `00010002`, etc.
 
@@ -271,12 +271,14 @@ pnpm --filter @taller/api exec prisma studio
 ```
 (Check the `orders`, `clients`, `motorcycles`, and `branches` tables, then stop the process — this is a manual verification step, not something to leave running.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/prisma/schema.prisma apps/api/prisma/migrations apps/api/prisma/backfill-branches.ts
 git commit -m "Add data-backfill script for branches, run it against dev data"
 ```
+
+**Post-review fix (commit `c8e7ff1`):** code review found the skip-check was keyed on "does a branch exist for this tenant" rather than "did the backfill actually finish" — the exact gap that let the first run's crash (a stale generated Prisma client after Task 2's schema change, before `prisma generate` had been re-run) leave a dangling partial `Branch` row that a naive re-run would have silently treated as "already done," permanently leaving that tenant's data un-backfilled. Fixed by wrapping each tenant's work in a `$transaction` (a crash now rolls back cleanly, so no partial branch can survive) and keying the skip-check on the real postcondition (zero rows left with a null `branchId`/`orderNumberText`). Verified by actually re-running the script against the already-backfilled dev data — it correctly no-oped with no duplicate branch and no data change. See the actual committed code, not the snippet above, as the source of truth for this task.
 
 ---
 
