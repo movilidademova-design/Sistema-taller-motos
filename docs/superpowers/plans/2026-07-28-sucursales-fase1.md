@@ -1047,11 +1047,11 @@ git commit -m "Change orderNumber parameter type from number to string throughou
 **Files:**
 - Modify: `apps/web/src/lib/types.ts`
 
-- [ ] **Step 1: Change `orderNumber` from `number` to `string`**
+- [x] **Step 1: Change `orderNumber` from `number` to `string`**
 
 There are 5 occurrences of `orderNumber: number` in this file (on `Order`, and on the `order?: { orderNumber: number }` shorthand used by `Warranty`, `Payment`, `Invoice`, and possibly one more — search for all of them). Change every one to `orderNumber: string`.
 
-- [ ] **Step 2: Add the `Branch` type**
+- [x] **Step 2: Add the `Branch` type**
 
 Add near `AccessoryOption` (or any other simple catalog-shaped interface):
 ```ts
@@ -1068,14 +1068,14 @@ export interface Branch {
 }
 ```
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: **this will FAIL** — several pages still assume `orderNumber` is a `number` in ways that need fixing in later tasks of this plan (e.g. `orders/new/page.tsx`'s local `buildIntakeMessage` type). Confirm the errors are all `orderNumber`-related type mismatches, not something unrelated.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/lib/types.ts
