@@ -1090,7 +1090,7 @@ git commit -m "Change Order.orderNumber to string, add Branch type"
 - Modify: `apps/web/src/lib/auth-storage.ts`
 - Modify: `apps/web/src/lib/api.ts`
 
-- [ ] **Step 1: `auth-storage.ts`**
+- [x] **Step 1: `auth-storage.ts`**
 
 Add a new key and three methods, following the exact style already used for the access token:
 
@@ -1115,7 +1115,7 @@ Add to the `authStorage` object:
 
 Also add `localStorage.removeItem(BRANCH_ID_KEY);` to the existing `clear()` method, so logging out clears the selected branch too.
 
-- [ ] **Step 2: `api.ts`**
+- [x] **Step 2: `api.ts`**
 
 In the `request<T>` function, add the branch header alongside the existing `Authorization` header:
 
@@ -1133,14 +1133,14 @@ In the `request<T>` function, add the branch header alongside the existing `Auth
 
 (This replaces the existing `const token = ...` line and `finalHeaders` block — only the two marked additions are new, everything else in that function stays as-is.)
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: same failure state as the end of Task 12 (unrelated `orderNumber` type errors elsewhere) — no new errors from these two files.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/lib/auth-storage.ts apps/web/src/lib/api.ts
