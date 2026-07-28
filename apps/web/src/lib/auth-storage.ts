@@ -10,6 +10,7 @@ export interface StoredUser {
 const ACCESS_TOKEN_KEY = 'taller_access_token';
 const REFRESH_TOKEN_KEY = 'taller_refresh_token';
 const USER_KEY = 'taller_user';
+const BRANCH_ID_KEY = 'taller_branch_id';
 
 export const authStorage = {
   getAccessToken(): string | null {
@@ -33,9 +34,20 @@ export const authStorage = {
   setAccessToken(accessToken: string) {
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
   },
+  getBranchId(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(BRANCH_ID_KEY);
+  },
+  setBranchId(branchId: string) {
+    localStorage.setItem(BRANCH_ID_KEY, branchId);
+  },
+  clearBranchId() {
+    localStorage.removeItem(BRANCH_ID_KEY);
+  },
   clear() {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(BRANCH_ID_KEY);
   },
 };

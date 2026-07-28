@@ -48,10 +48,12 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, isFormData, skipAuthRetry, headers, ...rest } = options;
   const token = authStorage.getAccessToken();
+  const branchId = authStorage.getBranchId();
 
   const finalHeaders: Record<string, string> = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(branchId ? { 'X-Branch-Id': branchId } : {}),
     ...(headers as Record<string, string>),
   };
 
