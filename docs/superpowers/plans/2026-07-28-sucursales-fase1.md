@@ -973,24 +973,24 @@ git commit -m "Scope client listing, search, and creation by branch"
 - Modify: `apps/api/src/motorcycles/motorcycles.service.ts`
 - Modify: `apps/api/src/motorcycles/motorcycles.controller.ts`
 
-- [ ] **Step 1: Service changes**
+- [x] **Step 1: Service changes**
 
 Add `branchId: string` as a parameter to `create` (right after `tenantId`), and add `branchId,` to the `data` object passed to `this.prisma.motorcycle.create`.
 
 Add `branchId` to the `where` clause built in `findAll` (accept it as an optional field on the query parameter type, add `...(query.branchId ? { branchId: query.branchId } : {})`, mirroring the existing `clientId` pattern already there).
 
-- [ ] **Step 2: Controller changes**
+- [x] **Step 2: Controller changes**
 
 Read `apps/api/src/motorcycles/motorcycles.controller.ts` first to confirm its exact current structure (this plan hasn't inspected it directly), then add the `CurrentBranch` import and thread `@CurrentBranch() branchId: string` through `findAll` and `create` the same way Task 9 did for clients.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: same remaining-errors state as the end of Task 9.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/motorcycles/motorcycles.service.ts apps/api/src/motorcycles/motorcycles.controller.ts
