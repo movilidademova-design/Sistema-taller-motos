@@ -20,6 +20,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { QuickServicesModule } from './quick-services/quick-services.module';
 import { AccessoryOptionsModule } from './accessory-options/accessory-options.module';
+import { BranchesModule } from './branches/branches.module';
 import { NotificationInboxModule } from './notification-inbox/notification-inbox.module';
 import { StorageModule } from './storage/storage.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -54,6 +55,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     AppointmentsModule,
     QuickServicesModule,
     AccessoryOptionsModule,
+    BranchesModule,
     NotificationInboxModule,
     AuditModule,
   ],
