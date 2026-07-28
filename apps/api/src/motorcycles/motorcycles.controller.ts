@@ -14,6 +14,7 @@ import { UpdateMotorcycleDto } from './dto/update-motorcycle.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { Role } from '../generated/prisma/enums';
 
@@ -26,9 +27,10 @@ export class MotorcyclesController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Query() query: PaginationQueryDto & { clientId?: string },
   ) {
-    return this.motorcyclesService.findAll(tenantId, query);
+    return this.motorcyclesService.findAll(tenantId, { ...query, branchId });
   }
 
   @Get(':id')
@@ -41,9 +43,10 @@ export class MotorcyclesController {
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: CreateMotorcycleDto,
   ) {
-    return this.motorcyclesService.create(tenantId, dto);
+    return this.motorcyclesService.create(tenantId, branchId, dto);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)

@@ -10,13 +10,14 @@ export class MotorcyclesService {
 
   async findAll(
     tenantId: string,
-    query: PaginationQueryDto & { clientId?: string },
+    query: PaginationQueryDto & { clientId?: string; branchId?: string },
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
       ...(query.clientId ? { clientId: query.clientId } : {}),
+      ...(query.branchId ? { branchId: query.branchId } : {}),
       ...(query.search
         ? {
             OR: [
@@ -78,7 +79,7 @@ export class MotorcyclesService {
     return motorcycle;
   }
 
-  async create(tenantId: string, dto: CreateMotorcycleDto) {
+  async create(tenantId: string, branchId: string, dto: CreateMotorcycleDto) {
     const client = await this.prisma.client.findFirst({
       where: { id: dto.clientId, tenantId },
     });
@@ -88,6 +89,7 @@ export class MotorcyclesService {
       data: {
         ...dto,
         tenantId,
+        branchId,
         purchaseDate: dto.purchaseDate ? new Date(dto.purchaseDate) : undefined,
         warrantyUntil: dto.warrantyUntil
           ? new Date(dto.warrantyUntil)
