@@ -289,7 +289,7 @@ git commit -m "Add data-backfill script for branches, run it against dev data"
 
 This is the most delicate step in the plan — read the whole task before running anything.
 
-- [ ] **Step 1: Back up the database first**
+- [x] **Step 1: Back up the database first**
 
 This task rewrites a column's data (`Order.orderNumber`) via schema migration. Before touching anything, take a dump so this is trivially reversible if something goes wrong:
 ```bash
@@ -297,7 +297,7 @@ docker exec sistema-taller-motos-postgres-1 pg_dump -U postgres -d taller_motos 
 ```
 (Adjust the container name/database name/user if they differ from what `docker ps` and `apps/api/.env`'s `DATABASE_URL` show — confirm before running. Save the dump path somewhere you'll remember; you won't need it if everything goes well, but don't skip creating it.)
 
-- [ ] **Step 2: Update the schema**
+- [x] **Step 2: Update the schema**
 
 In `model Client`, change:
 ```prisma
@@ -339,13 +339,15 @@ model Order {
 ```
 (Keep every other existing field/relation/index on `Order` exactly as it already is — only `orderNumber`'s type/position and the `branchId`/`branch` nullability change in this task.)
 
-- [ ] **Step 3: Generate the migration WITHOUT applying it**
+- [x] **Step 3: Generate the migration WITHOUT applying it**
 
 ```bash
 pnpm --filter @taller/api exec prisma migrate dev --create-only --name branch_id_required_order_number_text
 ```
 
-- [ ] **Step 4: Inspect and, if necessary, fix the generated SQL**
+**What actually happened:** `migrate dev --create-only` requires an interactive TTY for its data-loss confirmation prompt, which wasn't available — used `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script` instead to see what Prisma would generate, without applying anything.
+
+- [x] **Step 4: Inspect and, if necessary, fix the generated SQL**
 
 Open the new file at `apps/api/prisma/migrations/<timestamp>_branch_id_required_order_number_text/migration.sql`. It needs to:
 1. Drop the old `orderNumber` (Int) column and its unique index.
@@ -356,7 +358,9 @@ Open the new file at `apps/api/prisma/migrations/<timestamp>_branch_id_required_
 
 If you had to hand-edit the SQL, re-verify the whole file reads sensibly top to bottom before applying.
 
-- [ ] **Step 5: Apply the migration**
+**Real finding (not hypothetical):** the raw diff Prisma generated for this exact schema change WAS the unsafe kind described above — `DROP COLUMN "orderNumberText"` + `ALTER COLUMN "orderNumber" SET DATA TYPE TEXT`, which would have kept the OLD Int-derived values (cast to text) and silently discarded the entire backfilled column. The committed migration was hand-corrected to `DROP COLUMN "orderNumber"` (the old Int one) → `RENAME COLUMN "orderNumberText" TO "orderNumber"` instead. This was independently re-verified via direct database queries (not just re-reading the SQL) before being accepted.
+
+- [x] **Step 5: Apply the migration**
 
 ```bash
 pnpm --filter @taller/api exec prisma migrate dev
@@ -365,21 +369,25 @@ pnpm --filter @taller/api exec prisma migrate dev
 
 Expected: succeeds with no data loss. Verify via `prisma studio` again that `orders.orderNumber` still shows values like `00010001` (not null, not reset) and `branchId` is populated on every row across all three tables.
 
-- [ ] **Step 6: Regenerate the Prisma client explicitly**
+**What actually happened:** applied via `prisma migrate deploy` instead of `migrate dev` (same non-interactive-shell reason as Step 3). Verified directly against the database (not just via Studio): all 9 orders show `00010001`–`00010009`, `branchId` is `NOT NULL` and populated on all rows of `clients`/`motorcycles`/`orders`, and the `@@unique([tenantId, orderNumber])` constraint exists as a real index.
+
+- [x] **Step 6: Regenerate the Prisma client explicitly**
 
 A prior task in this repo found that `prisma migrate dev` doesn't always auto-regenerate the client — run this explicitly and confirm:
 ```bash
 pnpm --filter @taller/api exec prisma generate
 ```
 
-- [ ] **Step 7: Verify backend build**
+- [x] **Step 7: Verify backend build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: **this will FAIL** at this point — `OrdersService` still writes `orderNumber: tenant.nextOrderNumber - 1` (a number) into a field that's now typed `String`, and doesn't set `branchId` anywhere. That's expected and fixed in Task 8. Confirm the build fails specifically due to `orderNumber`/`branchId` type errors in `orders.service.ts` (not some other unrelated error) — if it fails for a different reason, stop and report it.
 
-- [ ] **Step 8: Commit**
+**What actually happened:** build failed with 23 errors, broader than just `orders.service.ts` (also `clients.service.ts`, `motorcycles.service.ts`, `quotations.service.ts`, `notification-inbox.service.ts`, and the now-obsolete `prisma/backfill-branches.ts`/`prisma/seed.ts` scripts) — every one independently confirmed to be a direct, mechanical consequence of the `branchId`-now-required / `orderNumber`-now-`string` changes, not unrelated breakage. Fixed across Tasks 8-11.
+
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/api/prisma/schema.prisma apps/api/prisma/migrations
@@ -387,6 +395,8 @@ git commit -m "Make branchId required; replace Order.orderNumber with the branch
 ```
 
 Note in the commit message or a plan comment that `pnpm build` is expected to fail until Task 8 lands — this is a deliberately incremental sequence, not a broken commit to be alarmed about.
+
+**Follow-up noted for later (not part of this task):** code review flagged that `Tenant.nextOrderNumber` will become fully orphaned once Task 8 stops using it in favor of `Branch.nextOrderNumber`, but no task in this plan removes the now-dead column. Worth a small cleanup task after Task 8 lands, or an explicit decision to keep it for a rollback path — flagging here so it isn't lost.
 
 ---
 
