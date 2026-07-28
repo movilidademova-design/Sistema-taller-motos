@@ -21,6 +21,7 @@ import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { OrderStatus, Role } from '../generated/prisma/enums';
 
@@ -35,6 +36,7 @@ export class OrdersController {
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
     @CurrentUser('role') role: Role,
+    @CurrentBranch() branchId: string,
     @Query()
     query: PaginationQueryDto & {
       status?: OrderStatus;
@@ -44,7 +46,9 @@ export class OrdersController {
   ) {
     // Technicians only ever see orders assigned to them.
     const scoped =
-      role === Role.TECHNICIAN ? { ...query, technicianId: userId } : query;
+      role === Role.TECHNICIAN
+        ? { ...query, technicianId: userId, branchId }
+        : { ...query, branchId };
     return this.ordersService.findAll(tenantId, scoped);
   }
 
@@ -59,9 +63,10 @@ export class OrdersController {
   create(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: CreateOrderDto,
   ) {
-    return this.ordersService.create(tenantId, userId, dto);
+    return this.ordersService.create(tenantId, branchId, userId, dto);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
@@ -92,6 +97,7 @@ export class OrdersController {
   intake(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: IntakeOrderDto,
     @UploadedFiles()
     files: {
@@ -99,7 +105,7 @@ export class OrdersController {
       signature?: Express.Multer.File[];
     },
   ) {
-    return this.ordersService.intake(tenantId, userId, dto, files);
+    return this.ordersService.intake(tenantId, branchId, userId, dto, files);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)

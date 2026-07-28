@@ -58,6 +58,7 @@ export class OrdersService {
       status?: OrderStatus;
       technicianId?: string;
       clientId?: string;
+      branchId?: string;
     },
   ) {
     const page = query.page ?? 1;
@@ -67,6 +68,7 @@ export class OrdersService {
       ...(query.status ? { status: query.status } : {}),
       ...(query.technicianId ? { technicianId: query.technicianId } : {}),
       ...(query.clientId ? { clientId: query.clientId } : {}),
+      ...(query.branchId ? { branchId: query.branchId } : {}),
       ...(query.search
         ? {
             OR: [
@@ -174,9 +176,27 @@ export class OrdersService {
     );
   }
 
+  /**
+   * Only safe to call AFTER `tx.branch.update({ data: { nextOrderNumber: { increment: 1 } } })`
+   * in the same transaction — mirrors generateUniquePickupCode's locking rationale, now scoped
+   * to the branch row instead of the tenant row.
+   */
+  private async nextOrderNumber(
+    tx: Prisma.TransactionClient,
+    branchId: string,
+  ): Promise<string> {
+    const branch = await tx.branch.update({
+      where: { id: branchId },
+      data: { nextOrderNumber: { increment: 1 } },
+    });
+    const sequence = String(branch.nextOrderNumber - 1).padStart(4, '0');
+    return `${branch.code}${sequence}`;
+  }
+
   private async createOrReactivateClient(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    branchId: string,
     newClient: {
       documentId: string;
       firstName: string;
@@ -196,7 +216,7 @@ export class OrdersService {
       });
     }
     try {
-      return await tx.client.create({ data: { tenantId, ...newClient } });
+      return await tx.client.create({ data: { tenantId, branchId, ...newClient } });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const existing = await tx.client.findFirst({
@@ -231,7 +251,12 @@ export class OrdersService {
     return motorcycle;
   }
 
-  async create(tenantId: string, receptionistId: string, dto: CreateOrderDto) {
+  async create(
+    tenantId: string,
+    branchId: string,
+    receptionistId: string,
+    dto: CreateOrderDto,
+  ) {
     const [client, motorcycle] = await Promise.all([
       this.prisma.client.findFirst({ where: { id: dto.clientId, tenantId } }),
       this.prisma.motorcycle.findFirst({
@@ -245,16 +270,13 @@ export class OrdersService {
     }
 
     const order = await this.prisma.$transaction(async (tx) => {
-      const tenant = await tx.tenant.update({
-        where: { id: tenantId },
-        data: { nextOrderNumber: { increment: 1 } },
-      });
-      const orderNumber = tenant.nextOrderNumber - 1;
+      const orderNumber = await this.nextOrderNumber(tx, branchId);
       const pickupCode = await this.generateUniquePickupCode(tx, tenantId);
 
       const created = await tx.order.create({
         data: {
           tenantId,
+          branchId,
           orderNumber,
           clientId: dto.clientId,
           motorcycleId: dto.motorcycleId,
@@ -305,6 +327,7 @@ export class OrdersService {
 
   async intake(
     tenantId: string,
+    branchId: string,
     receptionistId: string,
     dto: IntakeOrderDto,
     files: { photos?: Express.Multer.File[]; signature?: Express.Multer.File[] },
@@ -354,13 +377,14 @@ export class OrdersService {
     const order = await this.prisma.$transaction(async (tx) => {
       const client = dto.clientId
         ? await this.mustFindTenantClient(tx, tenantId, dto.clientId)
-        : await this.createOrReactivateClient(tx, tenantId, dto.newClient!);
+        : await this.createOrReactivateClient(tx, tenantId, branchId, dto.newClient!);
 
       const motorcycle = dto.motorcycleId
         ? await this.mustFindTenantMotorcycle(tx, tenantId, dto.motorcycleId, client.id)
         : await tx.motorcycle.create({
             data: {
               tenantId,
+              branchId,
               clientId: client.id,
               vehicleType: dto.newMotorcycle!.vehicleType,
               brand: dto.newMotorcycle!.brand,
@@ -390,16 +414,14 @@ export class OrdersService {
         dto.otherAccessoryText ?? '',
       );
 
-      const tenant = await tx.tenant.update({
-        where: { id: tenantId },
-        data: { nextOrderNumber: { increment: 1 } },
-      });
+      const orderNumber = await this.nextOrderNumber(tx, branchId);
       const pickupCode = await this.generateUniquePickupCode(tx, tenantId);
 
       const created = await tx.order.create({
         data: {
           tenantId,
-          orderNumber: tenant.nextOrderNumber - 1,
+          branchId,
+          orderNumber,
           clientId: client.id,
           motorcycleId: motorcycle.id,
           receptionistId,
