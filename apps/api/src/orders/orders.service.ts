@@ -150,21 +150,26 @@ export class OrdersService {
   }
 
   /**
-   * Only safe to call AFTER `tx.tenant.update({ data: { nextOrderNumber: { increment: 1 } } })`
-   * in the same transaction — that update takes a row lock on the tenant that serializes
-   * concurrent order-creating transactions, which is what makes this uniqueness check race-free.
-   * Calling this before that update (or in a transaction that doesn't touch the tenant row)
-   * would not be safe under Postgres's default READ COMMITTED isolation.
+   * Only safe to call AFTER `tx.branch.update({ data: { nextOrderNumber: { increment: 1 } } })`
+   * in the same transaction, for that same branch — that update takes a row lock on the branch
+   * that serializes concurrent order-creating transactions FOR THAT BRANCH, which is what makes
+   * this uniqueness check race-free. Uniqueness is therefore scoped per branch, not per tenant:
+   * two branches of the same tenant may hand out the same pickup code concurrently, which is fine
+   * since a vehicle is always picked up at the branch that received it. Calling this before the
+   * branch-row update (or in a transaction that doesn't touch that branch's row) would not be
+   * safe under Postgres's default READ COMMITTED isolation.
    */
   private async generateUniquePickupCode(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    branchId: string,
   ): Promise<string> {
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generatePickupCode();
       const clash = await tx.order.findFirst({
         where: {
           tenantId,
+          branchId,
           pickupCode: code,
           status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
         },
@@ -210,6 +215,9 @@ export class OrdersService {
       where: { tenantId, documentId: newClient.documentId, isActive: false },
     });
     if (inactive) {
+      // Reactivating keeps the client's original branchId rather than moving them to the
+      // branch they're walking into today — clients aren't branch-filtered yet (Fase 1 only
+      // scopes creation, not visibility), so there's no access-control reason to reassign it.
       return tx.client.update({
         where: { id: inactive.id },
         data: { ...newClient, isActive: true },
@@ -271,7 +279,7 @@ export class OrdersService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       const orderNumber = await this.nextOrderNumber(tx, branchId);
-      const pickupCode = await this.generateUniquePickupCode(tx, tenantId);
+      const pickupCode = await this.generateUniquePickupCode(tx, tenantId, branchId);
 
       const created = await tx.order.create({
         data: {
@@ -415,7 +423,7 @@ export class OrdersService {
       );
 
       const orderNumber = await this.nextOrderNumber(tx, branchId);
-      const pickupCode = await this.generateUniquePickupCode(tx, tenantId);
+      const pickupCode = await this.generateUniquePickupCode(tx, tenantId, branchId);
 
       const created = await tx.order.create({
         data: {
