@@ -27,6 +27,7 @@ import { AuditModule } from './audit/audit.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { BranchContextGuard } from './common/guards/branch-context.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 @Module({
@@ -60,6 +61,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: BranchContextGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
