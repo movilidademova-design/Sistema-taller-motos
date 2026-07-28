@@ -1009,23 +1009,23 @@ git commit -m "Scope motorcycle listing and creation by branch"
 
 All of these currently just interpolate `orderNumber` into a string template (`` `#${orderNumber}` ``) or pass it straight into another template — none do arithmetic on it, so this is a pure type-signature change with no logic change.
 
-- [ ] **Step 1: `whatsapp.service.ts`**
+- [x] **Step 1: `whatsapp.service.ts`**
 
 Change `notifyOrderReceived(phone: string, orderNumber: number)` → `notifyOrderReceived(phone: string, orderNumber: string)`, and `notifyQuotationReady(phone: string, orderNumber: number)` → `notifyQuotationReady(phone: string, orderNumber: string)`. Remove the now-redundant `String(orderNumber)` calls inside both bodies — just pass `orderNumber` directly to `sendTemplate`'s params object, since it's already a string.
 
-- [ ] **Step 2: `email.service.ts`**
+- [x] **Step 2: `email.service.ts`**
 
 Change the `orderNumber: number` parameter type to `orderNumber: string` in `sendQuotationReady`, `sendNotificationMessage`, and the inline type for `sendIntakeConfirmation`'s `data` parameter (`{ clientFirstName: string; orderNumber: number; pickupCode: string; tenantName: string }` → `orderNumber: string`). No other changes needed — every usage is already string interpolation.
 
-- [ ] **Step 3: `notification-message.util.ts`**
+- [x] **Step 3: `notification-message.util.ts`**
 
 Change `orderNumber: number` to `orderNumber: string` in the `buildStatusChangeMessage` parameter type.
 
-- [ ] **Step 4: `notification-message.util.spec.ts`**
+- [x] **Step 4: `notification-message.util.spec.ts`**
 
 Change the three test cases' `orderNumber: 123`, `orderNumber: 456`, `orderNumber: 1` literals to string literals: `orderNumber: '20560123'`, `orderNumber: '20560456'`, `orderNumber: '00010001'` (arbitrary valid-looking branch-prefixed values — exact digits don't matter, just update the type and the expected-message assertions in the first two tests to match whatever values you choose, e.g. `Orden #20560123` instead of `Orden #123`).
 
-- [ ] **Step 5: Verify build and tests**
+- [x] **Step 5: Verify build and tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1033,7 +1033,7 @@ pnpm --filter @taller/api test
 ```
 Expected: **both succeed with zero errors** — this is the task that clears every remaining error left over since Task 4.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/src/notifications/whatsapp.service.ts apps/api/src/notifications/email.service.ts apps/api/src/orders/notification-message.util.ts apps/api/src/orders/notification-message.util.spec.ts
