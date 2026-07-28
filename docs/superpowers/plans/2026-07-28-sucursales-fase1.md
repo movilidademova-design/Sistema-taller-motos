@@ -822,7 +822,7 @@ git commit -m "Add GET /users/me/branches and POST /users/:id/branches"
 
 This is the task that fixes the build failure left over from Task 4.
 
-- [ ] **Step 1: Replace the pickup-code/order-number generation logic**
+- [x] **Step 1: Replace the pickup-code/order-number generation logic**
 
 In `apps/api/src/orders/orders.service.ts`, replace the `generateUniquePickupCode` JSDoc comment and the order-number generation lines in BOTH `create` and `intake`.
 
@@ -889,7 +889,7 @@ with:
           orderNumber,
 ```
 
-- [ ] **Step 2: Thread `branchId` through the public method signatures**
+- [x] **Step 2: Thread `branchId` through the public method signatures**
 
 `create(tenantId: string, receptionistId: string, dto: CreateOrderDto)` → `create(tenantId: string, branchId: string, receptionistId: string, dto: CreateOrderDto)`.
 
@@ -897,7 +897,7 @@ with:
 
 Also add `branchId` filtering to `findAll`'s `where` clause (accept an optional `branchId` in its query parameter type and add `...(query.branchId ? { branchId: query.branchId } : {})` to the `where` object, following the exact same pattern already used there for `status`/`technicianId`/`clientId`).
 
-- [ ] **Step 3: Update the controller to pass `branchId` through**
+- [x] **Step 3: Update the controller to pass `branchId` through**
 
 In `apps/api/src/orders/orders.controller.ts`, add the import:
 ```ts
@@ -908,18 +908,18 @@ Update `create` and `intake` to accept `@CurrentBranch() branchId: string` and p
 
 Update `findAll` to accept `@CurrentBranch() branchId: string` too, and add `branchId` to the `scoped` query object it builds before calling `ordersService.findAll`.
 
-- [ ] **Step 4: Fix the `orderNumber: number` callers**
+- [x] **Step 4: Fix the `orderNumber: number` callers**
 
 `sendIntakeConfirmationEmail` passes `orderNumber: order.orderNumber` into `EmailService.sendIntakeConfirmation`, and `notify` passes it into `buildStatusChangeMessage` — both of those functions' parameter types change from `number` to `string` in Task 11 of this plan. No change needed here in `orders.service.ts` itself for those two call sites (they already just pass the value through), but do NOT run this task's build-fix verification until Task 11 also lands, since `orders.service.ts` alone won't compile clean against those two files' OLD `number`-typed signatures. If you're executing this plan strictly task-by-task via subagent-driven-development, it's fine for Task 8's own build check to still show 2 remaining errors from `email.service.ts`/`notification-message.util.ts` call sites — confirm the errors are ONLY those two, not anything else in `orders.service.ts`.
 
-- [ ] **Step 5: Verify build**
+- [x] **Step 5: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: the errors that were present since Task 4 in `orders.service.ts` are now gone. Any remaining errors should be exactly the two `orderNumber: number` vs `string` mismatches described in Step 4 above (in `email.service.ts`/`notification-message.util.ts`, fixed in Task 11) — if there are OTHER errors, stop and report them.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/src/orders/orders.service.ts apps/api/src/orders/orders.controller.ts
