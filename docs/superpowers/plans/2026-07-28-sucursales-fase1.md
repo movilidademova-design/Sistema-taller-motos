@@ -934,7 +934,7 @@ git commit -m "Scope order creation and listing by branch, use branch-prefixed o
 - Modify: `apps/api/src/clients/clients.service.ts`
 - Modify: `apps/api/src/clients/clients.controller.ts`
 
-- [ ] **Step 1: Service changes**
+- [x] **Step 1: Service changes**
 
 Add `branchId: string` as a parameter to `create` (right after `tenantId`), and add `branchId,` to the `data` object passed to `this.prisma.client.create`.
 
@@ -942,7 +942,7 @@ Add `branchId` to the `where` clause built in `findAll` (accept it as an optiona
 
 Add a required `branchId: string` parameter to `findByDocumentId` (right after `tenantId`) and add it to that method's `where` clause directly (not optional — every call site provides one, since intake wizard client search should only ever look within the current branch, per this plan's design spec).
 
-- [ ] **Step 2: Controller changes**
+- [x] **Step 2: Controller changes**
 
 In `apps/api/src/clients/clients.controller.ts`, add the import:
 ```ts
@@ -951,14 +951,14 @@ import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 
 Add `@CurrentBranch() branchId: string` to `findAll`, `findByDocumentId`, and `create`, passing it through to the corresponding service calls in the right argument position.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: same remaining-errors state as the end of Task 8 (the two `orderNumber` type mismatches, fixed in Task 11) — no new errors from this task's files.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/clients/clients.service.ts apps/api/src/clients/clients.controller.ts
