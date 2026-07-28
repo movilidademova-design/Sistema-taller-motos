@@ -244,6 +244,9 @@ model Branch {
   updatedAt       DateTime @updatedAt
 
   userBranches UserBranch[]
+  clients      Client[]
+  motorcycles  Motorcycle[]
+  orders       Order[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -320,6 +323,8 @@ model Client {
   id         String    @id @default(uuid())
   tenantId   String
   tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     Branch?   @relation(fields: [branchId], references: [id], onDelete: Restrict)
   firstName  String
   lastName   String
   documentId String?
@@ -341,6 +346,7 @@ model Client {
 
   @@unique([tenantId, documentId])
   @@index([tenantId])
+  @@index([branchId])
   @@map("clients")
 }
 
@@ -348,6 +354,8 @@ model Motorcycle {
   id               String    @id @default(uuid())
   tenantId         String
   tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId         String?
+  branch           Branch?   @relation(fields: [branchId], references: [id], onDelete: Restrict)
   clientId         String
   client           Client    @relation(fields: [clientId], references: [id], onDelete: Restrict)
   brand            String
@@ -376,6 +384,7 @@ model Motorcycle {
 
   @@index([tenantId])
   @@index([clientId])
+  @@index([branchId])
   @@map("motorcycles")
 }
 
@@ -387,6 +396,8 @@ model Order {
   id                   String      @id @default(uuid())
   tenantId             String
   tenant               Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId             String?
+  branch               Branch?     @relation(fields: [branchId], references: [id], onDelete: Restrict)
   orderNumber          Int
   clientId             String
   client               Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
@@ -425,6 +436,7 @@ model Order {
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId, status])
+  @@index([branchId])
   @@map("orders")
 }
 
