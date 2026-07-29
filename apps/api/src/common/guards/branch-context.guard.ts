@@ -5,13 +5,17 @@ import type { RequestWithBranch } from '../decorators/current-branch.decorator';
 
 /**
  * Runs after JwtAuthGuard. If the request carries an X-Branch-Id header, validates
- * that the branch belongs to the caller's tenant, is active, and that the caller
- * may access it (ADMIN can access every active branch in their tenant automatically;
- * any other role must have an explicit UserBranch row), then attaches the validated
- * id to the request. A deactivated branch is treated the same as a nonexistent one —
- * a stale X-Branch-Id header pointing at one is rejected, not silently honored.
- * Does NOT reject requests with no header — individual endpoints that require a
- * branch use `@CurrentBranch()`, which throws on its own if nothing was resolved here.
+ * that the branch belongs to the caller's tenant and that the caller may access it
+ * (ADMIN can access every branch in their tenant automatically; any other role must
+ * have an explicit UserBranch row) — those are real authorization checks and reject
+ * the whole request (403) on failure. A deactivated branch is different: it's not an
+ * authorization violation, just a branch that isn't currently usable, so it does NOT
+ * hard-fail the request either — this only skips resolving `request.branchId`, same
+ * as if no header had been sent at all. That matters because this guard is global and
+ * runs even on endpoints that don't need a branch (like GET /users/me/branches, which
+ * an admin needs to reach in order to recover after deactivating their own selected
+ * branch) — @CurrentBranch() throws its own 400 for any endpoint that actually
+ * requires one.
  */
 @Injectable()
 export class BranchContextGuard implements CanActivate {
@@ -24,7 +28,7 @@ export class BranchContextGuard implements CanActivate {
     if (!branchId || !request.user) return true;
 
     const branch = await this.prisma.branch.findFirst({
-      where: { id: branchId, tenantId: request.user.tenantId, isActive: true },
+      where: { id: branchId, tenantId: request.user.tenantId },
     });
     if (!branch) throw new ForbiddenException('Sucursal no encontrada');
 
@@ -34,6 +38,8 @@ export class BranchContextGuard implements CanActivate {
       });
       if (!access) throw new ForbiddenException('No tienes acceso a esa sucursal');
     }
+
+    if (!branch.isActive) return true;
 
     request.branchId = branch.id;
     return true;
