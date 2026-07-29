@@ -1,9 +1,20 @@
-import { PartialType } from '@nestjs/swagger';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
+import { IsBoolean, IsEmail, IsOptional } from 'class-validator';
 import { CreateBranchDto } from './create-branch.dto';
 
-export class UpdateBranchDto extends PartialType(CreateBranchDto) {
+export class UpdateBranchDto extends PartialType(
+  OmitType(CreateBranchDto, ['email'] as const),
+) {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // Widened from CreateBranchDto's `email?: string` — the frontend sends `null`
+  // (not `undefined`) to explicitly clear a previously-set email, since Prisma
+  // ignores undefined fields on update but does clear the column on null.
+  // @IsOptional() already skips @IsEmail() for both null and undefined.
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsEmail()
+  email?: string | null;
 }

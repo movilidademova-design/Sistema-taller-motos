@@ -1,6 +1,7 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { BranchContextGuard } from './branch-context.guard';
 import { Role } from '../../generated/prisma/enums';
+import type { PrismaService } from '../../prisma/prisma.service';
 import type { RequestWithBranch } from '../decorators/current-branch.decorator';
 
 function makeContext(request: Partial<RequestWithBranch>): ExecutionContext {
@@ -28,8 +29,8 @@ describe('BranchContextGuard', () => {
         findUnique: jest.fn().mockResolvedValue(overrides.userBranch ?? null),
       },
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const guard = new BranchContextGuard(prisma as any);
+
+    const guard = new BranchContextGuard(prisma as unknown as PrismaService);
     return { guard, prisma };
   }
 
@@ -55,18 +56,22 @@ describe('BranchContextGuard', () => {
     expect(request.branchId).toBeUndefined();
   });
 
-  it('rejects a branch id that does not belong to the caller\'s tenant', async () => {
+  it("rejects a branch id that does not belong to the caller's tenant", async () => {
     const { guard } = makeGuard({ branch: null });
     const request: Partial<RequestWithBranch> = {
       headers: { 'x-branch-id': branchId },
       user: { userId, tenantId, email: 'a@b.com', role: Role.ADMIN },
     };
 
-    await expect(guard.canActivate(makeContext(request))).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(makeContext(request))).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('resolves the branch for an ADMIN with no UserBranch row needed', async () => {
-    const { guard, prisma } = makeGuard({ branch: { id: branchId, tenantId, isActive: true } });
+    const { guard, prisma } = makeGuard({
+      branch: { id: branchId, tenantId, isActive: true },
+    });
     const request: Partial<RequestWithBranch> = {
       headers: { 'x-branch-id': branchId },
       user: { userId, tenantId, email: 'a@b.com', role: Role.ADMIN },
@@ -92,7 +97,9 @@ describe('BranchContextGuard', () => {
   });
 
   it('does NOT hard-reject a deactivated branch — leaves branchId unresolved instead', async () => {
-    const { guard } = makeGuard({ branch: { id: branchId, tenantId, isActive: false } });
+    const { guard } = makeGuard({
+      branch: { id: branchId, tenantId, isActive: false },
+    });
     const request: Partial<RequestWithBranch> = {
       headers: { 'x-branch-id': branchId },
       user: { userId, tenantId, email: 'a@b.com', role: Role.ADMIN },
@@ -120,8 +127,24 @@ describe('BranchContextGuard', () => {
     expect(request.branchId).toBeUndefined();
   });
 
+  it('skips the UserBranch lookup entirely for a deactivated branch, even for non-ADMIN', async () => {
+    const { guard, prisma } = makeGuard({
+      branch: { id: branchId, tenantId, isActive: false },
+    });
+    const request: Partial<RequestWithBranch> = {
+      headers: { 'x-branch-id': branchId },
+      user: { userId, tenantId, email: 'a@b.com', role: Role.RECEPTIONIST },
+    };
+
+    await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
+    expect(request.branchId).toBeUndefined();
+    expect(prisma.userBranch.findUnique).not.toHaveBeenCalled();
+  });
+
   it('reads the first value when X-Branch-Id is sent as multiple header values', async () => {
-    const { guard, prisma } = makeGuard({ branch: { id: branchId, tenantId, isActive: true } });
+    const { guard, prisma } = makeGuard({
+      branch: { id: branchId, tenantId, isActive: true },
+    });
     const request: Partial<RequestWithBranch> = {
       headers: { 'x-branch-id': [branchId, 'other-branch'] },
       user: { userId, tenantId, email: 'a@b.com', role: Role.ADMIN },

@@ -222,7 +222,9 @@ export class OrdersService {
       // a new one at this branch would cross-link an order to a client this branch can't
       // otherwise find or see, so reject it the same way a cross-branch P2002 is rejected.
       if (inactive.branchId !== branchId) {
-        throw new ConflictException('Ya existe un cliente con esa cédula en otra sucursal');
+        throw new ConflictException(
+          'Ya existe un cliente con esa cédula en otra sucursal',
+        );
       }
       return tx.client.update({
         where: { id: inactive.id },
@@ -230,9 +232,14 @@ export class OrdersService {
       });
     }
     try {
-      return await tx.client.create({ data: { tenantId, branchId, ...newClient } });
+      return await tx.client.create({
+        data: { tenantId, branchId, ...newClient },
+      });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         // documentId is unique per tenant, not per branch, so this can only mean a client
         // with that documentId already exists somewhere in the tenant. If it's in THIS
         // branch, it's a genuine concurrent-request race — safe to reuse. If it's in a
@@ -261,7 +268,9 @@ export class OrdersService {
     branchId: string,
     clientId: string,
   ) {
-    const client = await tx.client.findFirst({ where: { id: clientId, tenantId, branchId } });
+    const client = await tx.client.findFirst({
+      where: { id: clientId, tenantId, branchId },
+    });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     return client;
   }
@@ -287,7 +296,9 @@ export class OrdersService {
     dto: CreateOrderDto,
   ) {
     const [client, motorcycle] = await Promise.all([
-      this.prisma.client.findFirst({ where: { id: dto.clientId, tenantId, branchId } }),
+      this.prisma.client.findFirst({
+        where: { id: dto.clientId, tenantId, branchId },
+      }),
       this.prisma.motorcycle.findFirst({
         where: { id: dto.motorcycleId, tenantId, branchId },
       }),
@@ -300,7 +311,11 @@ export class OrdersService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       const orderNumber = await this.nextOrderNumber(tx, branchId);
-      const pickupCode = await this.generateUniquePickupCode(tx, tenantId, branchId);
+      const pickupCode = await this.generateUniquePickupCode(
+        tx,
+        tenantId,
+        branchId,
+      );
 
       const created = await tx.order.create({
         data: {
@@ -359,7 +374,10 @@ export class OrdersService {
     branchId: string,
     receptionistId: string,
     dto: IntakeOrderDto,
-    files: { photos?: Express.Multer.File[]; signature?: Express.Multer.File[] },
+    files: {
+      photos?: Express.Multer.File[];
+      signature?: Express.Multer.File[];
+    },
   ) {
     const signatureFile = files.signature?.[0];
     if (!signatureFile) {
@@ -399,13 +417,20 @@ export class OrdersService {
         where: { tenantId, documentId: dto.newClient.documentId },
       });
       if (conflicting && conflicting.branchId !== branchId) {
-        throw new ConflictException('Ya existe un cliente con esa cédula en otra sucursal');
+        throw new ConflictException(
+          'Ya existe un cliente con esa cédula en otra sucursal',
+        );
       }
     }
 
     const photoUrls = await Promise.all(
       (files.photos ?? []).map((file) =>
-        this.storage.upload(file.buffer, file.originalname, file.mimetype, 'orders'),
+        this.storage.upload(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+          'orders',
+        ),
       ),
     );
     const signatureUrl = await this.storage.upload(
@@ -418,10 +443,21 @@ export class OrdersService {
     const order = await this.prisma.$transaction(async (tx) => {
       const client = dto.clientId
         ? await this.mustFindTenantClient(tx, tenantId, branchId, dto.clientId)
-        : await this.createOrReactivateClient(tx, tenantId, branchId, dto.newClient!);
+        : await this.createOrReactivateClient(
+            tx,
+            tenantId,
+            branchId,
+            dto.newClient!,
+          );
 
       const motorcycle = dto.motorcycleId
-        ? await this.mustFindTenantMotorcycle(tx, tenantId, branchId, dto.motorcycleId, client.id)
+        ? await this.mustFindTenantMotorcycle(
+            tx,
+            tenantId,
+            branchId,
+            dto.motorcycleId,
+            client.id,
+          )
         : await tx.motorcycle.create({
             data: {
               tenantId,
@@ -443,7 +479,10 @@ export class OrdersService {
             where: { id: { in: dto.quickServiceIds }, tenantId },
           })
         : [];
-      const reason = buildIntakeReason(quickServices.map((s) => s.label), dto.description);
+      const reason = buildIntakeReason(
+        quickServices.map((s) => s.label),
+        dto.description,
+      );
 
       const accessoryOptions = dto.accessoryOptionIds?.length
         ? await tx.accessoryOption.findMany({
@@ -456,7 +495,11 @@ export class OrdersService {
       );
 
       const orderNumber = await this.nextOrderNumber(tx, branchId);
-      const pickupCode = await this.generateUniquePickupCode(tx, tenantId, branchId);
+      const pickupCode = await this.generateUniquePickupCode(
+        tx,
+        tenantId,
+        branchId,
+      );
 
       const created = await tx.order.create({
         data: {

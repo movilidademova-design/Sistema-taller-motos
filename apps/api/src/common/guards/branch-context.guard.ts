@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../generated/prisma/enums';
 import type { RequestWithBranch } from '../decorators/current-branch.decorator';
@@ -31,7 +36,9 @@ export class BranchContextGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithBranch>();
     const headerBranchId = request.headers['x-branch-id'];
-    const branchId = Array.isArray(headerBranchId) ? headerBranchId[0] : headerBranchId;
+    const branchId = Array.isArray(headerBranchId)
+      ? headerBranchId[0]
+      : headerBranchId;
     if (!branchId || !request.user) return true;
 
     const branch = await this.prisma.branch.findFirst({
