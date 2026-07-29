@@ -1154,7 +1154,7 @@ git commit -m "Persist selected branch and attach it as X-Branch-Id on every req
 **Files:**
 - Modify: `apps/web/src/components/providers/auth-provider.tsx`
 
-- [ ] **Step 1: Extend the context**
+- [x] **Step 1: Extend the context**
 
 Add to `AuthContextValue`:
 ```ts
@@ -1198,14 +1198,14 @@ Note: `setCurrentBranchId` does a full page reload after switching — this is d
 
 Add `branches, currentBranchId, setCurrentBranchId` to the `<AuthContext.Provider value={{ ... }}>` object.
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: same failure state as the end of Task 13 — no new errors from this file.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/components/providers/auth-provider.tsx
