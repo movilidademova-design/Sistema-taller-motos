@@ -257,7 +257,7 @@ git commit -m "Make branchId required on QuickService/AccessoryOption, scope uni
 - Modify: `apps/api/src/quick-services/quick-services.service.ts`
 - Modify: `apps/api/src/quick-services/quick-services.controller.ts`
 
-- [ ] **Step 1: Service changes**
+- [x] **Step 1: Service changes**
 
 In `apps/api/src/quick-services/quick-services.service.ts`, add a required `branchId: string` parameter (right after `tenantId`) to `findAll`, `create`, and `reorder`, and use it in every `where`/`data` clause that currently only has `tenantId`:
 
@@ -326,7 +326,7 @@ In `apps/api/src/quick-services/quick-services.service.ts`, add a required `bran
 
 `assertExists`/`remove` themselves are left untouched (still tenant-only, no branch check) — same "Fase 1 only scopes creation/listing, not per-id access" boundary already accepted for Órdenes/Clientes/Vehículos (a `quickServiceId` is already opaque and tenant-scoped; deleting/reading one you already have the id for doesn't need branch re-validation — only the *cross-branch-uniqueness* implication of `update`'s own duplicate check needed fixing here, which is a data-integrity concern specific to this task's new composite constraint, not a general access-scoping one).
 
-- [ ] **Step 2: Controller changes**
+- [x] **Step 2: Controller changes**
 
 In `apps/api/src/quick-services/quick-services.controller.ts`, add the import:
 ```ts
@@ -335,14 +335,14 @@ import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 
 Add `@CurrentBranch() branchId: string` to `findAll`, `create`, and `reorder`, passing it through to the service calls in the right argument position (right after `tenantId`).
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: `quick-services.service.ts`/`quick-services.controller.ts` now compile clean. Remaining errors (if any) should be confined to `accessory-options.service.ts` (fixed in Task 5).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/quick-services/quick-services.service.ts apps/api/src/quick-services/quick-services.controller.ts
