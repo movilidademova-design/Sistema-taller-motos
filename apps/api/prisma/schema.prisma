@@ -171,6 +171,9 @@ model Tenant {
   currency        String   @default("USD")
   invoicePrefix   String   @default("FAC")
   orderPrefix     String   @default("OT")
+  /// Orphaned since Sucursales Fase 1 — order numbering moved to Branch.nextOrderNumber
+  /// (branch-prefixed sequences). No code reads or writes this field anymore. Left in
+  /// place rather than migrated away; safe to drop in a future cleanup migration.
   nextOrderNumber Int      @default(1)
   nextInvoiceNo   Int      @default(1)
   businessHours   Json?
