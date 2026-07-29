@@ -237,8 +237,10 @@ export class OrdersService {
         // with that documentId already exists somewhere in the tenant. If it's in THIS
         // branch, it's a genuine concurrent-request race — safe to reuse. If it's in a
         // DIFFERENT branch, silently attaching it would cross-link an order to a client
-        // reception at this branch can't otherwise find or see — reject instead, matching
-        // ClientsService.create's handling of the same underlying conflict.
+        // reception at this branch can't otherwise find or see — reject instead. (Unlike
+        // ClientsService.create, which 409s on ANY conflict including a same-branch race —
+        // that path has no reuse concept since it isn't trying to attach the client to
+        // anything, so there's nothing to safely reuse.)
         const existing = await tx.client.findFirst({
           where: { tenantId, documentId: newClient.documentId },
         });
@@ -386,6 +388,18 @@ export class OrdersService {
       if (!motorcycle) throw new NotFoundException('Vehículo no encontrado');
       if (dto.clientId && motorcycle.clientId !== dto.clientId) {
         throw new BadRequestException('El vehículo no pertenece a ese cliente');
+      }
+    }
+    if (dto.newClient) {
+      // Mirrors the same-branch/different-branch check createOrReactivateClient does
+      // inside the transaction below — done here too, before any files are uploaded,
+      // so a cross-branch documentId conflict fails fast instead of orphaning an
+      // uploaded signature and photos when the transaction later rejects it.
+      const conflicting = await this.prisma.client.findFirst({
+        where: { tenantId, documentId: dto.newClient.documentId },
+      });
+      if (conflicting && conflicting.branchId !== branchId) {
+        throw new ConflictException('Ya existe un cliente con esa cédula en otra sucursal');
       }
     }
 
