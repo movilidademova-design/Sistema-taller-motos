@@ -703,11 +703,25 @@ function BranchForm({
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      // Optional fields are @IsOptional() on the backend, which only skips
+      // null/undefined — an empty string still fails e.g. @IsEmail(). Omit
+      // blanks entirely rather than sending them.
+      const address = form.address || undefined;
+      const city = form.city || undefined;
+      const phone = form.phone || undefined;
+      const email = form.email || undefined;
       if (editing) {
-        await api.patch(`/branches/${editing.id}`, form);
+        await api.patch(`/branches/${editing.id}`, {
+          name: form.name,
+          code: form.code,
+          address,
+          city,
+          phone,
+          email,
+          isActive: form.isActive,
+        });
       } else {
-        const { name, code, address, city, phone, email } = form;
-        await api.post('/branches', { name, code, address, city, phone, email });
+        await api.post('/branches', { name: form.name, code: form.code, address, city, phone, email });
       }
       toast.success('Guardado');
       onSuccess();
