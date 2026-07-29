@@ -1447,7 +1447,7 @@ git commit -m "Add Edit/Deactivate UI for users, branch selection at creation ti
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Full backend build + tests**
+- [x] **Step 1: Full backend build + tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1455,7 +1455,7 @@ pnpm --filter @taller/api test
 ```
 Expected: both succeed with no errors, all test suites passing (including the two new ones from this plan).
 
-- [ ] **Step 2: Full frontend build**
+- [x] **Step 2: Full frontend build**
 
 ```bash
 pnpm --filter @taller/web build
