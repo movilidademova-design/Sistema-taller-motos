@@ -1440,7 +1440,7 @@ git commit -m "Add Sucursales tab and per-user branch assignment to Settings"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Full backend build + tests**
+- [x] **Step 1: Full backend build + tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1448,23 +1448,25 @@ pnpm --filter @taller/api test
 ```
 Expected: both succeed with no errors.
 
-- [ ] **Step 2: Full frontend build**
+- [x] **Step 2: Full frontend build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no errors.
 
-- [ ] **Step 3: Manual smoke test**
+- [x] **Step 3: Manual smoke test**
 
 With both dev servers running (`pnpm --filter @taller/api start:dev`, `pnpm --filter @taller/web dev`):
-- [ ] Log in as `admin@tallerdemo.com` / `Password123!`. Confirm the app loads normally and existing orders/clients/motorcycles are still visible (the "Principal" branch backfill from Task 3 should mean nothing looks empty or broken).
-- [ ] Go to Configuración → Sucursales, create a second branch (e.g. name "Sucursal Norte", code `2056`).
-- [ ] Confirm the branch switcher now appears in the topbar (it's hidden for single-branch users) — since ADMIN sees all branches automatically, it should show both "Principal" and "Sucursal Norte".
-- [ ] Switch to "Sucursal Norte". Confirm the page reloads and the Órdenes/Clientes/Vehículos lists are now empty (nothing has been created in this branch yet).
-- [ ] Create a new order via the intake wizard while "Sucursal Norte" is selected — confirm the resulting order number starts with `2056` (e.g. `20560001`).
-- [ ] Switch back to "Principal" — confirm the original orders reappear, and their order numbers look like `0001000X`.
-- [ ] Create (or find) a non-ADMIN user (e.g. a RECEPTIONIST) with no branch assignment yet — log in as them and confirm the branch switcher does NOT appear (they have zero accessible branches) and that order/client/motorcycle lists behave sensibly (likely empty, since nothing is assigned). Then, as ADMIN, use `POST /users/:id/branches` (via the Settings → Sucursales user-assignment UI if you built one, or directly via the API docs at `/api/docs` if the UI for this wasn't part of this plan's scope) to assign that user to "Principal", log in as them again, and confirm they now see Principal's data and the switcher appears if they have more than one branch.
+- [x] Log in as `admin@tallerdemo.com` / `Password123!`. Confirm the app loads normally and existing orders/clients/motorcycles are still visible (the "Principal" branch backfill from Task 3 should mean nothing looks empty or broken).
+- [x] Go to Configuración → Sucursales, create a second branch (e.g. name "Sucursal Norte", code `2056`).
+- [x] Confirm the branch switcher now appears in the topbar (it's hidden for single-branch users) — since ADMIN sees all branches automatically, it should show both "Principal" and "Sucursal Norte".
+- [x] Switch to "Sucursal Norte". Confirm the page reloads and the Órdenes/Clientes/Vehículos lists are now empty (nothing has been created in this branch yet).
+- [x] Create a new order via the intake wizard while "Sucursal Norte" is selected — confirm the resulting order number starts with `2056` (e.g. `20560001`).
+- [x] Switch back to "Principal" — confirm the original orders reappear, and their order numbers look like `0001000X`.
+- [x] Create (or find) a non-ADMIN user (e.g. a RECEPTIONIST) with no branch assignment yet — log in as them and confirm the branch switcher does NOT appear (they have zero accessible branches) and that order/client/motorcycle lists behave sensibly (likely empty, since nothing is assigned). Then, as ADMIN, use `POST /users/:id/branches` (via the Settings → Sucursales user-assignment UI if you built one, or directly via the API docs at `/api/docs` if the UI for this wasn't part of this plan's scope) to assign that user to "Principal", log in as them again, and confirm they now see Principal's data and the switcher appears if they have more than one branch.
+
+**What actually happened:** No browser-automation tooling was available in this session, so Step 3 was verified at the API layer directly (via `curl` against a freshly-restarted dev server — the previously-running dev server predated Tasks 8-17 and was serving stale code, which briefly produced a false-positive branch-leak result until restarted) rather than by clicking through the actual UI. Confirmed via direct API calls: admin login; existing Principal-branch data intact (9 orders, `0001000X` format); created "Sucursal Norte" (code `2056`) via `POST /branches`; `GET /users/me/branches` correctly returns both branches for ADMIN; clients/motorcycles/orders lists are correctly empty when scoped to Norte and unaffected when scoped to Principal; created a client+motorcycle+order in Norte and confirmed the resulting `orderNumber` is exactly `20560001`; a RECEPTIONIST with zero `UserBranch` rows gets `403 Sucursal no encontrada`/`No tienes acceso` when requesting a branch she isn't assigned to and `400 Sucursal no especificada` with no header at all; after ADMIN calls `POST /users/:id/branches` to assign her to Principal, she immediately sees Principal's 9 orders. This exercises every backend behavior the UI depends on end-to-end, but the actual visual rendering (branch switcher appearing/disappearing in the topbar, the Settings → Sucursales tab, the assignment dialog) was **not** independently confirmed by driving a real browser — that remains open for a human (or a future session with browser tooling) to eyeball.
 
 - [ ] **Step 4: Final commit (only if the manual pass required fixes)**
 
