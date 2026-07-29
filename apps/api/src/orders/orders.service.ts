@@ -476,7 +476,7 @@ export class OrdersService {
 
       const quickServices = dto.quickServiceIds?.length
         ? await tx.quickService.findMany({
-            where: { id: { in: dto.quickServiceIds }, tenantId },
+            where: { id: { in: dto.quickServiceIds }, tenantId, branchId },
           })
         : [];
       const reason = buildIntakeReason(
@@ -486,7 +486,7 @@ export class OrdersService {
 
       const accessoryOptions = dto.accessoryOptionIds?.length
         ? await tx.accessoryOption.findMany({
-            where: { id: { in: dto.accessoryOptionIds }, tenantId },
+            where: { id: { in: dto.accessoryOptionIds }, tenantId, branchId },
           })
         : [];
       const accessoriesDelivered = buildAccessoriesText(
