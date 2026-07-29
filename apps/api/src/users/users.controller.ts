@@ -25,8 +25,12 @@ export class UsersController {
 
   @Roles(Role.ADMIN, Role.MANAGER)
   @Get()
-  findAll(@CurrentUser('tenantId') tenantId: string) {
-    return this.usersService.findAll(tenantId);
+  findAll(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: Role,
+  ) {
+    return this.usersService.findAll(tenantId, userId, role);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
@@ -50,32 +54,41 @@ export class UsersController {
     return this.usersService.findOne(tenantId, id);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.MANAGER)
   @Audit('User')
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: Role,
     @Body() dto: CreateUserDto,
   ) {
-    return this.usersService.create(tenantId, dto);
+    return this.usersService.create(tenantId, userId, role, dto);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.MANAGER)
   @Audit('User')
   @Patch(':id')
   update(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: Role,
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
-    return this.usersService.update(tenantId, id, dto);
+    return this.usersService.update(tenantId, userId, role, id, dto);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.MANAGER)
   @Audit('User')
   @Delete(':id')
-  remove(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.usersService.remove(tenantId, id);
+  remove(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('role') role: Role,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.remove(tenantId, userId, role, id);
   }
 
   @Roles(Role.ADMIN)
