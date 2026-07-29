@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -26,7 +28,15 @@ const SAFE_SELECT = {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(tenantId: string) {
+  async findAll(tenantId: string, actorUserId: string, actorRole: Role) {
+    if (actorRole === Role.MANAGER) {
+      const managerBranchIds = await this.userBranchIds(actorUserId);
+      return this.prisma.user.findMany({
+        where: { tenantId, branches: { some: { branchId: { in: managerBranchIds } } } },
+        select: SAFE_SELECT,
+        orderBy: { createdAt: 'desc' },
+      });
+    }
     return this.prisma.user.findMany({
       where: { tenantId },
       select: SAFE_SELECT,
@@ -43,6 +53,30 @@ export class UsersService {
     return user;
   }
 
+  /** Same as findOne, but 404s (hides existence) if actorRole is MANAGER and the
+   * target is an ADMIN or doesn't share a branch with the manager. Used by
+   * update/remove before mutating. */
+  private async findOneScoped(
+    tenantId: string,
+    actorUserId: string,
+    actorRole: Role,
+    id: string,
+  ) {
+    const target = await this.findOne(tenantId, id);
+    if (actorRole === Role.MANAGER) {
+      if (target.role === Role.ADMIN) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      const [managerBranchIds, targetBranchIds] = await Promise.all([
+        this.userBranchIds(actorUserId),
+        this.userBranchIds(id),
+      ]);
+      const sharesBranch = targetBranchIds.some((b) => managerBranchIds.includes(b));
+      if (!sharesBranch) throw new NotFoundException('Usuario no encontrado');
+    }
+    return target;
+  }
+
   async findTechnicians(tenantId: string) {
     return this.prisma.user.findMany({
       where: { tenantId, role: 'TECHNICIAN', isActive: true },
@@ -50,22 +84,65 @@ export class UsersService {
     });
   }
 
-  async create(tenantId: string, dto: CreateUserDto) {
+  async create(
+    tenantId: string,
+    actorUserId: string,
+    actorRole: Role,
+    dto: CreateUserDto,
+  ) {
+    if (actorRole === Role.MANAGER && dto.role === Role.ADMIN) {
+      throw new ForbiddenException('No puedes crear un usuario Administrador');
+    }
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
     if (existing) throw new ConflictException('Ese correo ya está registrado');
 
-    const passwordHash = await argon2.hash(dto.password);
-    const user = await this.prisma.user.create({
-      data: { ...dto, tenantId, passwordHash },
-      select: SAFE_SELECT,
+    let branchIds: string[] = [];
+    if (dto.role !== Role.ADMIN) {
+      if (actorRole === Role.MANAGER) {
+        branchIds = await this.userBranchIds(actorUserId);
+      } else {
+        if (!dto.branchIds?.length) {
+          throw new BadRequestException('Debes indicar al menos una sucursal');
+        }
+        const branches = await this.prisma.branch.findMany({
+          where: { id: { in: dto.branchIds }, tenantId },
+        });
+        if (branches.length !== dto.branchIds.length) {
+          throw new NotFoundException('Alguna sucursal no pertenece a este taller');
+        }
+        branchIds = dto.branchIds;
+      }
+    }
+
+    const { password, branchIds: _ignoredBranchIds, ...rest } = dto;
+    const passwordHash = await argon2.hash(password);
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { ...rest, tenantId, passwordHash },
+        select: SAFE_SELECT,
+      });
+      if (branchIds.length) {
+        await tx.userBranch.createMany({
+          data: branchIds.map((branchId) => ({ userId: user.id, branchId })),
+        });
+      }
+      return user;
     });
-    return user;
   }
 
-  async update(tenantId: string, id: string, dto: UpdateUserDto) {
-    await this.findOne(tenantId, id);
+  async update(
+    tenantId: string,
+    actorUserId: string,
+    actorRole: Role,
+    id: string,
+    dto: UpdateUserDto,
+  ) {
+    await this.findOneScoped(tenantId, actorUserId, actorRole, id);
+    if (actorRole === Role.MANAGER && dto.role === Role.ADMIN) {
+      throw new ForbiddenException('No puedes asignar el rol Administrador');
+    }
     return this.prisma.user.update({
       where: { id },
       data: dto,
@@ -73,8 +150,8 @@ export class UsersService {
     });
   }
 
-  async remove(tenantId: string, id: string) {
-    await this.findOne(tenantId, id);
+  async remove(tenantId: string, actorUserId: string, actorRole: Role, id: string) {
+    await this.findOneScoped(tenantId, actorUserId, actorRole, id);
     // Users are never hard-deleted so historical order/audit references stay intact.
     return this.prisma.user.update({
       where: { id },
@@ -124,5 +201,13 @@ export class UsersService {
       where: { userId },
       include: { branch: true },
     });
+  }
+
+  private async userBranchIds(userId: string): Promise<string[]> {
+    const assignments = await this.prisma.userBranch.findMany({
+      where: { userId },
+      select: { branchId: true },
+    });
+    return assignments.map((a) => a.branchId);
   }
 }
