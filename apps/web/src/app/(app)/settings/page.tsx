@@ -703,25 +703,33 @@ function BranchForm({
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // Optional fields are @IsOptional() on the backend, which only skips
-      // null/undefined — an empty string still fails e.g. @IsEmail(). Omit
-      // blanks entirely rather than sending them.
-      const address = form.address || undefined;
-      const city = form.city || undefined;
-      const phone = form.phone || undefined;
-      const email = form.email || undefined;
+      // Only email has a validator that rejects an empty string (@IsEmail());
+      // address/city/phone are plain @IsString() and accept '' fine, so they're
+      // sent as-is (this also lets an edit clear a previously-set value). On
+      // create, a blank email is simply omitted. On edit, it must be sent as
+      // `null` rather than omitted — Prisma ignores `undefined` fields (the old
+      // value would silently stick around) but explicit `null` clears the column,
+      // and @IsOptional() skips validation for null the same way it does for
+      // undefined, so it still passes @IsEmail().
       if (editing) {
         await api.patch(`/branches/${editing.id}`, {
           name: form.name,
           code: form.code,
-          address,
-          city,
-          phone,
-          email,
+          address: form.address,
+          city: form.city,
+          phone: form.phone,
+          email: form.email || null,
           isActive: form.isActive,
         });
       } else {
-        await api.post('/branches', { name: form.name, code: form.code, address, city, phone, email });
+        await api.post('/branches', {
+          name: form.name,
+          code: form.code,
+          address: form.address,
+          city: form.city,
+          phone: form.phone,
+          email: form.email || undefined,
+        });
       }
       toast.success('Guardado');
       onSuccess();
