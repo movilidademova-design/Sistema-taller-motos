@@ -697,7 +697,7 @@ git commit -m "Add MANAGER branch-scoped user management, fix create() password 
 **Files:**
 - Modify: `apps/api/src/users/users.controller.ts`
 
-- [ ] **Step 1: Update role decorators and method signatures**
+- [x] **Step 1: Update role decorators and method signatures**
 
 In `apps/api/src/users/users.controller.ts`:
 
@@ -762,14 +762,14 @@ In `apps/api/src/users/users.controller.ts`:
 
 `findOne`, `findTechnicians`, `findMyBranches`, `assignBranches`, `getUserBranches` are unchanged (no role decorator changes, no signature changes).
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: **zero errors.** This is the task that clears every remaining error from Tasks 1-7.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/api/src/users/users.controller.ts
