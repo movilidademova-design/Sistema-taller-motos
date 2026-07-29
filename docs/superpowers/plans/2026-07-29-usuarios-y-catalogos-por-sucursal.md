@@ -357,22 +357,22 @@ git commit -m "Scope quick services listing, creation, and reordering by branch"
 - Modify: `apps/api/src/accessory-options/accessory-options.service.ts`
 - Modify: `apps/api/src/accessory-options/accessory-options.controller.ts`
 
-- [ ] **Step 1: Service changes**
+- [x] **Step 1: Service changes**
 
 Identical change to Task 4 Step 1, applied to `AccessoryOptionsService` (`findAll`, `create`, `reorder` gain `branchId`, same code shape with `accessoryOption`/`AccessoryOption` in place of `quickService`/`QuickService`, and `'Algún accesorio no pertenece a esta sucursal'` in place of the quick-service message).
 
-- [ ] **Step 2: Controller changes**
+- [x] **Step 2: Controller changes**
 
 Identical change to Task 4 Step 2, applied to `AccessoryOptionsController`.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: **zero errors related to quick-services or accessory-options.** Any remaining errors should be unrelated (Users changes from Task 7/8, not yet done).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/accessory-options/accessory-options.service.ts apps/api/src/accessory-options/accessory-options.controller.ts
