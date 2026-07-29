@@ -1,9 +1,16 @@
 {
   "extends": "./tsconfig.json",
-  // Only backfill-branches.ts is excluded — it's a genuinely obsolete one-off
-  // script that will never compile against the current schema (see its own
-  // header). seed.ts is deliberately NOT excluded: it's live dev tooling
-  // (`pnpm prisma:seed`) whose correctness this build is the only thing that
-  // typechecks, since nothing under src/ imports it either way.
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma/backfill-branches.ts"]
+  // backfill-branches.ts and backfill-catalog-branches.ts are excluded — both are
+  // genuinely obsolete one-off scripts that will never compile against the current
+  // schema (see their own headers). seed.ts is deliberately NOT excluded: it's live
+  // dev tooling (`pnpm prisma:seed`) whose correctness this build is the only thing
+  // that typechecks, since nothing under src/ imports it either way.
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "**/*spec.ts",
+    "prisma/backfill-branches.ts",
+    "prisma/backfill-catalog-branches.ts"
+  ]
 }

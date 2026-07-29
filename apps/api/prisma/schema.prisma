@@ -207,14 +207,14 @@ model QuickService {
   id        String   @id @default(uuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
   label     String
   position  Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  @@unique([tenantId, label])
+  @@unique([tenantId, branchId, label])
   @@index([tenantId])
   @@index([branchId])
   @@map("quick_services")
@@ -224,14 +224,14 @@ model AccessoryOption {
   id        String   @id @default(uuid())
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
   label     String
   position  Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  @@unique([tenantId, label])
+  @@unique([tenantId, branchId, label])
   @@index([tenantId])
   @@index([branchId])
   @@map("accessory_options")
