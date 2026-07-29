@@ -8,34 +8,34 @@ import { ReorderQuickServicesDto } from './dto/reorder-quick-services.dto';
 export class QuickServicesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(tenantId: string) {
+  async findAll(tenantId: string, branchId: string) {
     return this.prisma.quickService.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, branchId, isActive: true },
       orderBy: { position: 'asc' },
     });
   }
 
-  async create(tenantId: string, dto: CreateQuickServiceDto) {
+  async create(tenantId: string, branchId: string, dto: CreateQuickServiceDto) {
     const existing = await this.prisma.quickService.findFirst({
-      where: { tenantId, label: dto.label },
+      where: { tenantId, branchId, label: dto.label },
     });
     if (existing) {
       throw new ConflictException('Ya existe una etiqueta con ese nombre');
     }
     const last = await this.prisma.quickService.findFirst({
-      where: { tenantId },
+      where: { tenantId, branchId },
       orderBy: { position: 'desc' },
     });
     return this.prisma.quickService.create({
-      data: { tenantId, label: dto.label, position: (last?.position ?? -1) + 1 },
+      data: { tenantId, branchId, label: dto.label, position: (last?.position ?? -1) + 1 },
     });
   }
 
   async update(tenantId: string, id: string, dto: UpdateQuickServiceDto) {
-    await this.assertExists(tenantId, id);
+    const current = await this.assertExists(tenantId, id);
     if (dto.label) {
       const existing = await this.prisma.quickService.findFirst({
-        where: { tenantId, label: dto.label, NOT: { id } },
+        where: { tenantId, branchId: current.branchId, label: dto.label, NOT: { id } },
       });
       if (existing) {
         throw new ConflictException('Ya existe una etiqueta con ese nombre');
@@ -52,13 +52,13 @@ export class QuickServicesService {
     });
   }
 
-  async reorder(tenantId: string, dto: ReorderQuickServicesDto) {
+  async reorder(tenantId: string, branchId: string, dto: ReorderQuickServicesDto) {
     const owned = await this.prisma.quickService.findMany({
-      where: { tenantId, id: { in: dto.orderedIds } },
+      where: { tenantId, branchId, id: { in: dto.orderedIds } },
       select: { id: true },
     });
     if (owned.length !== dto.orderedIds.length) {
-      throw new NotFoundException('Alguna etiqueta no pertenece a este taller');
+      throw new NotFoundException('Alguna etiqueta no pertenece a esta sucursal');
     }
     await this.prisma.$transaction(
       dto.orderedIds.map((id, index) =>
@@ -68,7 +68,7 @@ export class QuickServicesService {
         }),
       ),
     );
-    return this.findAll(tenantId);
+    return this.findAll(tenantId, branchId);
   }
 
   private async assertExists(tenantId: string, id: string) {

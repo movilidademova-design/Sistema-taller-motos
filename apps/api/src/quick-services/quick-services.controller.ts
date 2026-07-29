@@ -6,6 +6,7 @@ import { UpdateQuickServiceDto } from './dto/update-quick-service.dto';
 import { ReorderQuickServicesDto } from './dto/reorder-quick-services.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { Role } from '../generated/prisma/enums';
 
@@ -16,8 +17,11 @@ export class QuickServicesController {
   constructor(private readonly quickServicesService: QuickServicesService) {}
 
   @Get()
-  findAll(@CurrentUser('tenantId') tenantId: string) {
-    return this.quickServicesService.findAll(tenantId);
+  findAll(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
+  ) {
+    return this.quickServicesService.findAll(tenantId, branchId);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
@@ -25,9 +29,10 @@ export class QuickServicesController {
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: CreateQuickServiceDto,
   ) {
-    return this.quickServicesService.create(tenantId, dto);
+    return this.quickServicesService.create(tenantId, branchId, dto);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
@@ -35,9 +40,10 @@ export class QuickServicesController {
   @Patch('reorder')
   reorder(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: ReorderQuickServicesDto,
   ) {
-    return this.quickServicesService.reorder(tenantId, dto);
+    return this.quickServicesService.reorder(tenantId, branchId, dto);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
