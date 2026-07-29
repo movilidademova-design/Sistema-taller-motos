@@ -19,11 +19,12 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import { Role } from '@taller/shared';
-import type { AccessoryOption, QuickService, UserSummary } from '@/lib/types';
+import type { AccessoryOption, Branch, QuickService, UserSummary } from '@/lib/types';
 
 const ROLE_LABELS: Record<Role, string> = {
   ADMIN: 'Administrador',
@@ -58,6 +59,7 @@ export default function SettingsPage() {
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="quick-services">Servicios rápidos</TabsTrigger>
           <TabsTrigger value="accessories">Accesorios</TabsTrigger>
+          <TabsTrigger value="branches">Sucursales</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralSettings />
@@ -70,6 +72,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="accessories">
           <AccessoryOptionsSettings />
+        </TabsContent>
+        <TabsContent value="branches">
+          <BranchesSettings />
         </TabsContent>
       </Tabs>
     </div>
@@ -199,6 +204,7 @@ function UsersSettings() {
             <TableHead>Correo</TableHead>
             <TableHead>Rol</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead>Sucursales</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -215,6 +221,9 @@ function UsersSettings() {
                 <Badge variant={u.isActive ? 'success' : 'destructive'}>
                   {u.isActive ? 'Activo' : 'Inactivo'}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                <AssignBranchesButton user={u} onAssigned={() => mutate()} />
               </TableCell>
             </TableRow>
           ))}
@@ -604,5 +613,242 @@ function AccessoryOptionForm({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function BranchesSettings() {
+  const { data: branches, mutate } = useApiSWR<Branch[]>('/branches');
+  const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<Branch | null>(null);
+
+  return (
+    <div className="mt-4 flex flex-col gap-4">
+      <div>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) setEditing(null);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button size="sm" onClick={() => setEditing(null)}>
+              <Plus /> Nueva sucursal
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <BranchForm
+              editing={editing}
+              onSuccess={() => {
+                setOpen(false);
+                setEditing(null);
+                mutate();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+      <div className="flex flex-col gap-2">
+        {branches?.map((branch) => (
+          <div key={branch.id} className="flex items-center gap-2 rounded-lg border p-2">
+            <div className="flex flex-1 flex-col">
+              <span className="text-sm font-medium">
+                {branch.name} <span className="text-muted-foreground">({branch.code})</span>
+              </span>
+              {(branch.city || branch.address) && (
+                <span className="text-xs text-muted-foreground">
+                  {[branch.address, branch.city].filter(Boolean).join(', ')}
+                </span>
+              )}
+            </div>
+            <Badge variant={branch.isActive ? 'success' : 'destructive'}>
+              {branch.isActive ? 'Activa' : 'Inactiva'}
+            </Badge>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditing(branch);
+                setOpen(true);
+              }}
+            >
+              Editar
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BranchForm({
+  editing,
+  onSuccess,
+}: {
+  editing: Branch | null;
+  onSuccess: () => void;
+}) {
+  const [form, setForm] = React.useState({
+    name: editing?.name ?? '',
+    code: editing?.code ?? '',
+    address: editing?.address ?? '',
+    city: editing?.city ?? '',
+    phone: editing?.phone ?? '',
+    email: editing?.email ?? '',
+    isActive: editing?.isActive ?? true,
+  });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (editing) {
+        await api.patch(`/branches/${editing.id}`, form);
+      } else {
+        const { name, code, address, city, phone, email } = form;
+        await api.post('/branches', { name, code, address, city, phone, email });
+      }
+      toast.success('Guardado');
+      onSuccess();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>{editing ? 'Editar sucursal' : 'Nueva sucursal'}</DialogTitle>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-3 py-4">
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Nombre</Label>
+          <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Código (4 dígitos)</Label>
+          <Input
+            required
+            maxLength={4}
+            inputMode="numeric"
+            value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value })}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Ciudad</Label>
+          <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Dirección</Label>
+          <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Teléfono</Label>
+          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Correo</Label>
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </div>
+        {editing && (
+          <div className="col-span-2">
+            <Label className="flex items-center gap-2 font-normal">
+              <Checkbox
+                checked={form.isActive}
+                onCheckedChange={(checked) => setForm({ ...form, isActive: checked === true })}
+              />
+              Sucursal activa
+            </Label>
+          </div>
+        )}
+      </div>
+      <DialogFooter>
+        <Button type="submit" disabled={isSubmitting || !form.name || !form.code}>
+          {isSubmitting ? 'Guardando...' : 'Guardar'}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function AssignBranchesButton({
+  user,
+  onAssigned,
+}: {
+  user: UserSummary;
+  onAssigned: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const { data: branches } = useApiSWR<Branch[]>(open ? '/branches' : null);
+  const { data: assigned, mutate: mutateAssigned } = useApiSWR<{ branch: Branch }[]>(
+    open ? `/users/${user.id}/branches` : null,
+  );
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (assigned) setSelectedIds(assigned.map((a) => a.branch.id));
+  }, [assigned]);
+
+  async function handleSave() {
+    setIsSubmitting(true);
+    try {
+      await api.post(`/users/${user.id}/branches`, { branchIds: selectedIds });
+      toast.success('Sucursales asignadas');
+      mutateAssigned();
+      onAssigned();
+      setOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost">
+          Asignar
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            Sucursales de {user.firstName} {user.lastName}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-2 py-4">
+          {branches?.map((branch) => (
+            <Label key={branch.id} className="flex items-center gap-2 font-normal">
+              <Checkbox
+                checked={selectedIds.includes(branch.id)}
+                onCheckedChange={(checked) =>
+                  setSelectedIds((prev) =>
+                    checked === true
+                      ? [...prev, branch.id]
+                      : prev.filter((id) => id !== branch.id),
+                  )
+                }
+              />
+              {branch.name} ({branch.code})
+            </Label>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? 'Guardando...' : 'Guardar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

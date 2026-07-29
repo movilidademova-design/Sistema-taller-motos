@@ -78,11 +78,25 @@ async function main() {
     }),
   ]);
 
+  const branch = await prisma.branch.upsert({
+    where: { tenantId_code: { tenantId: tenant.id, code: '0001' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Principal',
+      code: '0001',
+      address: tenant.address,
+      phone: tenant.phone,
+      email: tenant.email,
+    },
+  });
+
   const client = await prisma.client.upsert({
     where: { tenantId_documentId: { tenantId: tenant.id, documentId: '1020304050' } },
     update: {},
     create: {
       tenantId: tenant.id,
+      branchId: branch.id,
       firstName: 'Carlos',
       lastName: 'Ramírez',
       documentId: '1020304050',
@@ -97,6 +111,7 @@ async function main() {
     (await prisma.motorcycle.create({
       data: {
         tenantId: tenant.id,
+        branchId: branch.id,
         clientId: client.id,
         brand: 'Volt',
         model: 'Urban Rider X1',
@@ -152,14 +167,16 @@ async function main() {
 
   const existingOrder = await prisma.order.findFirst({ where: { tenantId: tenant.id } });
   if (!existingOrder) {
-    const tenantForOrder = await prisma.tenant.update({
-      where: { id: tenant.id },
+    const branchForOrder = await prisma.branch.update({
+      where: { id: branch.id },
       data: { nextOrderNumber: { increment: 1 } },
     });
+    const sequence = String(branchForOrder.nextOrderNumber - 1).padStart(4, '0');
     const order = await prisma.order.create({
       data: {
         tenantId: tenant.id,
-        orderNumber: tenantForOrder.nextOrderNumber - 1,
+        branchId: branch.id,
+        orderNumber: `${branchForOrder.code}${sequence}`,
         clientId: client.id,
         motorcycleId: motorcycle.id,
         receptionistId: receptionist.id,
