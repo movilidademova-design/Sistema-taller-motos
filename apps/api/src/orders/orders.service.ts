@@ -216,9 +216,14 @@ export class OrdersService {
       where: { tenantId, documentId: newClient.documentId, isActive: false },
     });
     if (inactive) {
-      // Reactivating keeps the client's original branchId rather than moving them to the
-      // branch they're walking into today — clients aren't branch-filtered yet (Fase 1 only
-      // scopes creation, not visibility), so there's no access-control reason to reassign it.
+      // documentId is unique per tenant, not per branch — same reasoning as the P2002
+      // case below. Reactivating a same-branch client is fine (keeps its branchId as-is,
+      // no need to touch it). Reactivating a DIFFERENT branch's client instead of creating
+      // a new one at this branch would cross-link an order to a client this branch can't
+      // otherwise find or see, so reject it the same way a cross-branch P2002 is rejected.
+      if (inactive.branchId !== branchId) {
+        throw new ConflictException('Ya existe un cliente con esa cédula en otra sucursal');
+      }
       return tx.client.update({
         where: { id: inactive.id },
         data: { ...newClient, isActive: true },
@@ -370,13 +375,13 @@ export class OrdersService {
     }
     if (dto.clientId) {
       const client = await this.prisma.client.findFirst({
-        where: { id: dto.clientId, tenantId },
+        where: { id: dto.clientId, tenantId, branchId },
       });
       if (!client) throw new NotFoundException('Cliente no encontrado');
     }
     if (dto.motorcycleId) {
       const motorcycle = await this.prisma.motorcycle.findFirst({
-        where: { id: dto.motorcycleId, tenantId },
+        where: { id: dto.motorcycleId, tenantId, branchId },
       });
       if (!motorcycle) throw new NotFoundException('Vehículo no encontrado');
       if (dto.clientId && motorcycle.clientId !== dto.clientId) {
