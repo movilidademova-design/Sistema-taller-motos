@@ -98,6 +98,10 @@ export class UsersService {
     });
     if (existing) throw new ConflictException('Ese correo ya está registrado');
 
+    // ADMIN-role users need no branch assignment (they see every branch
+    // automatically). A MANAGER-created user is auto-scoped to the manager's own
+    // branches — no choice to make. An ADMIN creating anyone else must choose
+    // explicitly, since an ADMIN has no "own branch" to default to.
     let branchIds: string[] = [];
     if (dto.role !== Role.ADMIN) {
       if (actorRole === Role.MANAGER) {
