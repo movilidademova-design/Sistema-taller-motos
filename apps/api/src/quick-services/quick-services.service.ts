@@ -32,10 +32,10 @@ export class QuickServicesService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateQuickServiceDto) {
-    const current = await this.assertExists(tenantId, id);
+    const quickService = await this.assertExists(tenantId, id);
     if (dto.label) {
       const existing = await this.prisma.quickService.findFirst({
-        where: { tenantId, branchId: current.branchId, label: dto.label, NOT: { id } },
+        where: { tenantId, branchId: quickService.branchId, label: dto.label, NOT: { id } },
       });
       if (existing) {
         throw new ConflictException('Ya existe una etiqueta con ese nombre');
