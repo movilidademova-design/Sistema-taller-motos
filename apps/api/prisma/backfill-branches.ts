@@ -6,6 +6,12 @@
 //
 // Run once, after the nullable-branchId migration (Task 2) and before the
 // not-null migration (Task 4): `pnpm --filter @taller/api exec tsx prisma/backfill-branches.ts`
+//
+// OBSOLETE as of Task 17 (Sucursales Fase 1): that migration window has long
+// since closed, and this script references `orderNumberText`, a field that no
+// longer exists in the schema (renamed to `orderNumber` in Task 4). Do not run
+// this against the current schema — it won't compile, and it isn't meant to.
+// Kept only as a historical record; excluded from `tsc` via tsconfig.build.json.
 
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';

@@ -735,7 +735,9 @@ function BranchForm({
             maxLength={4}
             inputMode="numeric"
             value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, code: e.target.value.replace(/\D/g, '').slice(0, 4) })
+            }
           />
         </div>
         <div className="flex flex-col gap-1.5">

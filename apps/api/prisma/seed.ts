@@ -167,6 +167,8 @@ async function main() {
 
   const existingOrder = await prisma.order.findFirst({ where: { tenantId: tenant.id } });
   if (!existingOrder) {
+    // Mirrors OrdersService.nextOrderNumber (apps/api/src/orders/orders.service.ts) —
+    // keep this formula in sync if that logic ever changes.
     const branchForOrder = await prisma.branch.update({
       where: { id: branch.id },
       data: { nextOrderNumber: { increment: 1 } },

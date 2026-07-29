@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
+  // "prisma" excludes apps/api/prisma/seed.ts and backfill-branches.ts, two
+  // standalone scripts run directly via `tsx` (never through this build) whose
+  // own type state can drift independently of the compiled app. Verified safe:
+  // nothing under src/ imports from prisma/, so this doesn't hide errors in
+  // anything actually reachable from the compiled output.
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma"]
 }
