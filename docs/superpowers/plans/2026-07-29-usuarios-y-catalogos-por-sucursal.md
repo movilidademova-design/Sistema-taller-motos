@@ -431,7 +431,7 @@ git commit -m "Scope intake's quick-service and accessory-option lookups by bran
 - Modify: `apps/api/src/users/users.service.ts`
 - Modify: `apps/api/src/users/dto/create-user.dto.ts`
 
-- [ ] **Step 1: Add `branchIds` to `CreateUserDto`**
+- [ ] **Step 1: Add `branchIds` to `CreateUserDto`, exclude it from `UpdateUserDto`**
 
 In `apps/api/src/users/dto/create-user.dto.ts`, add (mirroring `AssignBranchesDto`'s exact validator style):
 ```ts
@@ -442,6 +442,17 @@ In `apps/api/src/users/dto/create-user.dto.ts`, add (mirroring `AssignBranchesDt
   branchIds?: string[];
 ```
 (add `IsArray`, `IsOptional` (already imported), `IsUUID` to the existing `class-validator` import line).
+
+**This new field must NOT flow into `UpdateUserDto`.** `apps/api/src/users/dto/update-user.dto.ts` currently does `PartialType(OmitType(CreateUserDto, ['password'] as const))` — omitting only `password`. If `branchIds` isn't also omitted here, `update()`'s `data: dto` (see Step 2 below) would pass it straight to `prisma.user.update()`, which has no `branchIds` column, crashing with an unhandled `PrismaClientValidationError` on any `PATCH /users/:id` request that happens to include it — the exact same crash class this task's `create()` fix addresses for `password`, reintroduced by this task's own new field. Branch reassignment already has its own dedicated ADMIN-only endpoint (`POST /users/:id/branches` → `assignBranches`), so there's no reason for the general update endpoint to accept it at all. Change `update-user.dto.ts` to:
+```ts
+// branchIds is excluded, not just password: branch reassignment is already its
+// own dedicated ADMIN-only operation (POST /users/:id/branches -> assignBranches),
+// and User has no branchIds column — passing it through to Prisma's update() would
+// crash the same way the pre-existing password-in-create() bug did.
+export class UpdateUserDto extends PartialType(
+  OmitType(CreateUserDto, ['password', 'branchIds'] as const),
+) {
+```
 
 - [ ] **Step 2: Rewrite `UsersService`**
 
