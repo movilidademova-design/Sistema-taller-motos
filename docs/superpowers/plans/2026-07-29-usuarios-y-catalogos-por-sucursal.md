@@ -205,7 +205,7 @@ git commit -m "Add backfill script assigning existing catalogs to Principal bran
 **Files:**
 - Modify: `apps/api/prisma/schema.prisma`
 
-- [ ] **Step 1: Make `branchId` required, update the unique constraint**
+- [x] **Step 1: Make `branchId` required, update the unique constraint**
 
 Change both models' `branchId`/`branch` fields from optional to required (`String?` → `String`, `Branch?` → `Branch`), and change:
 ```prisma
@@ -217,7 +217,7 @@ to:
 ```
 on both `QuickService` and `AccessoryOption`.
 
-- [ ] **Step 2: Generate and hand-inspect the migration**
+- [x] **Step 2: Generate and hand-inspect the migration**
 
 ```bash
 pnpm exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
@@ -234,7 +234,7 @@ If Prisma instead generates anything involving `DROP COLUMN`/data loss, STOP and
 
 Apply via `pnpm exec prisma migrate dev --name quick_service_accessory_option_branch_id_required` (or hand-create the migration folder + `prisma migrate deploy`, same fallback as Task 1 Step 2).
 
-- [ ] **Step 3: Regenerate client and verify build**
+- [x] **Step 3: Regenerate client and verify build**
 
 ```bash
 pnpm exec prisma generate
@@ -242,7 +242,7 @@ pnpm --filter @taller/api build
 ```
 Expected: NEW errors in `quick-services.service.ts` (`create`'s `data: { tenantId, label: ... }` missing required `branchId`) and `accessory-options.service.ts` (same). These are fixed in Task 4/5 — confirm the errors are ONLY about missing `branchId` in these two files' `create` calls, nothing else.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/prisma/schema.prisma apps/api/prisma/migrations
