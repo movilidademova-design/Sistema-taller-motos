@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bell, Menu, LogOut, User as UserIcon } from 'lucide-react';
+import { Bell, Building2, Menu, LogOut, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -78,6 +78,35 @@ function NotificationBell() {
   );
 }
 
+function BranchSwitcher() {
+  const { branches, currentBranchId, setCurrentBranchId } = useAuth();
+
+  if (branches.length <= 1) return null;
+
+  const current = branches.find((b) => b.id === currentBranchId);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1.5">
+          <Building2 className="size-4" />
+          <span className="hidden text-sm font-medium sm:inline">{current?.name ?? 'Sucursal'}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>Cambiar de sucursal</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {branches.map((branch) => (
+          <DropdownMenuItem key={branch.id} onSelect={() => setCurrentBranchId(branch.id)}>
+            {branch.name}
+            {branch.id === currentBranchId ? ' ✓' : ''}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function Topbar() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -100,6 +129,7 @@ export function Topbar() {
 
       <div className="flex-1" />
 
+      <BranchSwitcher />
       <NotificationBell />
       <ThemeToggle />
 
