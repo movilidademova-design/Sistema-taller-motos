@@ -182,25 +182,46 @@ function GeneralSettings() {
 }
 
 function UsersSettings() {
+  const { user: currentUser } = useAuth();
   const { data: users, mutate } = useApiSWR<UserSummary[]>('/users');
   const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<UserSummary | null>(null);
 
   return (
     <div className="mt-4 flex flex-col gap-4">
       <div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) setEditing(null);
+          }}
+        >
           <DialogTrigger asChild>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setEditing(null)}>
               <Plus /> Nuevo usuario
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <NewUserForm
-              onSuccess={() => {
-                setOpen(false);
-                mutate();
-              }}
-            />
+            {editing ? (
+              <EditUserForm
+                user={editing}
+                currentUserRole={currentUser!.role}
+                onSuccess={() => {
+                  setOpen(false);
+                  setEditing(null);
+                  mutate();
+                }}
+              />
+            ) : (
+              <NewUserForm
+                currentUserRole={currentUser!.role}
+                onSuccess={() => {
+                  setOpen(false);
+                  mutate();
+                }}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -212,6 +233,7 @@ function UsersSettings() {
             <TableHead>Rol</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Sucursales</TableHead>
+            <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -230,7 +252,23 @@ function UsersSettings() {
                 </Badge>
               </TableCell>
               <TableCell>
-                <AssignBranchesButton user={u} onAssigned={() => mutate()} />
+                {currentUser?.role === 'ADMIN' && (
+                  <AssignBranchesButton user={u} onAssigned={() => mutate()} />
+                )}
+              </TableCell>
+              <TableCell>
+                {!(currentUser?.role === 'MANAGER' && u.role === 'ADMIN') && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditing(u);
+                      setOpen(true);
+                    }}
+                  >
+                    Editar
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -240,7 +278,13 @@ function UsersSettings() {
   );
 }
 
-function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
+function NewUserForm({
+  currentUserRole,
+  onSuccess,
+}: {
+  currentUserRole: Role;
+  onSuccess: () => void;
+}) {
   const [form, setForm] = React.useState({
     firstName: '',
     lastName: '',
@@ -249,13 +293,20 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
     phone: '',
     role: Role.RECEPTIONIST as Role,
   });
+  const [branchIds, setBranchIds] = React.useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const needsBranchPicker = currentUserRole === 'ADMIN' && form.role !== 'ADMIN';
+  const { data: branches } = useApiSWR<Branch[]>(needsBranchPicker ? '/branches' : null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await api.post('/users', form);
+      await api.post('/users', {
+        ...form,
+        ...(needsBranchPicker ? { branchIds } : {}),
+      });
       toast.success('Usuario creado');
       onSuccess();
     } catch (error) {
@@ -264,6 +315,10 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
       setIsSubmitting(false);
     }
   }
+
+  const roleOptions = Object.entries(ROLE_LABELS).filter(
+    ([value]) => value !== 'CLIENT' && (currentUserRole === 'ADMIN' || value !== 'ADMIN'),
+  );
 
   return (
     <form onSubmit={handleSubmit}>
@@ -305,20 +360,129 @@ function NewUserForm({ onSuccess }: { onSuccess: () => void }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(ROLE_LABELS)
-                .filter(([value]) => value !== 'CLIENT')
-                .map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
+              {roleOptions.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
+        </div>
+        {needsBranchPicker && (
+          <div className="col-span-2 flex flex-col gap-2">
+            <Label>Sucursales</Label>
+            {branches?.map((branch) => (
+              <Label key={branch.id} className="flex items-center gap-2 font-normal">
+                <Checkbox
+                  checked={branchIds.includes(branch.id)}
+                  onCheckedChange={(checked) =>
+                    setBranchIds((prev) =>
+                      checked === true
+                        ? [...prev, branch.id]
+                        : prev.filter((id) => id !== branch.id),
+                    )
+                  }
+                />
+                {branch.name} ({branch.code})
+              </Label>
+            ))}
+          </div>
+        )}
+      </div>
+      <DialogFooter>
+        <Button
+          type="submit"
+          disabled={isSubmitting || (needsBranchPicker && branchIds.length === 0)}
+        >
+          {isSubmitting ? 'Guardando...' : 'Crear usuario'}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function EditUserForm({
+  user,
+  currentUserRole,
+  onSuccess,
+}: {
+  user: UserSummary;
+  currentUserRole: Role;
+  onSuccess: () => void;
+}) {
+  const [form, setForm] = React.useState({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone ?? '',
+    role: user.role,
+    isActive: user.isActive,
+  });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.patch(`/users/${user.id}`, form);
+      toast.success('Usuario actualizado');
+      onSuccess();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const roleOptions = Object.entries(ROLE_LABELS).filter(
+    ([value]) => value !== 'CLIENT' && (currentUserRole === 'ADMIN' || value !== 'ADMIN'),
+  );
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>Editar usuario</DialogTitle>
+      </DialogHeader>
+      <div className="grid grid-cols-2 gap-3 py-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Nombre</Label>
+          <Input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Apellido</Label>
+          <Input required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Teléfono</Label>
+          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>Rol</Label>
+          <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {roleOptions.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-2">
+          <Label className="flex items-center gap-2 font-normal">
+            <Checkbox
+              checked={form.isActive}
+              onCheckedChange={(checked) => setForm({ ...form, isActive: checked === true })}
+            />
+            Usuario activo
+          </Label>
         </div>
       </div>
       <DialogFooter>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Guardando...' : 'Crear usuario'}
+          {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
       </DialogFooter>
     </form>
