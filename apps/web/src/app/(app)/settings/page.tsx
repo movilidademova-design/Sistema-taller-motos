@@ -22,7 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
-import { getErrorMessage } from '@/components/providers/auth-provider';
+import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
 import { Role } from '@taller/shared';
 import type { AccessoryOption, Branch, QuickService, UserSummary } from '@/lib/types';
 
@@ -47,23 +47,28 @@ interface TenantSettings {
 }
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const isManager = user?.role === 'MANAGER';
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Configuración</h1>
         <p className="text-sm text-muted-foreground">Datos del taller y gestión de usuarios</p>
       </div>
-      <Tabs defaultValue="general">
+      <Tabs defaultValue={isManager ? 'users' : 'general'}>
         <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
+          {!isManager && <TabsTrigger value="general">General</TabsTrigger>}
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="quick-services">Servicios rápidos</TabsTrigger>
           <TabsTrigger value="accessories">Accesorios</TabsTrigger>
-          <TabsTrigger value="branches">Sucursales</TabsTrigger>
+          {!isManager && <TabsTrigger value="branches">Sucursales</TabsTrigger>}
         </TabsList>
-        <TabsContent value="general">
-          <GeneralSettings />
-        </TabsContent>
+        {!isManager && (
+          <TabsContent value="general">
+            <GeneralSettings />
+          </TabsContent>
+        )}
         <TabsContent value="users">
           <UsersSettings />
         </TabsContent>
@@ -73,9 +78,11 @@ export default function SettingsPage() {
         <TabsContent value="accessories">
           <AccessoryOptionsSettings />
         </TabsContent>
-        <TabsContent value="branches">
-          <BranchesSettings />
-        </TabsContent>
+        {!isManager && (
+          <TabsContent value="branches">
+            <BranchesSettings />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

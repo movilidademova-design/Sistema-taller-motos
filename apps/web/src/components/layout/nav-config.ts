@@ -32,5 +32,5 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/payments', label: 'Pagos', icon: Wallet, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
   { href: '/invoices', label: 'Facturas', icon: FileText, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
   { href: '/appointments', label: 'Agenda', icon: CalendarDays, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
-  { href: '/settings', label: 'Configuración', icon: Settings, roles: ['ADMIN'] },
+  { href: '/settings', label: 'Configuración', icon: Settings, roles: ['ADMIN', 'MANAGER'] },
 ];
