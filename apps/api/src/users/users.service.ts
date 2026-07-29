@@ -32,7 +32,10 @@ export class UsersService {
     if (actorRole === Role.MANAGER) {
       const managerBranchIds = await this.userBranchIds(actorUserId);
       return this.prisma.user.findMany({
-        where: { tenantId, branches: { some: { branchId: { in: managerBranchIds } } } },
+        where: {
+          tenantId,
+          branches: { some: { branchId: { in: managerBranchIds } } },
+        },
         select: SAFE_SELECT,
         orderBy: { createdAt: 'desc' },
       });
@@ -71,7 +74,9 @@ export class UsersService {
         this.userBranchIds(actorUserId),
         this.userBranchIds(id),
       ]);
-      const sharesBranch = targetBranchIds.some((b) => managerBranchIds.includes(b));
+      const sharesBranch = targetBranchIds.some((b) =>
+        managerBranchIds.includes(b),
+      );
       if (!sharesBranch) throw new NotFoundException('Usuario no encontrado');
     }
     return target;
@@ -114,12 +119,15 @@ export class UsersService {
           where: { id: { in: dto.branchIds }, tenantId },
         });
         if (branches.length !== dto.branchIds.length) {
-          throw new NotFoundException('Alguna sucursal no pertenece a este taller');
+          throw new NotFoundException(
+            'Alguna sucursal no pertenece a este taller',
+          );
         }
         branchIds = dto.branchIds;
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- excluded from `rest` so it never reaches Prisma's create()
     const { password, branchIds: _ignoredBranchIds, ...rest } = dto;
     const passwordHash = await argon2.hash(password);
     return this.prisma.$transaction(async (tx) => {
@@ -154,7 +162,12 @@ export class UsersService {
     });
   }
 
-  async remove(tenantId: string, actorUserId: string, actorRole: Role, id: string) {
+  async remove(
+    tenantId: string,
+    actorUserId: string,
+    actorRole: Role,
+    id: string,
+  ) {
     await this.findOneScoped(tenantId, actorUserId, actorRole, id);
     // Users are never hard-deleted so historical order/audit references stay intact.
     return this.prisma.user.update({
