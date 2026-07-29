@@ -431,7 +431,7 @@ git commit -m "Scope intake's quick-service and accessory-option lookups by bran
 - Modify: `apps/api/src/users/users.service.ts`
 - Modify: `apps/api/src/users/dto/create-user.dto.ts`
 
-- [ ] **Step 1: Add `branchIds` to `CreateUserDto`, exclude it from `UpdateUserDto`**
+- [x] **Step 1: Add `branchIds` to `CreateUserDto`, exclude it from `UpdateUserDto`**
 
 In `apps/api/src/users/dto/create-user.dto.ts`, add (mirroring `AssignBranchesDto`'s exact validator style):
 ```ts
@@ -454,7 +454,7 @@ export class UpdateUserDto extends PartialType(
 ) {
 ```
 
-- [ ] **Step 2: Rewrite `UsersService`**
+- [x] **Step 2: Rewrite `UsersService`**
 
 Replace the full contents of `apps/api/src/users/users.service.ts` with:
 
@@ -676,14 +676,14 @@ export class UsersService {
 
 Note: this both fixes the `create()` crash bug (destructuring `password`/`branchIds` out of `dto` before spreading `rest` into Prisma's `data`) AND adds all the new role/branch-scoping logic in one pass, since `create` needed a full rewrite anyway for the branch-assignment logic.
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
 ```
 Expected: NEW errors in `users.controller.ts` (signature mismatches — `create`/`update`/`remove`/`findAll` now take extra parameters). Fixed in Task 8. Confirm errors are confined to that one file.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/users/users.service.ts apps/api/src/users/dto/create-user.dto.ts
