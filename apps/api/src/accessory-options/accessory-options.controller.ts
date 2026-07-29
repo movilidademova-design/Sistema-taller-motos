@@ -6,6 +6,7 @@ import { UpdateAccessoryOptionDto } from './dto/update-accessory-option.dto';
 import { ReorderAccessoryOptionsDto } from './dto/reorder-accessory-options.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { Role } from '../generated/prisma/enums';
 
@@ -16,8 +17,11 @@ export class AccessoryOptionsController {
   constructor(private readonly accessoryOptionsService: AccessoryOptionsService) {}
 
   @Get()
-  findAll(@CurrentUser('tenantId') tenantId: string) {
-    return this.accessoryOptionsService.findAll(tenantId);
+  findAll(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
+  ) {
+    return this.accessoryOptionsService.findAll(tenantId, branchId);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
@@ -25,9 +29,10 @@ export class AccessoryOptionsController {
   @Post()
   create(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: CreateAccessoryOptionDto,
   ) {
-    return this.accessoryOptionsService.create(tenantId, dto);
+    return this.accessoryOptionsService.create(tenantId, branchId, dto);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
@@ -35,9 +40,10 @@ export class AccessoryOptionsController {
   @Patch('reorder')
   reorder(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Body() dto: ReorderAccessoryOptionsDto,
   ) {
-    return this.accessoryOptionsService.reorder(tenantId, dto);
+    return this.accessoryOptionsService.reorder(tenantId, branchId, dto);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
