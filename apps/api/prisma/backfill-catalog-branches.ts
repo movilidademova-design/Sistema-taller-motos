@@ -14,6 +14,12 @@
 //
 // Run once, after the nullable-branchId migration (Task 1) and before the
 // not-null migration (Task 3): `pnpm --filter @taller/api exec tsx prisma/backfill-catalog-branches.ts`
+//
+// OBSOLETE as of Task 3: branchId is now required on both tables (verified 0 rows
+// with a null branchId before that migration ran), so this script's own idempotency
+// check now always takes the "already fully backfilled" branch — it's a permanent
+// no-op. Excluded from `tsc` via tsconfig.build.json since its where clauses filter
+// on `branchId: null`, which no longer typechecks against a required column.
 
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
