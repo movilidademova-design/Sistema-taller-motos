@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `apps/api/prisma/schema.prisma`
 
-- [ ] **Step 1: Add nullable `branchId` to both models**
+- [x] **Step 1: Add nullable `branchId` to both models**
 
 In `apps/api/prisma/schema.prisma`, change:
 
@@ -67,7 +67,7 @@ Add the two inverse relations to `model Branch`:
 ```
 (replacing the existing 4-line relation block with this 6-line one — same location, right before `@@unique([tenantId, code])`).
 
-- [ ] **Step 2: Generate the migration**
+- [x] **Step 2: Generate the migration**
 
 ```bash
 cd apps/api
@@ -80,7 +80,7 @@ pnpm exec prisma migrate dev --name quick_service_accessory_option_branch_id_nul
 ```
 (If `migrate dev`'s interactive prompt isn't available in this shell, use `prisma migrate diff` to write the SQL to a file, create the migration folder by hand under `apps/api/prisma/migrations/<timestamp>_quick_service_accessory_option_branch_id_nullable/migration.sql`, then run `pnpm exec prisma migrate deploy`.)
 
-- [ ] **Step 3: Regenerate the Prisma client and verify build**
+- [x] **Step 3: Regenerate the Prisma client and verify build**
 
 ```bash
 pnpm exec prisma generate
@@ -88,7 +88,7 @@ pnpm --filter @taller/api build
 ```
 Expected: build fails with new errors in `quick-services.service.ts`/`accessory-options.service.ts` (missing `branchId` isn't required yet, so these should NOT error — but `create` calls that don't set `branchId` will now produce a value with `branchId: null` implicitly, which is fine since it's nullable at this step). If there ARE new errors, they should only be about `Branch`'s relation type changes, not about `create()` calls (nullable fields don't require a value). Confirm no unexpected errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/prisma/schema.prisma apps/api/prisma/migrations
