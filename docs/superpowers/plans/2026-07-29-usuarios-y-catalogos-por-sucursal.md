@@ -102,7 +102,7 @@ git commit -m "Add nullable branchId to QuickService and AccessoryOption"
 **Files:**
 - Create: `apps/api/prisma/backfill-catalog-branches.ts`
 
-- [ ] **Step 1: Write the backfill script**
+- [x] **Step 1: Write the backfill script**
 
 Mirrors `apps/api/prisma/backfill-branches.ts`'s exact structure and style (same imports, same `PrismaPg` adapter setup, same per-tenant loop, same idempotency-by-postcondition check):
 
@@ -176,14 +176,14 @@ main()
   .finally(() => prisma.$disconnect());
 ```
 
-- [ ] **Step 2: Run it against the dev database**
+- [x] **Step 2: Run it against the dev database**
 
 ```bash
 pnpm --filter @taller/api exec tsx prisma/backfill-catalog-branches.ts
 ```
 Expected output: one line per tenant showing counts backfilled (or "already fully backfilled" / "no Principal branch" for tenants with none).
 
-- [ ] **Step 3: Verify via psql or Prisma Studio**
+- [x] **Step 3: Verify via psql or Prisma Studio**
 
 ```bash
 docker exec sistema-taller-motos-postgres-1 psql -U postgres -d taller_motos -c "SELECT COUNT(*) FROM quick_services WHERE \"branchId\" IS NULL;"
@@ -191,7 +191,7 @@ docker exec sistema-taller-motos-postgres-1 psql -U postgres -d taller_motos -c 
 ```
 Expected: both return `0` (adjust the container/db name if different — check `docker ps` first).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/prisma/backfill-catalog-branches.ts
