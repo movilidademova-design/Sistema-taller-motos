@@ -4,10 +4,14 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { authStorage, StoredUser } from '@/lib/auth-storage';
+import type { Branch } from '@/lib/types';
 
 interface AuthContextValue {
   user: StoredUser | null;
   isLoading: boolean;
+  branches: Branch[];
+  currentBranchId: string | null;
+  setCurrentBranchId: (branchId: string) => void;
   login: (email: string, password: string) => Promise<void>;
   registerTenant: (payload: {
     workshopName: string;
@@ -42,6 +46,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(stored);
     }
     setIsLoading(false);
+  }, []);
+
+  const [branches, setBranches] = React.useState<Branch[]>([]);
+  const [currentBranchId, setCurrentBranchIdState] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!user) {
+      setBranches([]);
+      setCurrentBranchIdState(null);
+      return;
+    }
+    api.get<Branch[]>('/users/me/branches').then((fetched) => {
+      setBranches(fetched);
+      const stored = authStorage.getBranchId();
+      const validStored = stored && fetched.some((b) => b.id === stored) ? stored : null;
+      const resolved = validStored ?? (fetched.length > 0 ? fetched[0].id : null);
+      if (resolved) {
+        authStorage.setBranchId(resolved);
+        setCurrentBranchIdState(resolved);
+      }
+    });
+  }, [user]);
+
+  const setCurrentBranchId = React.useCallback((branchId: string) => {
+    authStorage.setBranchId(branchId);
+    setCurrentBranchIdState(branchId);
+    if (typeof window !== 'undefined') window.location.reload();
   }, []);
 
   const login = React.useCallback(
@@ -84,7 +115,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, registerTenant, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        branches,
+        currentBranchId,
+        setCurrentBranchId,
+        login,
+        registerTenant,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
