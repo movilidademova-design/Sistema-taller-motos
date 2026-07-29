@@ -479,6 +479,14 @@ export class OrdersService {
             where: { id: { in: dto.quickServiceIds }, tenantId, branchId },
           })
         : [];
+      if (quickServices.length !== (dto.quickServiceIds?.length ?? 0)) {
+        // Same precedent as QuickServicesService.reorder: a partial match means at
+        // least one id belongs to a different branch (or doesn't exist) — surface
+        // that loudly instead of silently dropping it from the intake reason, which
+        // could otherwise happen if a stale branch selection lingers in one browser
+        // tab while another tab/window switches the active branch.
+        throw new NotFoundException('Algún servicio rápido no pertenece a esta sucursal');
+      }
       const reason = buildIntakeReason(
         quickServices.map((s) => s.label),
         dto.description,
@@ -489,6 +497,9 @@ export class OrdersService {
             where: { id: { in: dto.accessoryOptionIds }, tenantId, branchId },
           })
         : [];
+      if (accessoryOptions.length !== (dto.accessoryOptionIds?.length ?? 0)) {
+        throw new NotFoundException('Algún accesorio no pertenece a esta sucursal');
+      }
       const accessoriesDelivered = buildAccessoriesText(
         accessoryOptions.map((a) => a.label),
         dto.otherAccessoryText ?? '',
