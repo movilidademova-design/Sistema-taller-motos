@@ -307,7 +307,24 @@ In `apps/api/src/quick-services/quick-services.service.ts`, add a required `bran
   }
 ```
 
-`update`'s duplicate-label check (`where: { tenantId, label: dto.label, NOT: { id } }`) and `assertExists`/`remove` are left untouched — same "Fase 1 only scopes creation/listing, not per-id access" boundary already accepted for Órdenes/Clientes/Vehículos (a `quickServiceId` is already opaque and tenant-scoped; editing one you already have the id for doesn't need branch re-validation).
+`update`'s duplicate-label check needs a small fix that ISN'T just "leave it untouched" — unlike Órdenes/Clientes/Vehículos, the new DB constraint here is `@@unique([tenantId, branchId, label])`, not `@@unique([tenantId, label])`, so two different branches are now explicitly allowed to each have their own "Cambio de aceite". If `update`'s duplicate check stays tenant-wide, renaming an item in Branch B to a label Branch A already uses would be wrongly rejected even though the database itself would allow it. Fix it using the branchId already on the row being edited (no new `@CurrentBranch()` plumbing needed — `assertExists` already fetches the row, just capture and reuse it):
+
+```ts
+  async update(tenantId: string, id: string, dto: UpdateQuickServiceDto) {
+    const current = await this.assertExists(tenantId, id);
+    if (dto.label) {
+      const existing = await this.prisma.quickService.findFirst({
+        where: { tenantId, branchId: current.branchId, label: dto.label, NOT: { id } },
+      });
+      if (existing) {
+        throw new ConflictException('Ya existe una etiqueta con ese nombre');
+      }
+    }
+    return this.prisma.quickService.update({ where: { id }, data: dto });
+  }
+```
+
+`assertExists`/`remove` themselves are left untouched (still tenant-only, no branch check) — same "Fase 1 only scopes creation/listing, not per-id access" boundary already accepted for Órdenes/Clientes/Vehículos (a `quickServiceId` is already opaque and tenant-scoped; deleting/reading one you already have the id for doesn't need branch re-validation — only the *cross-branch-uniqueness* implication of `update`'s own duplicate check needed fixing here, which is a data-integrity concern specific to this task's new composite constraint, not a general access-scoping one).
 
 - [ ] **Step 2: Controller changes**
 
