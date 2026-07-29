@@ -1,8 +1,16 @@
 // apps/api/prisma/backfill-catalog-branches.ts
 // One-off data migration: assigns every existing QuickService and AccessoryOption
-// row to the tenant's "Principal" branch (created in Sucursales Fase 1's own
+// row to the tenant's original default branch (created in Sucursales Fase 1's own
 // backfill, or in registerTenant for tenants created since). New branches start
 // with an empty catalog — each sucursal is expected to build its own list.
+//
+// The default branch is identified as the tenant's EARLIEST-created branch, not by
+// code "0001" — a branch's code and name are user-editable (Settings → Sucursales),
+// and in practice get renamed to the shop's real identity once someone starts using
+// it, so code alone isn't a stable way to find "the one that used to be Principal".
+// Creation order is: both Fase 1's own backfill and registerTenant create exactly
+// one branch per tenant before any other branch can exist, so the oldest branch is
+// always that one, regardless of what it's since been renamed/recoded to.
 //
 // Run once, after the nullable-branchId migration (Task 1) and before the
 // not-null migration (Task 3): `pnpm --filter @taller/api exec tsx prisma/backfill-catalog-branches.ts`
@@ -30,12 +38,13 @@ async function main() {
       continue;
     }
 
-    const principal = await prisma.branch.findFirst({
-      where: { tenantId: tenant.id, code: '0001' },
+    const defaultBranch = await prisma.branch.findFirst({
+      where: { tenantId: tenant.id },
+      orderBy: { createdAt: 'asc' },
     });
-    if (!principal) {
+    if (!defaultBranch) {
       console.log(
-        `Tenant ${tenant.name} has no "Principal" (code 0001) branch — skipping. ` +
+        `Tenant ${tenant.name} has no branches at all — skipping. ` +
           `Run this after Sucursales Fase 1's own backfill has created one.`,
       );
       continue;
@@ -44,14 +53,15 @@ async function main() {
     await prisma.$transaction(async (tx) => {
       const { count: quickServiceCount } = await tx.quickService.updateMany({
         where: { tenantId: tenant.id, branchId: null },
-        data: { branchId: principal.id },
+        data: { branchId: defaultBranch.id },
       });
       const { count: accessoryOptionCount } = await tx.accessoryOption.updateMany({
         where: { tenantId: tenant.id, branchId: null },
-        data: { branchId: principal.id },
+        data: { branchId: defaultBranch.id },
       });
       console.log(
-        `  Backfilled branchId: ${quickServiceCount} quick services, ${accessoryOptionCount} accessory options`,
+        `  Backfilled branchId: ${quickServiceCount} quick services, ${accessoryOptionCount} accessory options ` +
+          `(→ "${defaultBranch.name}", code ${defaultBranch.code})`,
       );
     });
   }
