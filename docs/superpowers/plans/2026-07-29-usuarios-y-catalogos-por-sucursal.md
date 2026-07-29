@@ -1102,7 +1102,7 @@ git commit -m "Give MANAGER access to Settings, limited to Usuarios/Servicios/Ac
 **Files:**
 - Modify: `apps/web/src/app/(app)/settings/page.tsx`
 
-- [ ] **Step 1: Rewrite `UsersSettings`**
+- [x] **Step 1: Rewrite `UsersSettings`**
 
 Read the current `UsersSettings`/`NewUserForm` functions in full first (already shown above in this plan's context) — replace both, and add a new `EditUserForm`, as follows.
 
@@ -1206,7 +1206,7 @@ function UsersSettings() {
 }
 ```
 
-- [ ] **Step 2: Rewrite `NewUserForm`**
+- [x] **Step 2: Rewrite `NewUserForm`**
 
 ```tsx
 function NewUserForm({
@@ -1333,7 +1333,7 @@ function NewUserForm({
 }
 ```
 
-- [ ] **Step 3: Add `EditUserForm`**
+- [x] **Step 3: Add `EditUserForm`**
 
 Add this new function right after `NewUserForm`:
 
@@ -1427,14 +1427,14 @@ function EditUserForm({
 }
 ```
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: **zero errors.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add "apps/web/src/app/(app)/settings/page.tsx"
