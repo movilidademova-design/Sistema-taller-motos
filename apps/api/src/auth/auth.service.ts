@@ -62,6 +62,12 @@ export class AuthService {
           role: Role.ADMIN,
         },
       });
+      // Every tenant needs at least one branch to use branch-scoped features
+      // (order/client/motorcycle creation all require @CurrentBranch()). ADMIN
+      // sees all branches automatically, so this doesn't need a UserBranch row.
+      await tx.branch.create({
+        data: { tenantId: tenant.id, name: 'Principal', code: '0001' },
+      });
       return { tenant, user };
     });
 
