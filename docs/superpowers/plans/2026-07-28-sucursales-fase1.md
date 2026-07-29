@@ -1285,18 +1285,18 @@ git commit -m "Add branch switcher to topbar, visible when the user has more tha
 **Files:**
 - Modify: `apps/web/src/app/(app)/orders/new/page.tsx`
 
-- [ ] **Step 1: Fix the local type and message builder**
+- [x] **Step 1: Fix the local type and message builder**
 
 In `apps/web/src/app/(app)/orders/new/page.tsx`, find the local interface/type that declares `orderNumber: number` (used by `buildIntakeMessage`'s parameter type, around where `data.orderNumber` is interpolated into the confirmation message) and change it to `orderNumber: string`. No other logic changes needed — every usage in this file already just interpolates the value into a template string or passes it straight through from `order.orderNumber` (already `string` after Task 12's type change) to `buildIntakeMessage`.
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: **succeeds with zero errors** — this is the task that clears every remaining frontend error left over since Task 12.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "apps/web/src/app/(app)/orders/new/page.tsx"
