@@ -783,7 +783,7 @@ git commit -m "Let MANAGER create, edit, and deactivate users within their own b
 **Files:**
 - Create: `apps/api/src/users/users.service.spec.ts`
 
-- [ ] **Step 1: Write the test file**
+- [x] **Step 1: Write the test file**
 
 Following the exact same direct-instantiation-with-stubs pattern used in `apps/api/src/orders/orders.service.reactivate-client.spec.ts` and `apps/api/src/common/guards/branch-context.guard.spec.ts` (this codebase has no `TestingModule` usage anywhere — plain Jest units with a stub `PrismaService`):
 
@@ -986,14 +986,14 @@ describe('UsersService — role/branch scoping', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests**
+- [x] **Step 2: Run the tests**
 
 ```bash
 pnpm --filter @taller/api test -- users.service
 ```
 Expected: all tests pass.
 
-- [ ] **Step 3: Verify full build/test/lint**
+- [x] **Step 3: Verify full build/test/lint**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1002,7 +1002,7 @@ pnpm --filter @taller/api lint
 ```
 Expected: all clean. **Note:** `pnpm lint` runs with `--fix` and will reformat every file it touches — if it reformats files outside this task's scope, discard those specific unrelated reformattings via `git checkout -- <file>` before committing (this happened during Sucursales Fase 1's closing review; same care applies here).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/users/users.service.spec.ts
@@ -1017,7 +1017,7 @@ git commit -m "Add unit tests for UsersService role/branch-scoping logic"
 - Modify: `apps/web/src/components/layout/nav-config.ts`
 - Modify: `apps/web/src/app/(app)/settings/page.tsx`
 
-- [ ] **Step 1: Allow MANAGER into the Settings nav item**
+- [x] **Step 1: Allow MANAGER into the Settings nav item**
 
 In `apps/web/src/components/layout/nav-config.ts`, change:
 ```ts
@@ -1028,7 +1028,7 @@ to:
   { href: '/settings', label: 'Configuración', icon: Settings, roles: ['ADMIN', 'MANAGER'] },
 ```
 
-- [ ] **Step 2: Hide "General" and "Sucursales" tabs for MANAGER**
+- [x] **Step 2: Hide "General" and "Sucursales" tabs for MANAGER**
 
 In `apps/web/src/app/(app)/settings/page.tsx`, add the import:
 ```ts
@@ -1081,14 +1081,14 @@ export default function SettingsPage() {
 }
 ```
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: succeeds with no new errors (there will still be pre-existing unrelated errors if Task 11 hasn't landed yet — actually there shouldn't be any at this point, since Task 11 is additive UI, not a breaking type change. Confirm zero errors).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/layout/nav-config.ts "apps/web/src/app/(app)/settings/page.tsx"
