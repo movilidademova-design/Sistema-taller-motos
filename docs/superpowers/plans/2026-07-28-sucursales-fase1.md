@@ -1219,7 +1219,7 @@ git commit -m "Fetch and track the current user's accessible/selected branch"
 **Files:**
 - Modify: `apps/web/src/components/layout/topbar.tsx`
 
-- [ ] **Step 1: Add the switcher**
+- [x] **Step 1: Add the switcher**
 
 Add this component above `export function Topbar()`, and the `Building2` icon to the existing `lucide-react` import line:
 ```ts
@@ -1264,14 +1264,14 @@ Render it in `Topbar`, right before `<NotificationBell />`:
       <ThemeToggle />
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: same failure state as the end of Task 14 — no new errors from this file.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/components/layout/topbar.tsx
