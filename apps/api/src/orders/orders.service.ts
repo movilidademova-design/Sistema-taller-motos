@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -227,10 +228,21 @@ export class OrdersService {
       return await tx.client.create({ data: { tenantId, branchId, ...newClient } });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        // documentId is unique per tenant, not per branch, so this can only mean a client
+        // with that documentId already exists somewhere in the tenant. If it's in THIS
+        // branch, it's a genuine concurrent-request race — safe to reuse. If it's in a
+        // DIFFERENT branch, silently attaching it would cross-link an order to a client
+        // reception at this branch can't otherwise find or see — reject instead, matching
+        // ClientsService.create's handling of the same underlying conflict.
         const existing = await tx.client.findFirst({
           where: { tenantId, documentId: newClient.documentId },
         });
-        if (existing) return existing;
+        if (existing?.branchId === branchId) return existing;
+        if (existing) {
+          throw new ConflictException(
+            'Ya existe un cliente con esa cédula en otra sucursal',
+          );
+        }
       }
       throw error;
     }
@@ -239,9 +251,10 @@ export class OrdersService {
   private async mustFindTenantClient(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    branchId: string,
     clientId: string,
   ) {
-    const client = await tx.client.findFirst({ where: { id: clientId, tenantId } });
+    const client = await tx.client.findFirst({ where: { id: clientId, tenantId, branchId } });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     return client;
   }
@@ -249,11 +262,12 @@ export class OrdersService {
   private async mustFindTenantMotorcycle(
     tx: Prisma.TransactionClient,
     tenantId: string,
+    branchId: string,
     motorcycleId: string,
     clientId: string,
   ) {
     const motorcycle = await tx.motorcycle.findFirst({
-      where: { id: motorcycleId, tenantId, clientId },
+      where: { id: motorcycleId, tenantId, branchId, clientId },
     });
     if (!motorcycle) throw new NotFoundException('Vehículo no encontrado');
     return motorcycle;
@@ -266,9 +280,9 @@ export class OrdersService {
     dto: CreateOrderDto,
   ) {
     const [client, motorcycle] = await Promise.all([
-      this.prisma.client.findFirst({ where: { id: dto.clientId, tenantId } }),
+      this.prisma.client.findFirst({ where: { id: dto.clientId, tenantId, branchId } }),
       this.prisma.motorcycle.findFirst({
-        where: { id: dto.motorcycleId, tenantId },
+        where: { id: dto.motorcycleId, tenantId, branchId },
       }),
     ]);
     if (!client) throw new NotFoundException('Cliente no encontrado');
@@ -384,11 +398,11 @@ export class OrdersService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       const client = dto.clientId
-        ? await this.mustFindTenantClient(tx, tenantId, dto.clientId)
+        ? await this.mustFindTenantClient(tx, tenantId, branchId, dto.clientId)
         : await this.createOrReactivateClient(tx, tenantId, branchId, dto.newClient!);
 
       const motorcycle = dto.motorcycleId
-        ? await this.mustFindTenantMotorcycle(tx, tenantId, dto.motorcycleId, client.id)
+        ? await this.mustFindTenantMotorcycle(tx, tenantId, branchId, dto.motorcycleId, client.id)
         : await tx.motorcycle.create({
             data: {
               tenantId,

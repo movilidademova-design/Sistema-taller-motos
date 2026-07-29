@@ -81,7 +81,7 @@ export class MotorcyclesService {
 
   async create(tenantId: string, branchId: string, dto: CreateMotorcycleDto) {
     const client = await this.prisma.client.findFirst({
-      where: { id: dto.clientId, tenantId },
+      where: { id: dto.clientId, tenantId, branchId },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
 
