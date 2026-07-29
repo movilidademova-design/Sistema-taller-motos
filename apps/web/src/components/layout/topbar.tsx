@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -88,7 +89,12 @@ function BranchSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5"
+          aria-label={`Sucursal actual: ${current?.name ?? 'ninguna seleccionada'}`}
+        >
           <Building2 className="size-4" />
           <span className="hidden text-sm font-medium sm:inline">{current?.name ?? 'Sucursal'}</span>
         </Button>
@@ -97,10 +103,13 @@ function BranchSwitcher() {
         <DropdownMenuLabel>Cambiar de sucursal</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {branches.map((branch) => (
-          <DropdownMenuItem key={branch.id} onSelect={() => setCurrentBranchId(branch.id)}>
+          <DropdownMenuCheckboxItem
+            key={branch.id}
+            checked={branch.id === currentBranchId}
+            onSelect={() => setCurrentBranchId(branch.id)}
+          >
             {branch.name}
-            {branch.id === currentBranchId ? ' ✓' : ''}
-          </DropdownMenuItem>
+          </DropdownMenuCheckboxItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
