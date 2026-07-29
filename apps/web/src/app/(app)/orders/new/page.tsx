@@ -584,7 +584,7 @@ export default function NewOrderWizardPage() {
 
 function buildIntakeMessage(data: {
   firstName: string;
-  orderNumber: number;
+  orderNumber: string;
   pickupCode: string;
   tenantName: string;
 }) {
