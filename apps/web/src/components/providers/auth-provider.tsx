@@ -57,16 +57,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCurrentBranchIdState(null);
       return;
     }
-    api.get<Branch[]>('/users/me/branches').then((fetched) => {
-      setBranches(fetched);
-      const stored = authStorage.getBranchId();
-      const validStored = stored && fetched.some((b) => b.id === stored) ? stored : null;
-      const resolved = validStored ?? (fetched.length > 0 ? fetched[0].id : null);
-      if (resolved) {
-        authStorage.setBranchId(resolved);
-        setCurrentBranchIdState(resolved);
-      }
-    });
+    let ignore = false;
+    api
+      .get<Branch[]>('/users/me/branches')
+      .then((fetched) => {
+        if (ignore) return;
+        setBranches(fetched);
+        const stored = authStorage.getBranchId();
+        const validStored = stored && fetched.some((b) => b.id === stored) ? stored : null;
+        const resolved = validStored ?? (fetched.length > 0 ? fetched[0].id : null);
+        if (resolved) {
+          authStorage.setBranchId(resolved);
+          setCurrentBranchIdState(resolved);
+        } else {
+          authStorage.clearBranchId();
+          setCurrentBranchIdState(null);
+        }
+      })
+      .catch(() => {
+        // Best-effort: leave branches/currentBranchId as-is on failure. A branch-scoped
+        // page hitting a stale/missing X-Branch-Id will surface its own clear error.
+      });
+    return () => {
+      ignore = true;
+    };
   }, [user]);
 
   const setCurrentBranchId = React.useCallback((branchId: string) => {
