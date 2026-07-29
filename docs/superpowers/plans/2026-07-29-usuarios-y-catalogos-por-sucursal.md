@@ -386,7 +386,7 @@ git commit -m "Scope accessory options listing, creation, and reordering by bran
 **Files:**
 - Modify: `apps/api/src/orders/orders.service.ts`
 
-- [ ] **Step 1: Add `branchId` to the two lookups inside `intake`**
+- [x] **Step 1: Add `branchId` to the two lookups inside `intake`**
 
 In `apps/api/src/orders/orders.service.ts`, inside the `intake` transaction, change:
 ```ts
@@ -408,7 +408,7 @@ and the identical change for `accessoryOptions`' `tx.accessoryOption.findMany` c
 
 This means a `quickServiceId`/`accessoryOptionId` from a different branch is silently excluded from the results (not an error) — `buildIntakeReason`/`buildAccessoriesText` just receive fewer labels than ids sent, which is acceptable since the frontend intake wizard only ever offers the current branch's own catalog to pick from in the first place (Task 4/5 already scope `GET /quick-services`/`GET /accessory-options` to the current branch).
 
-- [ ] **Step 2: Verify build and tests**
+- [x] **Step 2: Verify build and tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -416,7 +416,7 @@ pnpm --filter @taller/api test
 ```
 Expected: build succeeds, all existing tests still pass (this change doesn't touch any tested code path directly, but confirms no regression).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/api/src/orders/orders.service.ts
