@@ -1310,19 +1310,19 @@ git commit -m "Fix remaining orderNumber type mismatch in intake wizard confirma
 **Files:**
 - Modify: `apps/web/src/app/(app)/settings/page.tsx`
 
-- [ ] **Step 1: Read the current file structure first**
+- [x] **Step 1: Read the current file structure first**
 
 This file already has a `Tabs` component with several tabs (at minimum "Servicios rápidos" and "Accesorios", built in an earlier phase of this project, each backed by a `<Something>Settings` + `<Something>Form` function pair at the bottom of the file following an identical structural pattern: a `Dialog` + `DialogTrigger` "Nuevo X" button, a list of rows each with move-up/move-down or edit/delete buttons, and a small create/edit form). Read the file in full before editing, to copy that exact established pattern rather than inventing a new one.
 
-- [ ] **Step 2: Add the tab**
+- [x] **Step 2: Add the tab**
 
 Add a new `<TabsTrigger value="branches">Sucursales</TabsTrigger>` and corresponding `<TabsContent value="branches"><BranchesSettings /></TabsContent>`, in the same place the other tabs are declared.
 
-- [ ] **Step 3: Add `BranchesSettings`/`BranchForm`**
+- [x] **Step 3: Add `BranchesSettings`/`BranchForm`**
 
 Add these two functions at the end of the file, mirroring the existing `AccessoryOptionsSettings`/`AccessoryOptionForm` (or `QuickServicesSettings`/`QuickServiceForm`) pair structurally, but adapted for `Branch`'s fields (name, code, address, city, phone, email, isActive) instead of a single `label` — and using `PATCH /branches/:id` for both editing fields AND toggling `isActive` (there's no separate reorder/delete concept for branches, unlike the accessory/quick-service catalogs — just create and edit, matching this plan's Task 6 backend which only exposes `create`/`update`, no `remove`/`reorder`). Use `POST /branches` to create and `PATCH /branches/:id` to edit, calling `api.post`/`api.patch` the same way the sibling settings sections do. Include the 4-digit `code` field with a `maxLength={4}` and `inputMode="numeric"` input, since the backend validates it must be exactly 4 digits.
 
-- [ ] **Step 4: Add branch assignment to the existing Users tab**
+- [x] **Step 4: Add branch assignment to the existing Users tab**
 
 The existing `UsersSettings` function (already in this file, listing users in a `Table` with columns Nombre/Correo/Rol/Estado) gains a fifth column, "Sucursales", showing a small "Asignar" button that opens a dialog with a checkbox per branch, calling the `POST /users/:id/branches` endpoint built in Task 7. Read `UsersSettings`'s current exact code first (already shown to you above) and add to it — do not rewrite the whole function, only add what's described below.
 
@@ -1419,7 +1419,7 @@ This needs `Checkbox` imported from `@/components/ui/checkbox` (already used els
 
 Note: `GET /users/:id/branches` is used above to pre-populate the checkboxes with the user's current assignments, but this exact endpoint wasn't listed among Task 7's additions (which only added `GET /users/me/branches` and `POST /users/:id/branches`) — add a small `GET /users/:id/branches` endpoint too (roles `ADMIN`, same as the other user-management endpoints), backed by a trivial service method `findUserBranches(tenantId, userId)` that does `this.prisma.userBranch.findMany({ where: { userId }, include: { branch: true } })` after verifying the user belongs to the tenant (reuse whatever existing-user assertion helper `UsersService` already has). Add this now, in this same commit, since it's a small omission from Task 7 that this step depends on — don't skip it.
 
-- [ ] **Step 5: Verify build**
+- [x] **Step 5: Verify build**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1427,7 +1427,7 @@ pnpm --filter @taller/web build
 ```
 Expected: both succeed with no errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "apps/web/src/app/(app)/settings/page.tsx" apps/api/src/users/users.service.ts apps/api/src/users/users.controller.ts
