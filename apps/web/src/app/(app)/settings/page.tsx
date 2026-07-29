@@ -34,6 +34,12 @@ const ROLE_LABELS: Record<Role, string> = {
   CLIENT: 'Cliente',
 };
 
+function assignableRoleOptions(currentUserRole: Role) {
+  return Object.entries(ROLE_LABELS).filter(
+    ([value]) => value !== 'CLIENT' && (currentUserRole === 'ADMIN' || value !== 'ADMIN'),
+  );
+}
+
 interface TenantSettings {
   name: string;
   address?: string | null;
@@ -316,9 +322,7 @@ function NewUserForm({
     }
   }
 
-  const roleOptions = Object.entries(ROLE_LABELS).filter(
-    ([value]) => value !== 'CLIENT' && (currentUserRole === 'ADMIN' || value !== 'ADMIN'),
-  );
+  const roleOptions = assignableRoleOptions(currentUserRole);
 
   return (
     <form onSubmit={handleSubmit}>
@@ -433,9 +437,7 @@ function EditUserForm({
     }
   }
 
-  const roleOptions = Object.entries(ROLE_LABELS).filter(
-    ([value]) => value !== 'CLIENT' && (currentUserRole === 'ADMIN' || value !== 'ADMIN'),
-  );
+  const roleOptions = assignableRoleOptions(currentUserRole);
 
   return (
     <form onSubmit={handleSubmit}>
