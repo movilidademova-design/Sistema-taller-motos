@@ -27,10 +27,9 @@ export class MotorcyclesController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
-    @CurrentBranch() branchId: string,
     @Query() query: PaginationQueryDto & { clientId?: string },
   ) {
-    return this.motorcyclesService.findAll(tenantId, { ...query, branchId });
+    return this.motorcyclesService.findAll(tenantId, query);
   }
 
   @Get(':id')

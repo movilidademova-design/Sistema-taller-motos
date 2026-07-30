@@ -8,16 +8,18 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 export class MotorcyclesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Not branch-scoped, deliberately, matching ClientsService: a motorcycle
+  // belongs to a client, and clients are shared across the whole tenant now
+  // (see docs/superpowers/specs/2026-07-28-sucursales-fase1-design.md).
   async findAll(
     tenantId: string,
-    query: PaginationQueryDto & { clientId?: string; branchId?: string },
+    query: PaginationQueryDto & { clientId?: string },
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
       ...(query.clientId ? { clientId: query.clientId } : {}),
-      ...(query.branchId ? { branchId: query.branchId } : {}),
       ...(query.search
         ? {
             OR: [
@@ -81,7 +83,7 @@ export class MotorcyclesService {
 
   async create(tenantId: string, branchId: string, dto: CreateMotorcycleDto) {
     const client = await this.prisma.client.findFirst({
-      where: { id: dto.clientId, tenantId, branchId },
+      where: { id: dto.clientId, tenantId },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
 

@@ -123,6 +123,18 @@ export class ClientsService {
         const existing = await this.prisma.client.findFirst({
           where: { tenantId, documentId: dto.documentId },
         });
+        if (existing && !existing.isActive) {
+          // Reactivate rather than hand back a soft-deleted record as if
+          // creation had succeeded — it wouldn't show up in findAll otherwise.
+          return this.prisma.client.update({
+            where: { id: existing.id },
+            data: {
+              ...dto,
+              birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+              isActive: true,
+            },
+          });
+        }
         if (existing) return existing;
       }
       throw error;
