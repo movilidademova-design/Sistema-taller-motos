@@ -280,10 +280,10 @@ export class OrdersService {
   ) {
     const [client, motorcycle] = await Promise.all([
       this.prisma.client.findFirst({
-        where: { id: dto.clientId, tenantId, branchId },
+        where: { id: dto.clientId, tenantId },
       }),
       this.prisma.motorcycle.findFirst({
-        where: { id: dto.motorcycleId, tenantId, branchId },
+        where: { id: dto.motorcycleId, tenantId },
       }),
     ]);
     if (!client) throw new NotFoundException('Cliente no encontrado');
