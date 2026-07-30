@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -212,20 +211,14 @@ export class OrdersService {
       address?: string;
     },
   ) {
+    // documentId is unique per tenant, not per branch — a client is the same person
+    // no matter which branch registered them, so this reuses/reactivates their
+    // existing record regardless of which branch that was (see clients.service.ts's
+    // findAll/findByDocumentId comments and the design-doc amendment they reference).
     const inactive = await tx.client.findFirst({
       where: { tenantId, documentId: newClient.documentId, isActive: false },
     });
     if (inactive) {
-      // documentId is unique per tenant, not per branch — same reasoning as the P2002
-      // case below. Reactivating a same-branch client is fine (keeps its branchId as-is,
-      // no need to touch it). Reactivating a DIFFERENT branch's client instead of creating
-      // a new one at this branch would cross-link an order to a client this branch can't
-      // otherwise find or see, so reject it the same way a cross-branch P2002 is rejected.
-      if (inactive.branchId !== branchId) {
-        throw new ConflictException(
-          'Ya existe un cliente con esa cédula en otra sucursal',
-        );
-      }
       return tx.client.update({
         where: { id: inactive.id },
         data: { ...newClient, isActive: true },
@@ -240,23 +233,12 @@ export class OrdersService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        // documentId is unique per tenant, not per branch, so this can only mean a client
-        // with that documentId already exists somewhere in the tenant. If it's in THIS
-        // branch, it's a genuine concurrent-request race — safe to reuse. If it's in a
-        // DIFFERENT branch, silently attaching it would cross-link an order to a client
-        // reception at this branch can't otherwise find or see — reject instead. (Unlike
-        // ClientsService.create, which 409s on ANY conflict including a same-branch race —
-        // that path has no reuse concept since it isn't trying to attach the client to
-        // anything, so there's nothing to safely reuse.)
+        // Someone else's request (whether at this branch or another) won the race
+        // and created this documentId first — reuse whatever they created.
         const existing = await tx.client.findFirst({
           where: { tenantId, documentId: newClient.documentId },
         });
-        if (existing?.branchId === branchId) return existing;
-        if (existing) {
-          throw new ConflictException(
-            'Ya existe un cliente con esa cédula en otra sucursal',
-          );
-        }
+        if (existing) return existing;
       }
       throw error;
     }
@@ -265,25 +247,26 @@ export class OrdersService {
   private async mustFindTenantClient(
     tx: Prisma.TransactionClient,
     tenantId: string,
-    branchId: string,
     clientId: string,
   ) {
     const client = await tx.client.findFirst({
-      where: { id: clientId, tenantId, branchId },
+      where: { id: clientId, tenantId },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     return client;
   }
 
+  // Not branch-scoped, deliberately: a client's motorcycle may have been
+  // registered at a different branch than the one handling this order — as
+  // long as it belongs to this client, it's a valid vehicle for this tenant.
   private async mustFindTenantMotorcycle(
     tx: Prisma.TransactionClient,
     tenantId: string,
-    branchId: string,
     motorcycleId: string,
     clientId: string,
   ) {
     const motorcycle = await tx.motorcycle.findFirst({
-      where: { id: motorcycleId, tenantId, branchId, clientId },
+      where: { id: motorcycleId, tenantId, clientId },
     });
     if (!motorcycle) throw new NotFoundException('Vehículo no encontrado');
     return motorcycle;
@@ -395,34 +378,19 @@ export class OrdersService {
     }
     if (dto.clientId) {
       const client = await this.prisma.client.findFirst({
-        where: { id: dto.clientId, tenantId, branchId },
+        where: { id: dto.clientId, tenantId },
       });
       if (!client) throw new NotFoundException('Cliente no encontrado');
     }
     if (dto.motorcycleId) {
       const motorcycle = await this.prisma.motorcycle.findFirst({
-        where: { id: dto.motorcycleId, tenantId, branchId },
+        where: { id: dto.motorcycleId, tenantId },
       });
       if (!motorcycle) throw new NotFoundException('Vehículo no encontrado');
       if (dto.clientId && motorcycle.clientId !== dto.clientId) {
         throw new BadRequestException('El vehículo no pertenece a ese cliente');
       }
     }
-    if (dto.newClient) {
-      // Mirrors the same-branch/different-branch check createOrReactivateClient does
-      // inside the transaction below — done here too, before any files are uploaded,
-      // so a cross-branch documentId conflict fails fast instead of orphaning an
-      // uploaded signature and photos when the transaction later rejects it.
-      const conflicting = await this.prisma.client.findFirst({
-        where: { tenantId, documentId: dto.newClient.documentId },
-      });
-      if (conflicting && conflicting.branchId !== branchId) {
-        throw new ConflictException(
-          'Ya existe un cliente con esa cédula en otra sucursal',
-        );
-      }
-    }
-
     const photoUrls = await Promise.all(
       (files.photos ?? []).map((file) =>
         this.storage.upload(
@@ -442,7 +410,7 @@ export class OrdersService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       const client = dto.clientId
-        ? await this.mustFindTenantClient(tx, tenantId, branchId, dto.clientId)
+        ? await this.mustFindTenantClient(tx, tenantId, dto.clientId)
         : await this.createOrReactivateClient(
             tx,
             tenantId,
@@ -454,7 +422,6 @@ export class OrdersService {
         ? await this.mustFindTenantMotorcycle(
             tx,
             tenantId,
-            branchId,
             dto.motorcycleId,
             client.id,
           )
@@ -485,7 +452,9 @@ export class OrdersService {
         // that loudly instead of silently dropping it from the intake reason, which
         // could otherwise happen if a stale branch selection lingers in one browser
         // tab while another tab/window switches the active branch.
-        throw new NotFoundException('Algún servicio rápido no pertenece a esta sucursal');
+        throw new NotFoundException(
+          'Algún servicio rápido no pertenece a esta sucursal',
+        );
       }
       const reason = buildIntakeReason(
         quickServices.map((s) => s.label),
@@ -498,7 +467,9 @@ export class OrdersService {
           })
         : [];
       if (accessoryOptions.length !== (dto.accessoryOptionIds?.length ?? 0)) {
-        throw new NotFoundException('Algún accesorio no pertenece a esta sucursal');
+        throw new NotFoundException(
+          'Algún accesorio no pertenece a esta sucursal',
+        );
       }
       const accessoriesDelivered = buildAccessoriesText(
         accessoryOptions.map((a) => a.label),

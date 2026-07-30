@@ -28,24 +28,18 @@ export class ClientsController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
-    @CurrentBranch() branchId: string,
     @Query() query: PaginationQueryDto,
   ) {
-    return this.clientsService.findAll(tenantId, { ...query, branchId });
+    return this.clientsService.findAll(tenantId, query);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
   @Get('by-document/:documentId')
   findByDocumentId(
     @CurrentUser('tenantId') tenantId: string,
-    @CurrentBranch() branchId: string,
     @Param('documentId') documentId: string,
   ) {
-    return this.clientsService.findByDocumentId(
-      tenantId,
-      branchId,
-      documentId,
-    );
+    return this.clientsService.findByDocumentId(tenantId, documentId);
   }
 
   @Get(':id')

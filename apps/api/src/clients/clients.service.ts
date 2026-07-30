@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -9,16 +9,16 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 export class ClientsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(
-    tenantId: string,
-    query: PaginationQueryDto & { branchId?: string },
-  ) {
+  // Clients are shared across every branch of the tenant (a person's cédula is
+  // the same person no matter which branch they walk into), so this is
+  // intentionally NOT scoped by branch — see the "Nota de diseño" amendment in
+  // docs/superpowers/specs/2026-07-28-sucursales-fase1-design.md.
+  async findAll(tenantId: string, query: PaginationQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const where = {
       tenantId,
       isActive: true,
-      ...(query.branchId ? { branchId: query.branchId } : {}),
       ...(query.search
         ? {
             OR: [
@@ -89,24 +89,22 @@ export class ClientsService {
     return client;
   }
 
-  // Scoped to the current branch, not just the tenant: a client search during
-  // intake should only surface people already served at this branch, per this
-  // phase's design (see docs/superpowers/specs/2026-07-28-sucursales-fase1-design.md).
-  // A client with the same documentId in another branch of the same tenant won't
-  // be found here — see the P2002 handling in `create` for what happens next.
-  async findByDocumentId(
-    tenantId: string,
-    branchId: string,
-    documentId: string,
-  ) {
+  // Tenant-wide, not scoped to the current branch: a client registered at any
+  // branch of this tenant should be found from any other branch too (see
+  // findAll's comment above).
+  async findByDocumentId(tenantId: string, documentId: string) {
     const client = await this.prisma.client.findFirst({
-      where: { tenantId, branchId, documentId, isActive: true },
+      where: { tenantId, documentId, isActive: true },
       include: { motorcycles: { orderBy: { createdAt: 'desc' } } },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
     return client;
   }
 
+  // documentId is unique per tenant, not per branch. If it collides with an
+  // existing client — whether created moments ago in a concurrent request, or
+  // long ago at a different branch — that's the same person, so this reuses
+  // their existing record instead of erroring.
   async create(tenantId: string, branchId: string, dto: CreateClientDto) {
     try {
       return await this.prisma.client.create({
@@ -118,10 +116,14 @@ export class ClientsService {
         },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(
-          'Ya existe un cliente con esa cédula, posiblemente en otra sucursal',
-        );
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const existing = await this.prisma.client.findFirst({
+          where: { tenantId, documentId: dto.documentId },
+        });
+        if (existing) return existing;
       }
       throw error;
     }

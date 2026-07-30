@@ -1,17 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
-import { ConflictException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { Prisma } from '../generated/prisma/client';
-import type { IntakeOrderDto } from './dto/intake-order.dto';
 
 // createOrReactivateClient is private and has no PrismaService/RealtimeGateway/etc.
 // dependency of its own — it only operates on the `tx` (transaction client) passed
 // in as an argument — so the service's other constructor dependencies are unused
-// stubs here, except where a specific test needs one (e.g. `prisma`/`storage` for
-// the intake() pre-upload check below). Calling a private method through the
-// PrivateOrdersService cast below is exactly what no-unsafe-call/-assignment exist
-// to flag — disabled file-wide rather than suppressed line-by-line, since that's
-// the whole point of this file.
+// stubs here. Calling a private method through the PrivateOrdersService cast below
+// is exactly what no-unsafe-call/-assignment exist to flag — disabled file-wide
+// rather than suppressed line-by-line, since that's the whole point of this file.
 type PrivateOrdersService = OrdersService & {
   createOrReactivateClient: (
     tx: unknown,
@@ -21,16 +17,13 @@ type PrivateOrdersService = OrdersService & {
   ) => Promise<{ id: string; branchId: string }>;
 };
 
-function makeService(overrides?: {
-  prisma?: unknown;
-  storage?: unknown;
-}): PrivateOrdersService {
+function makeService(): PrivateOrdersService {
   return new OrdersService(
-    (overrides?.prisma ?? {}) as never,
     {} as never,
     {} as never,
     {} as never,
-    (overrides?.storage ?? {}) as never,
+    {} as never,
+    {} as never,
   ) as PrivateOrdersService;
 }
 
@@ -41,6 +34,10 @@ function p2002() {
   });
 }
 
+// documentId is unique per tenant, not per branch — a client is the same person
+// no matter which branch registered them, so createOrReactivateClient reuses their
+// existing record regardless of which branch it lives in (see the comment on the
+// method itself, and clients.service.ts's findAll/findByDocumentId).
 describe('OrdersService.createOrReactivateClient', () => {
   const tenantId = 'tenant-1';
   const branchId = 'branch-a';
@@ -78,25 +75,34 @@ describe('OrdersService.createOrReactivateClient', () => {
     expect(tx.client.create).not.toHaveBeenCalled();
   });
 
-  it("rejects reactivating a different branch's inactive client instead of cross-linking it", async () => {
+  it("reactivates a different branch's inactive client too", async () => {
     const inactiveClient = {
       id: 'client-1',
       branchId: otherBranchId,
       isActive: false,
     };
+    const updated = { ...inactiveClient, ...newClient, isActive: true };
     const tx = {
       client: {
         findFirst: jest.fn().mockResolvedValue(inactiveClient),
-        update: jest.fn(),
+        update: jest.fn().mockResolvedValue(updated),
         create: jest.fn(),
       },
     };
 
     const service = makeService();
-    await expect(
-      service.createOrReactivateClient(tx, tenantId, branchId, newClient),
-    ).rejects.toThrow(ConflictException);
-    expect(tx.client.update).not.toHaveBeenCalled();
+    const result = await service.createOrReactivateClient(
+      tx,
+      tenantId,
+      branchId,
+      newClient,
+    );
+
+    expect(result).toBe(updated);
+    expect(tx.client.update).toHaveBeenCalledWith({
+      where: { id: 'client-1' },
+      data: { ...newClient, isActive: true },
+    });
     expect(tx.client.create).not.toHaveBeenCalled();
   });
 
@@ -148,7 +154,7 @@ describe('OrdersService.createOrReactivateClient', () => {
     expect(result).toBe(raceWinner);
   });
 
-  it('rejects a cross-branch P2002 conflict instead of silently attaching a foreign client', async () => {
+  it('reuses the existing client on a cross-branch P2002 conflict too', async () => {
     const foreignClient = {
       id: 'client-foreign',
       branchId: otherBranchId,
@@ -166,9 +172,14 @@ describe('OrdersService.createOrReactivateClient', () => {
     };
 
     const service = makeService();
-    await expect(
-      service.createOrReactivateClient(tx, tenantId, branchId, newClient),
-    ).rejects.toThrow(ConflictException);
+    const result = await service.createOrReactivateClient(
+      tx,
+      tenantId,
+      branchId,
+      newClient,
+    );
+
+    expect(result).toBe(foreignClient);
   });
 
   it('rethrows a non-P2002 error from create unchanged', async () => {
@@ -185,61 +196,5 @@ describe('OrdersService.createOrReactivateClient', () => {
     await expect(
       service.createOrReactivateClient(tx, tenantId, branchId, newClient),
     ).rejects.toBe(boom);
-  });
-});
-
-describe('OrdersService.intake — pre-upload cross-branch newClient check', () => {
-  const tenantId = 'tenant-1';
-  const branchId = 'branch-a';
-  const otherBranchId = 'branch-b';
-
-  function makeFile(name: string): Express.Multer.File {
-    return {
-      originalname: name,
-      buffer: Buffer.from(''),
-      mimetype: 'image/png',
-    } as Express.Multer.File;
-  }
-
-  it('rejects before uploading anything when newClient documentId conflicts with a different branch', async () => {
-    const conflicting = { id: 'client-foreign', branchId: otherBranchId };
-    const prisma = {
-      client: {
-        findFirst: jest.fn().mockResolvedValue(conflicting),
-      },
-    };
-    const upload = jest.fn();
-    const service = makeService({ prisma, storage: { upload } });
-
-    const dto: Partial<IntakeOrderDto> = {
-      newClient: {
-        documentId: '999',
-        firstName: 'A',
-        lastName: 'B',
-      },
-      newMotorcycle: {
-        vehicleType: 'MOTO',
-        brand: 'X',
-        model: 'Y',
-      },
-      description: 'test',
-    };
-
-    await expect(
-      service.intake(
-        tenantId,
-        branchId,
-        'receptionist-1',
-        dto as IntakeOrderDto,
-        {
-          signature: [makeFile('sig.png')],
-          photos: [makeFile('p1.png'), makeFile('p2.png')],
-        },
-      ),
-    ).rejects.toThrow(ConflictException);
-
-    // This is the fix: no file should ever reach storage for a conflict caught
-    // by the pre-upload check.
-    expect(upload).not.toHaveBeenCalled();
   });
 });
