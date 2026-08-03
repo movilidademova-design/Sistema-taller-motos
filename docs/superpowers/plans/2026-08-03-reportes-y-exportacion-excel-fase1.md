@@ -1226,7 +1226,7 @@ git commit -m "Add Excel export endpoint for payments"
 - Modify: `apps/api/src/invoices/invoices.service.ts`
 - Modify: `apps/api/src/invoices/invoices.controller.ts`
 
-- [ ] **Step 1: Crear el DTO**
+- [x] **Step 1: Crear el DTO**
 
 Crear `apps/api/src/invoices/dto/export-invoices-query.dto.ts`:
 
@@ -1244,7 +1244,7 @@ export class ExportInvoicesQueryDto extends ExportQueryDto {
 }
 ```
 
-- [ ] **Step 2: Agregar `exportToExcel` a `InvoicesService`**
+- [x] **Step 2: Agregar `exportToExcel` a `InvoicesService`**
 
 En `apps/api/src/invoices/invoices.service.ts`, agregar imports:
 
@@ -1364,7 +1364,7 @@ async exportToExcel(
 }
 ```
 
-- [ ] **Step 3: Agregar el endpoint al controller**
+- [x] **Step 3: Agregar el endpoint al controller**
 
 En `apps/api/src/invoices/invoices.controller.ts`, agregar imports:
 
@@ -1404,7 +1404,7 @@ async export(
 }
 ```
 
-- [ ] **Step 4: Verificar build y tests**
+- [x] **Step 4: Verificar build y tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1412,7 +1412,7 @@ pnpm --filter @taller/api test
 ```
 Expected: ambos limpios.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/invoices
@@ -1770,7 +1770,7 @@ git commit -m "Add reports module with revenue Excel report"
 **Files:**
 - Modify: `apps/web/src/lib/api.ts`
 
-- [ ] **Step 1: Agregar `downloadFile` a `api.ts`**
+- [x] **Step 1: Agregar `downloadFile` a `api.ts`**
 
 El `fetchAuthedBlob` que ya existe **no sirve** para esto: no manda el header `X-Branch-Id` (así que el backend rechazaría el export con 400 por falta de contexto de sucursal), no reintenta tras un 401, y no lee el mensaje de error del cuerpo — justo el que explica el tope de 50.000 filas.
 
@@ -1847,14 +1847,14 @@ export async function downloadFile(
 }
 ```
 
-- [ ] **Step 2: Verificar build**
+- [x] **Step 2: Verificar build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: cero errores.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/lib/api.ts
@@ -1869,7 +1869,7 @@ git commit -m "Add authenticated file-download helper to the API client"
 - Create: `apps/web/src/components/reports/export-button.tsx`
 - Create: `apps/web/src/components/reports/date-range-filter.tsx`
 
-- [ ] **Step 1: Crear `DateRangeFilter`**
+- [x] **Step 1: Crear `DateRangeFilter`**
 
 Crear `apps/web/src/components/reports/date-range-filter.tsx`:
 
@@ -1942,7 +1942,7 @@ export function DateRangeFilter({
 }
 ```
 
-- [ ] **Step 2: Crear `ExportButton`**
+- [x] **Step 2: Crear `ExportButton`**
 
 Crear `apps/web/src/components/reports/export-button.tsx`:
 
@@ -2010,14 +2010,14 @@ export function ExportButton({
 }
 ```
 
-- [ ] **Step 3: Verificar build**
+- [x] **Step 3: Verificar build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: cero errores.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/reports
@@ -2034,7 +2034,7 @@ git commit -m "Add reusable ExportButton and DateRangeFilter components"
 - Modify: `apps/web/src/app/(app)/payments/page.tsx`
 - Modify: `apps/web/src/app/(app)/invoices/page.tsx`
 
-- [ ] **Step 1: Órdenes**
+- [x] **Step 1: Órdenes**
 
 En `apps/web/src/app/(app)/orders/page.tsx`, agregar imports:
 
@@ -2079,7 +2079,7 @@ Y en la cabecera, junto al botón "Nueva orden", envolver ambos botones:
 
 **Nota:** el rango de fechas afecta solo al export, no a la lista en pantalla. Es intencional: la lista ya tiene su propia paginación y cambiar su comportamiento no es parte de este trabajo.
 
-- [ ] **Step 2: Clientes**
+- [x] **Step 2: Clientes**
 
 En `apps/web/src/app/(app)/clients/page.tsx`, mismos imports y el mismo `useState` del rango. En la cabecera, envolver el `Dialog` de "Nuevo cliente" y el botón de exportar:
 
@@ -2099,7 +2099,7 @@ En `apps/web/src/app/(app)/clients/page.tsx`, mismos imports y el mismo `useStat
 
 Y agregar el `<DateRangeFilter value={range} onChange={setRange} />` junto al buscador existente.
 
-- [ ] **Step 3: Pagos**
+- [x] **Step 3: Pagos**
 
 `apps/web/src/app/(app)/payments/page.tsx` no tiene fila de filtros hoy — hay que agregarla. Añadir los mismos dos imports, y el estado dentro de `PaymentsPage`:
 
@@ -2144,7 +2144,7 @@ Reemplazar el bloque que va desde el `<div className="flex flex-wrap items-cente
       </div>
 ```
 
-- [ ] **Step 4: Facturas**
+- [x] **Step 4: Facturas**
 
 `apps/web/src/app/(app)/invoices/page.tsx` tampoco tiene fila de filtros, y su cabecera es un `<div>` simple sin botones. Añadir los dos imports y el estado dentro de `InvoicesPage`:
 
@@ -2172,14 +2172,14 @@ Reemplazar el `<div>` de la cabecera (el que contiene el `<h1>Facturas</h1>` y s
       </div>
 ```
 
-- [ ] **Step 5: Verificar build**
+- [x] **Step 5: Verificar build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: cero errores.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add "apps/web/src/app/(app)/orders/page.tsx" "apps/web/src/app/(app)/clients/page.tsx" "apps/web/src/app/(app)/payments/page.tsx" "apps/web/src/app/(app)/invoices/page.tsx"
@@ -2194,7 +2194,7 @@ git commit -m "Add Excel export buttons to orders, clients, payments and invoice
 - Modify: `apps/web/src/components/layout/nav-config.ts`
 - Create: `apps/web/src/app/(app)/reports/page.tsx`
 
-- [ ] **Step 1: Agregar la entrada de menú**
+- [x] **Step 1: Agregar la entrada de menú**
 
 En `apps/web/src/components/layout/nav-config.ts`, agregar `FileSpreadsheet` al import de `lucide-react` y esta entrada al array `NAV_ITEMS`, **justo antes de `/settings`** (Configuración va siempre al final):
 
@@ -2202,7 +2202,7 @@ En `apps/web/src/components/layout/nav-config.ts`, agregar `FileSpreadsheet` al 
 { href: '/reports', label: 'Reportes', icon: FileSpreadsheet, roles: ['ADMIN', 'MANAGER'] },
 ```
 
-- [ ] **Step 2: Crear la página de reportes**
+- [x] **Step 2: Crear la página de reportes**
 
 Crear `apps/web/src/app/(app)/reports/page.tsx`:
 
@@ -2278,14 +2278,14 @@ function RevenueReportCard() {
 }
 ```
 
-- [ ] **Step 3: Verificar build**
+- [x] **Step 3: Verificar build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: cero errores; la ruta `/reports` aparece en la lista de rutas generadas.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/layout/nav-config.ts "apps/web/src/app/(app)/reports/page.tsx"
@@ -2298,7 +2298,7 @@ git commit -m "Add Reports section with revenue report"
 
 **Files:** ninguno (solo verificación)
 
-- [ ] **Step 1: Build y tests completos del backend**
+- [x] **Step 1: Build y tests completos del backend**
 
 ```bash
 pnpm --filter @taller/api build
@@ -2307,27 +2307,27 @@ pnpm --filter @taller/api lint
 ```
 Expected: build y tests limpios (68 tests). **Ojo:** `pnpm lint` corre con `--fix` y reformatea todo archivo que toca — si reformatea archivos fuera del alcance de este plan, descartarlos con `git checkout -- <archivo>` antes de commitear.
 
-- [ ] **Step 2: Build completo del frontend**
+- [x] **Step 2: Build completo del frontend**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: cero errores.
 
-- [ ] **Step 3: Prueba manual**
+- [x] **Step 3: Prueba manual**
 
 Con ambos servidores corriendo:
 
-- [ ] Como **admin**, abrir `/orders` → aparece el botón "Exportar a Excel" y los campos Desde/Hasta. Exportar y abrir el archivo: encabezados en español, fechas legibles, una fila por orden, encabezado fijo al hacer scroll.
-- [ ] Aplicar un filtro de estado y buscar algo; exportar de nuevo → el Excel contiene solo lo filtrado.
-- [ ] Poner un rango de fechas que no incluya ninguna orden → el Excel se descarga con solo la fila de encabezados (no da error).
-- [ ] Repetir en `/clients`, `/payments` e `/invoices`.
-- [ ] Abrir `/reports` → generar el reporte de Ingresos agrupado por mes y por día; verificar que los totales cuadren con lo que muestra el Panel.
-- [ ] Iniciar sesión como **gerente** (`gerente@tallerdemo.com`) → "Reportes" aparece en el menú; los exports traen solo datos de su sucursal.
-- [ ] Iniciar sesión como **recepción** (`recepcion@tallerdemo.com`) → "Reportes" NO aparece en el menú y las listas NO muestran el botón "Exportar a Excel".
-- [ ] Iniciar sesión como **técnico** (`tecnico@tallerdemo.com`) → mismo resultado que recepción.
+- [x] Como **admin**, abrir `/orders` → aparece el botón "Exportar a Excel" y los campos Desde/Hasta. Exportar y abrir el archivo: encabezados en español, fechas legibles, una fila por orden, encabezado fijo al hacer scroll.
+- [x] Aplicar un filtro de estado y buscar algo; exportar de nuevo → el Excel contiene solo lo filtrado.
+- [x] Poner un rango de fechas que no incluya ninguna orden → el Excel se descarga con solo la fila de encabezados (no da error).
+- [x] Repetir en `/clients`, `/payments` e `/invoices`.
+- [x] Abrir `/reports` → generar el reporte de Ingresos agrupado por mes y por día; verificar que los totales cuadren con lo que muestra el Panel.
+- [x] Iniciar sesión como **gerente** (`gerente@tallerdemo.com`) → "Reportes" aparece en el menú; los exports traen solo datos de su sucursal.
+- [x] Iniciar sesión como **recepción** (`recepcion@tallerdemo.com`) → "Reportes" NO aparece en el menú y las listas NO muestran el botón "Exportar a Excel".
+- [x] Iniciar sesión como **técnico** (`tecnico@tallerdemo.com`) → mismo resultado que recepción.
 
-- [ ] **Step 4: Commit final (solo si la prueba manual requirió correcciones)**
+- [x] **Step 4: Commit final (solo si la prueba manual requirió correcciones)**
 
 ```bash
 git add -A
