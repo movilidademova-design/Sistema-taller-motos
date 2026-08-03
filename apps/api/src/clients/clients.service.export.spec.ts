@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { ClientsService, clientSearchFilter } from './clients.service';
 import { MAX_ROWS } from '../common/excel/excel.service';
+import { findManyArgs, whereOf } from '../common/testing/export-test-utils';
 import type { ExportQueryDto } from '../common/dto/export-query.dto';
 
 function makeService(overrides: {
@@ -11,11 +12,6 @@ function makeService(overrides: {
     { client: { findMany: overrides.findMany } } as never,
     { generate: overrides.generate ?? jest.fn() } as never,
   );
-}
-
-/** El `where` con el que se llamó a findMany en la única invocación. */
-function whereOf(findMany: jest.Mock): Record<string, unknown> {
-  return findMany.mock.calls[0][0].where as Record<string, unknown>;
 }
 
 describe('ClientsService.exportToExcel', () => {
@@ -41,7 +37,7 @@ describe('ClientsService.exportToExcel', () => {
   it('caps the query one row above the limit so an oversized export fails fast', async () => {
     const { findMany, promise } = run();
     await promise;
-    expect(findMany.mock.calls[0][0].take).toBe(MAX_ROWS + 1);
+    expect(findManyArgs(findMany).take).toBe(MAX_ROWS + 1);
   });
 
   it('filters by registration date over the requested range', async () => {

@@ -14,7 +14,7 @@ import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { ExportQueryDto } from '../common/dto/export-query.dto';
+import { ExportClientsQueryDto } from './dto/export-clients-query.dto';
 import {
   EXCEL_CONTENT_TYPE,
   excelAttachment,
@@ -52,7 +52,7 @@ export class ClientsController {
   @Get('export')
   async export(
     @CurrentUser('tenantId') tenantId: string,
-    @Query() query: ExportQueryDto,
+    @Query() query: ExportClientsQueryDto,
   ): Promise<StreamableFile> {
     const buffer = await this.clientsService.exportToExcel(tenantId, query);
     return new StreamableFile(buffer, {

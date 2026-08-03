@@ -6,7 +6,7 @@ import { UpdateClientDto } from './dto/update-client.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import { dateRangeFilter } from '../common/utils/export-filters.util';
-import { ExportQueryDto } from '../common/dto/export-query.dto';
+import { ExportClientsQueryDto } from './dto/export-clients-query.dto';
 
 /**
  * Campos de búsqueda de Clientes, compartidos por `findAll` y `exportToExcel`.
@@ -168,7 +168,10 @@ export class ClientsService {
     return client;
   }
 
-  async exportToExcel(tenantId: string, query: ExportQueryDto): Promise<Buffer> {
+  async exportToExcel(
+    tenantId: string,
+    query: ExportClientsQueryDto,
+  ): Promise<Buffer> {
     const createdAt = dateRangeFilter(query.from, query.to);
 
     // A diferencia de `findAll`, esto NO filtra `isActive: true`: un export es

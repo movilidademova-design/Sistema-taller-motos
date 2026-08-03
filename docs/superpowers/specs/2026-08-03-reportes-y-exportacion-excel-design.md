@@ -156,6 +156,8 @@ Lo que se usa a diario. Es la fase que incluye además toda la infraestructura (
 
 - **Órdenes**: Número de orden, Sucursal, Estado, Cliente, Documento del cliente, Teléfono, Vehículo (marca + modelo), Serie del vehículo, Motivo, Accesorios entregados, Recepcionista, Técnico, Clave de retiro, Fecha de recepción, Fecha estimada de entrega, Fecha de entrega, Motivo de cancelación.
 - **Clientes**: Nombre, Apellido, Documento, Teléfono, Correo, Dirección, Fecha de nacimiento, Notas, Cantidad de vehículos, Cantidad de órdenes, Estado (activo/inactivo), Fecha de registro.
+
+**Nota de diseño — única excepción a "exporta lo que ves":** la regla general de la sección 2 es que el botón exporta exactamente lo filtrado en pantalla. El export de Clientes se aparta en un punto: la lista solo muestra clientes activos (no hay forma de ver los inactivos en la interfaz), mientras que el archivo los incluye a todos, distinguidos por la columna "Estado". Es deliberado — un export sirve para analizar el histórico completo, y la pantalla no tiene manera de representar ese caso — pero significa que el archivo puede traer más filas de las que el usuario ve. El botón lo advierte para que no sorprenda.
 - **Pagos**: Número de recibo, Fecha, Cliente, Documento del cliente, Número de orden, Número de factura, Método, Monto, Referencia, Recibido por, Sucursal.
 - **Facturas**: Número de factura, Fecha de emisión, Cliente, Documento, Número de orden, Sucursal, Subtotal, Impuesto, Descuento, Total, Monto pagado, Saldo pendiente, Estado, Fecha de vencimiento.
 - **Ingresos (macro)**: Periodo (día o mes según agrupación), Sucursal, Cantidad de órdenes entregadas, Cantidad de facturas, Total facturado, Total cobrado, Saldo pendiente.

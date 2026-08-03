@@ -1962,12 +1962,15 @@ export function ExportButton({
   filename,
   params = {},
   label = 'Exportar a Excel',
+  hint,
 }: {
   endpoint: string;
   /** Nombre de respaldo si el servidor no manda Content-Disposition. */
   filename: string;
   params?: Record<string, string | undefined>;
   label?: string;
+  /** Aviso al pasar el mouse, para cuando el archivo no trae exactamente lo que se ve en pantalla. */
+  hint?: string;
 }) {
   const { user } = useAuth();
   const [isExporting, setIsExporting] = React.useState(false);
@@ -2000,6 +2003,7 @@ export function ExportButton({
       size="sm"
       onClick={handleExport}
       disabled={isExporting}
+      title={hint}
     >
       <Download /> {isExporting ? 'Exportando...' : label}
     </Button>
@@ -2086,6 +2090,7 @@ En `apps/web/src/app/(app)/clients/page.tsx`, mismos imports y el mismo `useStat
     endpoint="/clients/export"
     filename="clientes"
     params={{ search, from: range.from, to: range.to }}
+    hint="El archivo incluye también los clientes inactivos, marcados en la columna Estado."
   />
   <Dialog open={open} onOpenChange={setOpen}>
     {/* ...contenido existente sin cambios... */}

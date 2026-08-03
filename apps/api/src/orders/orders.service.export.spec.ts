@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { OrdersService, orderSearchFilter } from './orders.service';
 import { MAX_ROWS } from '../common/excel/excel.service';
+import { findManyArgs, whereOf } from '../common/testing/export-test-utils';
 import { Role } from '../generated/prisma/enums';
 import type { ExportOrdersQueryDto } from './dto/export-orders-query.dto';
 
@@ -16,11 +17,6 @@ function makeService(overrides: {
     {} as never,
     { generate: overrides.generate ?? jest.fn() } as never,
   );
-}
-
-/** El `where` con el que se llamó a findMany en la única invocación. */
-function whereOf(findMany: jest.Mock): Record<string, unknown> {
-  return findMany.mock.calls[0][0].where as Record<string, unknown>;
 }
 
 describe('OrdersService.exportToExcel', () => {
@@ -53,7 +49,7 @@ describe('OrdersService.exportToExcel', () => {
   it('caps the query one row above the limit so an oversized export fails fast', async () => {
     const { findMany, promise } = run(Role.ADMIN);
     await promise;
-    expect(findMany.mock.calls[0][0].take).toBe(MAX_ROWS + 1);
+    expect(findManyArgs(findMany).take).toBe(MAX_ROWS + 1);
   });
 
   it('pins a MANAGER to their own branch, ignoring a requested one', async () => {
