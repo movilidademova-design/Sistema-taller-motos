@@ -59,30 +59,6 @@ enum NotificationChannel {
   COPY
 }
 
-enum ConditionRating {
-  GOOD
-  FAIR
-  BAD
-}
-
-enum ChecklistItemType {
-  TIRES
-  BRAKES
-  DISCS
-  LIGHTS
-  SIGNALS
-  HORN
-  DISPLAY
-  THROTTLE
-  SUSPENSION
-  BATTERY
-  CHARGER
-  KEYS
-  MIRRORS
-  FENDERS
-  SEAT
-}
-
 enum PhotoCategory {
   FRONT
   BACK
@@ -302,7 +278,6 @@ model User {
   technicianOrders    Order[]              @relation("assignedTechnician")
   receptionistOrders  Order[]              @relation("receptionist")
   diagnoses           Diagnosis[]
-  laborEntries        LaborEntry[]
   statusChanges       OrderStatusHistory[]
   auditLogs           AuditLog[]
   paymentsReceived    Payment[]
@@ -437,12 +412,10 @@ model Order {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
-  checklistItems     ChecklistItem[]
   photos             OrderPhoto[]
   diagnosis          Diagnosis?
   quotation          Quotation?
   statusHistory      OrderStatusHistory[]
-  laborEntries       LaborEntry[]
   inventoryMovements InventoryMovement[]
   warranties         Warranty[]
   invoice            Invoice?
@@ -454,18 +427,6 @@ model Order {
   @@index([tenantId, status])
   @@index([branchId])
   @@map("orders")
-}
-
-model ChecklistItem {
-  id           String            @id @default(uuid())
-  orderId      String
-  order        Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  item         ChecklistItemType
-  condition    ConditionRating
-  observations String?
-
-  @@unique([orderId, item])
-  @@map("checklist_items")
 }
 
 model OrderPhoto {
@@ -583,23 +544,6 @@ model Notification {
 
   @@index([tenantId, status])
   @@map("notifications")
-}
-
-model LaborEntry {
-  id           String    @id @default(uuid())
-  orderId      String
-  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  technicianId String
-  technician   User      @relation(fields: [technicianId], references: [id], onDelete: Restrict)
-  activity     String
-  startTime    DateTime
-  endTime      DateTime?
-  hours        Decimal?  @db.Decimal(6, 2)
-  cost         Decimal   @default(0) @db.Decimal(10, 2)
-  createdAt    DateTime  @default(now())
-
-  @@index([orderId])
-  @@map("labor_entries")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

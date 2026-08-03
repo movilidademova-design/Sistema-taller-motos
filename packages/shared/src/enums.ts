@@ -44,56 +44,6 @@ export const QuotationStatus = {
 } as const;
 export type QuotationStatus = (typeof QuotationStatus)[keyof typeof QuotationStatus];
 
-export const ConditionRating = {
-  GOOD: 'GOOD',
-  FAIR: 'FAIR',
-  BAD: 'BAD',
-} as const;
-export type ConditionRating = (typeof ConditionRating)[keyof typeof ConditionRating];
-
-export const CONDITION_LABELS: Record<ConditionRating, string> = {
-  GOOD: 'Bueno',
-  FAIR: 'Regular',
-  BAD: 'Malo',
-};
-
-export const ChecklistItemType = {
-  TIRES: 'TIRES',
-  BRAKES: 'BRAKES',
-  DISCS: 'DISCS',
-  LIGHTS: 'LIGHTS',
-  SIGNALS: 'SIGNALS',
-  HORN: 'HORN',
-  DISPLAY: 'DISPLAY',
-  THROTTLE: 'THROTTLE',
-  SUSPENSION: 'SUSPENSION',
-  BATTERY: 'BATTERY',
-  CHARGER: 'CHARGER',
-  KEYS: 'KEYS',
-  MIRRORS: 'MIRRORS',
-  FENDERS: 'FENDERS',
-  SEAT: 'SEAT',
-} as const;
-export type ChecklistItemType = (typeof ChecklistItemType)[keyof typeof ChecklistItemType];
-
-export const CHECKLIST_ITEM_LABELS: Record<ChecklistItemType, string> = {
-  TIRES: 'Llantas',
-  BRAKES: 'Frenos',
-  DISCS: 'Discos',
-  LIGHTS: 'Luces',
-  SIGNALS: 'Direccionales',
-  HORN: 'Bocina',
-  DISPLAY: 'Pantalla',
-  THROTTLE: 'Acelerador',
-  SUSPENSION: 'Suspensión',
-  BATTERY: 'Batería',
-  CHARGER: 'Cargador',
-  KEYS: 'Llaves',
-  MIRRORS: 'Espejos',
-  FENDERS: 'Guardabarros',
-  SEAT: 'Sillín',
-};
-
 export const PhotoCategory = {
   FRONT: 'FRONT',
   BACK: 'BACK',

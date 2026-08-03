@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client';
-import { Role, OrderStatus, ChecklistItemType, ConditionRating } from '../src/generated/prisma/enums';
+import { Role, OrderStatus } from '../src/generated/prisma/enums';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -198,14 +198,6 @@ async function main() {
           changedById: technician.id,
           notes: 'Técnico asignado, iniciando diagnóstico',
         },
-      ],
-    });
-
-    await prisma.checklistItem.createMany({
-      data: [
-        { orderId: order.id, item: ChecklistItemType.BATTERY, condition: ConditionRating.BAD, observations: 'No enciende' },
-        { orderId: order.id, item: ChecklistItemType.TIRES, condition: ConditionRating.GOOD },
-        { orderId: order.id, item: ChecklistItemType.BRAKES, condition: ConditionRating.FAIR, observations: 'Requiere ajuste' },
       ],
     });
 

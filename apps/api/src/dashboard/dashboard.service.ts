@@ -155,30 +155,19 @@ export class DashboardService {
       select: { id: true, firstName: true, lastName: true },
     });
 
-    const results = await Promise.all(
-      technicians.map(async (tech) => {
-        const [laborAgg, deliveredCount] = await Promise.all([
-          this.prisma.laborEntry.aggregate({
-            where: { technicianId: tech.id },
-            _sum: { hours: true, cost: true },
-          }),
-          this.prisma.order.count({
-            where: {
-              tenantId,
-              technicianId: tech.id,
-              status: OrderStatus.DELIVERED,
-            },
-          }),
-        ]);
-        return {
-          technician: tech,
-          totalHours: Number(laborAgg._sum.hours ?? 0),
-          totalCost: Number(laborAgg._sum.cost ?? 0),
-          ordersDelivered: deliveredCount,
-        };
-      }),
+    // Solo órdenes entregadas: las horas y el costo salían de la tabla de mano de
+    // obra, que se eliminó porque nadie la llenaba.
+    return Promise.all(
+      technicians.map(async (tech) => ({
+        technician: tech,
+        ordersDelivered: await this.prisma.order.count({
+          where: {
+            tenantId,
+            technicianId: tech.id,
+            status: OrderStatus.DELIVERED,
+          },
+        }),
+      })),
     );
-
-    return results;
   }
 }
