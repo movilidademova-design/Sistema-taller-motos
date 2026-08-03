@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { PdfModule } from './common/pdf/pdf.module';
+import { ExcelModule } from './common/excel/excel.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TenantsModule } from './tenants/tenants.module';
@@ -37,6 +38,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 200 }]),
     PrismaModule,
     PdfModule,
+    ExcelModule,
     StorageModule,
     NotificationsModule,
     RealtimeModule,

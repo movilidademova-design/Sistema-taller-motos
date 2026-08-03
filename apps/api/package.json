@@ -48,6 +48,7 @@
     "class-validator": "^0.15.1",
     "compression": "^1.8.1",
     "dayjs": "^1.11.21",
+    "exceljs": "^4.4.0",
     "helmet": "^8.3.0",
     "multer": "^2.2.0",
     "nanoid": "3",
