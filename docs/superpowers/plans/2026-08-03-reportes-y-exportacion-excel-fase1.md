@@ -790,12 +790,11 @@ const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 En `apps/api/src/orders/orders.controller.ts`, agregar los imports:
 
 ```ts
-import { Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { StreamableFile } from '@nestjs/common';
 import { ExportOrdersQueryDto } from './dto/export-orders-query.dto';
 ```
 
-`Res` se suma a la lista de imports que ya vienen de `@nestjs/common`; no duplicar la línea.
+`StreamableFile` se suma a la lista de imports que ya vienen de `@nestjs/common`; no duplicar la línea.
 
 Insertar este método **inmediatamente después de `findAll` y ANTES de `@Get(':id')`**. El orden importa: si `export` se declara después de `:id`, NestJS resuelve `/orders/export` como `findOne` con `id = "export"` y el endpoint nunca se alcanza (mismo motivo por el que `clients.controller.ts` declara `by-document/:documentId` antes de `:id`):
 
@@ -807,23 +806,17 @@ async export(
   @CurrentUser('role') role: Role,
   @CurrentBranch() branchId: string,
   @Query() query: ExportOrdersQueryDto,
-  @Res() res: Response,
-) {
+): Promise<StreamableFile> {
   const buffer = await this.ordersService.exportToExcel(
     tenantId,
     branchId,
     role,
     query,
   );
-  res.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  );
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="ordenes-${new Date().toISOString().slice(0, 10)}.xlsx"`,
-  );
-  res.send(buffer);
+  return new StreamableFile(buffer, {
+    type: EXCEL_CONTENT_TYPE,
+    disposition: excelAttachment('ordenes'),
+  });
 }
 ```
 
@@ -970,12 +963,15 @@ async exportToExcel(tenantId: string, query: ExportQueryDto): Promise<Buffer> {
 
 - [ ] **Step 2: Agregar el endpoint al controller**
 
-En `apps/api/src/clients/clients.controller.ts`, agregar imports (`Res` se suma a los de `@nestjs/common`):
+En `apps/api/src/clients/clients.controller.ts`, agregar imports (`StreamableFile` se suma a los de `@nestjs/common`):
 
 ```ts
-import { Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { StreamableFile } from '@nestjs/common';
 import { ExportQueryDto } from '../common/dto/export-query.dto';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../common/excel/excel.service';
 ```
 
 Insertar **antes de `@Get(':id')`** (puede ir justo después de `by-document/:documentId`):
@@ -986,18 +982,12 @@ Insertar **antes de `@Get(':id')`** (puede ir justo después de `by-document/:do
 async export(
   @CurrentUser('tenantId') tenantId: string,
   @Query() query: ExportQueryDto,
-  @Res() res: Response,
-) {
+): Promise<StreamableFile> {
   const buffer = await this.clientsService.exportToExcel(tenantId, query);
-  res.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  );
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="clientes-${new Date().toISOString().slice(0, 10)}.xlsx"`,
-  );
-  res.send(buffer);
+  return new StreamableFile(buffer, {
+    type: EXCEL_CONTENT_TYPE,
+    disposition: excelAttachment('clientes'),
+  });
 }
 ```
 
@@ -1157,10 +1147,13 @@ async exportToExcel(
 En `apps/api/src/payments/payments.controller.ts`, agregar imports:
 
 ```ts
-import { Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { StreamableFile } from '@nestjs/common';
 import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { ExportPaymentsQueryDto } from './dto/export-payments-query.dto';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../common/excel/excel.service';
 ```
 
 `PaymentsController` no tiene rutas `:id`, así que la posición no es crítica, pero por consistencia se declara después de `findAll`:
@@ -1173,23 +1166,17 @@ async export(
   @CurrentUser('role') role: Role,
   @CurrentBranch() branchId: string,
   @Query() query: ExportPaymentsQueryDto,
-  @Res() res: Response,
-) {
+): Promise<StreamableFile> {
   const buffer = await this.paymentsService.exportToExcel(
     tenantId,
     branchId,
     role,
     query,
   );
-  res.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  );
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="pagos-${new Date().toISOString().slice(0, 10)}.xlsx"`,
-  );
-  res.send(buffer);
+  return new StreamableFile(buffer, {
+    type: EXCEL_CONTENT_TYPE,
+    disposition: excelAttachment('pagos'),
+  });
 }
 ```
 
@@ -1360,12 +1347,16 @@ async exportToExcel(
 En `apps/api/src/invoices/invoices.controller.ts`, agregar imports:
 
 ```ts
-import { Query } from '@nestjs/common';
+import { Query, StreamableFile } from '@nestjs/common';
 import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { ExportInvoicesQueryDto } from './dto/export-invoices-query.dto';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../common/excel/excel.service';
 ```
 
-`Res` y `Response` ya están importados (los usa el endpoint de PDF); `Query` no, hay que sumarlo a los de `@nestjs/common`.
+`Res` y `Response` ya están importados (los usa el endpoint de PDF, que se deja como está); `Query` y `StreamableFile` no, hay que sumarlos a los de `@nestjs/common`.
 
 Insertar **entre `findAll` y `@Get(':id')`**:
 
@@ -1377,23 +1368,17 @@ async export(
   @CurrentUser('role') role: Role,
   @CurrentBranch() branchId: string,
   @Query() query: ExportInvoicesQueryDto,
-  @Res() res: Response,
-) {
+): Promise<StreamableFile> {
   const buffer = await this.invoicesService.exportToExcel(
     tenantId,
     branchId,
     role,
     query,
   );
-  res.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  );
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="facturas-${new Date().toISOString().slice(0, 10)}.xlsx"`,
-  );
-  res.send(buffer);
+  return new StreamableFile(buffer, {
+    type: EXCEL_CONTENT_TYPE,
+    disposition: excelAttachment('facturas'),
+  });
 }
 ```
 
@@ -1672,10 +1657,13 @@ export class ReportsService {
 Crear `apps/api/src/reports/reports.controller.ts`:
 
 ```ts
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Query, StreamableFile } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
 import { ReportsService } from './reports.service';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../common/excel/excel.service';
 import { RevenueReportQueryDto } from './dto/revenue-report-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -1695,23 +1683,17 @@ export class ReportsController {
     @CurrentUser('role') role: Role,
     @CurrentBranch() branchId: string,
     @Query() query: RevenueReportQueryDto,
-    @Res() res: Response,
-  ) {
+  ): Promise<StreamableFile> {
     const buffer = await this.reportsService.exportRevenue(
       tenantId,
       branchId,
       role,
       query,
     );
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="ingresos-${new Date().toISOString().slice(0, 10)}.xlsx"`,
-    );
-    res.send(buffer);
+    return new StreamableFile(buffer, {
+      type: EXCEL_CONTENT_TYPE,
+      disposition: excelAttachment('ingresos'),
+    });
   }
 }
 ```

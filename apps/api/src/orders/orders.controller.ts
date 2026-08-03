@@ -7,13 +7,12 @@ import {
   Patch,
   Post,
   Query,
-  Res,
+  StreamableFile,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -21,6 +20,10 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { IntakeOrderDto } from './dto/intake-order.dto';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { ExportOrdersQueryDto } from './dto/export-orders-query.dto';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../common/excel/excel.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -58,23 +61,17 @@ export class OrdersController {
     @CurrentUser('role') role: Role,
     @CurrentBranch() branchId: string,
     @Query() query: ExportOrdersQueryDto,
-    @Res() res: Response,
-  ) {
+  ): Promise<StreamableFile> {
     const buffer = await this.ordersService.exportToExcel(
       tenantId,
       branchId,
       role,
       query,
     );
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="ordenes-${new Date().toISOString().slice(0, 10)}.xlsx"`,
-    );
-    res.send(buffer);
+    return new StreamableFile(buffer, {
+      type: EXCEL_CONTENT_TYPE,
+      disposition: excelAttachment('ordenes'),
+    });
   }
 
   @Get(':id')

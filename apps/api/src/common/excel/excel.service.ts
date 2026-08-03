@@ -56,6 +56,16 @@ export interface GenerateOptions<T> {
  */
 export const MAX_ROWS = 50_000;
 
+/** Content-Type de un .xlsx. Es largo y fácil de escribir mal, y lo usan los cinco endpoints que exportan. */
+export const EXCEL_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** Arma el `Content-Disposition` de una descarga, p. ej. `ordenes-2026-08-03.xlsx`. */
+export function excelAttachment(prefix: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return `attachment; filename="${prefix}-${today}.xlsx"`;
+}
+
 const NUMBER_FORMATS: Record<ExcelColumnFormat, string | undefined> = {
   text: undefined,
   number: '#,##0',

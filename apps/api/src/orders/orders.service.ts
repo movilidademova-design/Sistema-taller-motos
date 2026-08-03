@@ -42,6 +42,30 @@ const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   WARRANTY: 'Garantía',
 };
 
+/**
+ * Campos por los que busca el texto libre en Órdenes.
+ *
+ * Lo comparten `findAll` y `exportToExcel` a propósito: el botón de exportar
+ * manda el mismo `search` que la lista tiene en pantalla, así que si cada uno
+ * mirara campos distintos, exportar devolvería un conjunto de filas diferente
+ * al que el usuario está viendo — sin error ni aviso, que es la peor forma de
+ * equivocarse. Pasó exactamente eso mientras se construía esto: la lista
+ * buscaba por serie del vehículo y el export por número de orden.
+ */
+export function orderSearchFilter(search?: string) {
+  if (!search) return undefined;
+  const contains = { contains: search, mode: 'insensitive' as const };
+  return {
+    OR: [
+      { reason: contains },
+      { orderNumber: contains },
+      { client: { firstName: contains } },
+      { client: { lastName: contains } },
+      { motorcycle: { serialNumber: contains } },
+    ],
+  };
+}
+
 export const ORDER_DETAIL_INCLUDE = {
   client: true,
   motorcycle: true,
@@ -89,42 +113,7 @@ export class OrdersService {
       ...(query.technicianId ? { technicianId: query.technicianId } : {}),
       ...(query.clientId ? { clientId: query.clientId } : {}),
       ...(query.branchId ? { branchId: query.branchId } : {}),
-      ...(query.search
-        ? {
-            OR: [
-              {
-                reason: {
-                  contains: query.search,
-                  mode: 'insensitive' as const,
-                },
-              },
-              {
-                client: {
-                  firstName: {
-                    contains: query.search,
-                    mode: 'insensitive' as const,
-                  },
-                },
-              },
-              {
-                client: {
-                  lastName: {
-                    contains: query.search,
-                    mode: 'insensitive' as const,
-                  },
-                },
-              },
-              {
-                motorcycle: {
-                  serialNumber: {
-                    contains: query.search,
-                    mode: 'insensitive' as const,
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
+      ...(orderSearchFilter(query.search) ?? {}),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -678,24 +667,7 @@ export class OrdersService {
         ...(branchId ? { branchId } : {}),
         ...(query.status ? { status: query.status } : {}),
         ...(receivedAt ? { receivedAt } : {}),
-        ...(query.search
-          ? {
-              OR: [
-                { reason: { contains: query.search, mode: 'insensitive' as const } },
-                { orderNumber: { contains: query.search, mode: 'insensitive' as const } },
-                {
-                  client: {
-                    firstName: { contains: query.search, mode: 'insensitive' as const },
-                  },
-                },
-                {
-                  client: {
-                    lastName: { contains: query.search, mode: 'insensitive' as const },
-                  },
-                },
-              ],
-            }
-          : {}),
+        ...(orderSearchFilter(query.search) ?? {}),
       },
       orderBy: { receivedAt: 'desc' },
       // Corta la consulta una fila por encima del tope para que ExcelService
@@ -714,8 +686,10 @@ export class OrdersService {
     });
 
     type Row = (typeof orders)[number];
+    // ExcelColumn acepta null en columnas de texto y exceljs lo escribe como
+    // celda vacía, así que no hace falta normalizar los opcionales a ''.
     const fullName = (p: { firstName: string; lastName: string } | null) =>
-      p ? `${p.firstName} ${p.lastName}` : '';
+      p && `${p.firstName} ${p.lastName}`;
 
     return this.excel.generate<Row>({
       sheetName: 'Órdenes',
@@ -725,21 +699,21 @@ export class OrdersService {
         { header: 'Sucursal', key: 'branch', value: (o) => o.branch.name },
         { header: 'Estado', key: 'status', value: (o) => ORDER_STATUS_LABELS[o.status] },
         { header: 'Cliente', key: 'client', width: 26, value: (o) => fullName(o.client) },
-        { header: 'Documento', key: 'document', value: (o) => o.client.documentId ?? '' },
-        { header: 'Teléfono', key: 'phone', value: (o) => o.client.phone ?? '' },
+        { header: 'Documento', key: 'document', value: (o) => o.client.documentId },
+        { header: 'Teléfono', key: 'phone', value: (o) => o.client.phone },
         {
           header: 'Vehículo',
           key: 'vehicle',
           width: 24,
           value: (o) => `${o.motorcycle.brand} ${o.motorcycle.model}`,
         },
-        { header: 'Serie', key: 'serial', value: (o) => o.motorcycle.serialNumber ?? '' },
+        { header: 'Serie', key: 'serial', value: (o) => o.motorcycle.serialNumber },
         { header: 'Motivo', key: 'reason', width: 40, value: (o) => o.reason },
         {
           header: 'Accesorios entregados',
           key: 'accessories',
           width: 30,
-          value: (o) => o.accessoriesDelivered ?? '',
+          value: (o) => o.accessoriesDelivered,
         },
         { header: 'Recepcionista', key: 'receptionist', width: 22, value: (o) => fullName(o.receptionist) },
         { header: 'Técnico', key: 'technician', width: 22, value: (o) => fullName(o.technician) },
@@ -766,7 +740,7 @@ export class OrdersService {
           header: 'Motivo de cancelación',
           key: 'cancelReason',
           width: 30,
-          value: (o) => o.cancelReason ?? '',
+          value: (o) => o.cancelReason,
         },
       ],
     });
