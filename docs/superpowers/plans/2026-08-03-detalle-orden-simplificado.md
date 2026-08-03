@@ -21,7 +21,7 @@
 - Create: `apps/api/prisma/migrations/<timestamp>_order_photo_stage/migration.sql` (la genera Prisma)
 - Modify: `packages/shared/src/enums.ts`
 
-- [ ] **Step 1: Agregar el enum y el campo al esquema**
+- [x] **Step 1: Agregar el enum y el campo al esquema**
 
 En `apps/api/prisma/schema.prisma`, agregar el enum junto a `PhotoCategory`:
 
@@ -51,7 +51,7 @@ model OrderPhoto {
 
 (Conservar los índices/atributos que ya tenga el modelo; solo se agrega la línea `stage`.)
 
-- [ ] **Step 2: Generar la migración**
+- [x] **Step 2: Generar la migración**
 
 ```bash
 cd apps/api && npx prisma migrate dev --name order_photo_stage --create-only
@@ -71,7 +71,7 @@ ALTER TABLE "order_photos" ADD COLUMN "stage" "PhotoStage" NOT NULL DEFAULT 'INT
 ALTER TABLE "order_photos" ALTER COLUMN "stage" DROP DEFAULT;
 ```
 
-- [ ] **Step 3: Aplicar y verificar**
+- [x] **Step 3: Aplicar y verificar**
 
 ```bash
 cd apps/api && npx prisma migrate dev && npx prisma generate
@@ -79,7 +79,7 @@ docker exec sistema-taller-motos-postgres-1 psql -U postgres -d taller_motos -c 
 ```
 Expected: `INTAKE | 4`, y ninguna fila con `stage` nulo.
 
-- [ ] **Step 4: Exponer el enum en el paquete compartido**
+- [x] **Step 4: Exponer el enum en el paquete compartido**
 
 En `packages/shared/src/enums.ts`, junto a `PhotoCategory`, agregar:
 
@@ -93,7 +93,7 @@ export type PhotoStage = (typeof PhotoStage)[keyof typeof PhotoStage];
 
 En este punto el build queda roto a propósito (`stage` es requerido y nadie lo envía todavía); los pasos siguientes lo cierran. **No commitear hasta el final de la tarea.**
 
-- [ ] **Step 5: `intake()` marca sus fotos como de ingreso**
+- [x] **Step 5: `intake()` marca sus fotos como de ingreso**
 
 En `apps/api/src/orders/orders.service.ts`, dentro de `intake()`, la creación de fotos pasa de:
 
@@ -111,7 +111,7 @@ photos: {
 
 Agregar `PhotoStage` al import que ya trae `OrderStatus, Role` desde `../generated/prisma/enums`.
 
-- [ ] **Step 6: `PhotosService` fuerza `WORK` y protege las de ingreso**
+- [x] **Step 6: `PhotosService` fuerza `WORK` y protege las de ingreso**
 
 Reemplazar `upload` y `remove` en `apps/api/src/orders/photos/photos.service.ts`:
 
@@ -164,7 +164,7 @@ import { PhotoCategory, PhotoStage } from '../../generated/prisma/enums';
 
 **Nota:** el `findFirst` filtra por `orderId` además del `id` — sin eso, un `photoId` de otra orden del mismo tenant se borraría igual, porque `delete` solo miraba el id.
 
-- [ ] **Step 7: `findAll` ordena por tipo y fecha**
+- [x] **Step 7: `findAll` ordena por tipo y fecha**
 
 Para que la interfaz reciba las fotos agrupadas de forma estable:
 
@@ -174,7 +174,7 @@ Para que la interfaz reciba las fotos agrupadas de forma estable:
 
 (`INTAKE` ordena antes que `WORK` alfabéticamente, que es el orden en que se muestran.)
 
-- [ ] **Step 8: Ajustar los roles del controller**
+- [x] **Step 8: Ajustar los roles del controller**
 
 En `apps/api/src/orders/photos/photos.controller.ts`, en **`upload` y `remove`**, cambiar:
 
@@ -188,7 +188,7 @@ por:
 
 `findAll` no cambia (cualquier rol autenticado sigue viendo todas las fotos).
 
-- [ ] **Step 9: Escribir el test**
+- [x] **Step 9: Escribir el test**
 
 Crear `apps/api/src/orders/photos/photos.service.spec.ts`, con el patrón de instanciación directa que usa el resto del proyecto (ver `apps/api/src/reports/reports.service.spec.ts`):
 
@@ -260,7 +260,7 @@ describe('PhotosService.upload', () => {
 });
 ```
 
-- [ ] **Step 10: Verificar**
+- [x] **Step 10: Verificar**
 
 ```bash
 pnpm --filter @taller/api build
@@ -268,7 +268,7 @@ pnpm --filter @taller/api test
 ```
 Expected: build limpio y todos los tests pasando, 4 nuevos.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 Un solo commit con el esquema y el código que lo usa, para no dejar el build roto en la historia:
 
