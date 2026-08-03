@@ -350,7 +350,7 @@ git commit -m "Add generic ExcelService for tabular report exports"
 - Create: `apps/api/src/common/utils/export-filters.util.spec.ts`
 - Create: `apps/api/src/common/dto/export-query.dto.ts`
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `apps/api/src/common/utils/export-filters.util.spec.ts`:
 
@@ -451,12 +451,12 @@ describe('resolveExportBranchId', () => {
 });
 ```
 
-- [ ] **Step 2: Correr el test para verificar que falla**
+- [x] **Step 2: Correr el test para verificar que falla**
 
 Run: `pnpm --filter @taller/api test -- export-filters`
 Expected: FAIL — `Cannot find module './export-filters.util'`.
 
-- [ ] **Step 3: Implementar las utilidades**
+- [x] **Step 3: Implementar las utilidades**
 
 Crear `apps/api/src/common/utils/export-filters.util.ts`:
 
@@ -541,12 +541,12 @@ export function resolveExportBranchId(
 }
 ```
 
-- [ ] **Step 4: Correr el test para verificar que pasa**
+- [x] **Step 4: Correr el test para verificar que pasa**
 
 Run: `pnpm --filter @taller/api test -- export-filters`
 Expected: PASS — 13 tests.
 
-- [ ] **Step 5: Crear el DTO base de export**
+- [x] **Step 5: Crear el DTO base de export**
 
 Crear `apps/api/src/common/dto/export-query.dto.ts`. Es la base que heredan los DTOs de cada módulo — deliberadamente NO extiende `PaginationQueryDto`, porque un export trae todas las filas que calcen con el filtro, no una página:
 
@@ -580,7 +580,7 @@ export class ExportQueryDto {
 }
 ```
 
-- [ ] **Step 6: Verificar build y tests**
+- [x] **Step 6: Verificar build y tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -588,7 +588,7 @@ pnpm --filter @taller/api test
 ```
 Expected: build limpio; 71 tests pasando (58 de antes + 13 nuevos).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/src/common/utils/export-filters.util.ts apps/api/src/common/utils/export-filters.util.spec.ts apps/api/src/common/dto/export-query.dto.ts
