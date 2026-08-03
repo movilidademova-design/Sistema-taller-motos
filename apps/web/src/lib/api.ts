@@ -122,3 +122,72 @@ export function openAuthedBlobInNewTab(path: string) {
     window.open(url, '_blank');
   });
 }
+
+/** Lee el nombre de archivo que propone el servidor en Content-Disposition. */
+function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const match = /filename="?([^"]+)"?/.exec(header);
+  return match ? match[1] : null;
+}
+
+/**
+ * Descarga un archivo generado por el backend (Excel, PDF) respetando la sesión
+ * y la sucursal activa, y disparando el "Guardar como" del navegador.
+ *
+ * No reutiliza `request()` porque ese parsea la respuesta como JSON; aquí el
+ * cuerpo es binario. Sí replica su manejo de 401 y de mensajes de error.
+ */
+export async function downloadFile(
+  path: string,
+  fallbackFilename: string,
+  options: { skipAuthRetry?: boolean } = {},
+): Promise<void> {
+  const token = authStorage.getAccessToken();
+  const branchId = authStorage.getBranchId();
+
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(branchId ? { 'X-Branch-Id': branchId } : {}),
+    },
+  });
+
+  if (res.status === 401 && !options.skipAuthRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      return downloadFile(path, fallbackFilename, { skipAuthRetry: true });
+    }
+    authStorage.clear();
+    if (typeof window !== 'undefined') window.location.href = '/login';
+    throw new ApiError('Sesión expirada', 401);
+  }
+
+  if (!res.ok) {
+    // El backend responde JSON en los errores aunque la ruta devuelva binario
+    // en el camino feliz — de ahí sale el aviso del tope de filas.
+    let message = res.statusText;
+    try {
+      const errBody = await res.json();
+      message = Array.isArray(errBody.message)
+        ? errBody.message.join(', ')
+        : (errBody.message ?? message);
+    } catch {
+      // ignore parse errors, keep statusText
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  const blob = await res.blob();
+  const filename =
+    filenameFromDisposition(res.headers.get('Content-Disposition')) ??
+    fallbackFilename;
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
