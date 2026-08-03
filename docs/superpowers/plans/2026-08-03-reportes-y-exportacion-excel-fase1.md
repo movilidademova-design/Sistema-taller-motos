@@ -21,7 +21,7 @@
 - Create: `apps/api/src/common/excel/excel.module.ts`
 - Modify: `apps/api/src/app.module.ts`
 
-- [ ] **Step 1: Instalar la dependencia**
+- [x] **Step 1: Instalar la dependencia**
 
 ```bash
 pnpm --filter @taller/api add exceljs
@@ -29,7 +29,7 @@ pnpm --filter @taller/api add exceljs
 
 `exceljs` incluye sus propios tipos TypeScript — no hace falta un paquete `@types/`.
 
-- [ ] **Step 2: Escribir el test que falla**
+- [x] **Step 2: Escribir el test que falla**
 
 Crear `apps/api/src/common/excel/excel.service.spec.ts`. Sigue el patrón de instanciación directa que ya usa el resto del proyecto (`orders.service.reactivate-client.spec.ts`, `users.service.spec.ts`) — `ExcelService` no tiene dependencias, así que se instancia sin stubs:
 
@@ -170,12 +170,12 @@ describe('ExcelService', () => {
 });
 ```
 
-- [ ] **Step 3: Correr el test para verificar que falla**
+- [x] **Step 3: Correr el test para verificar que falla**
 
 Run: `pnpm --filter @taller/api test -- excel.service`
 Expected: FAIL — `Cannot find module './excel.service'`.
 
-- [ ] **Step 4: Implementar `ExcelService`**
+- [x] **Step 4: Implementar `ExcelService`**
 
 Crear `apps/api/src/common/excel/excel.service.ts`:
 
@@ -295,12 +295,12 @@ export class ExcelService {
 }
 ```
 
-- [ ] **Step 5: Correr el test para verificar que pasa**
+- [x] **Step 5: Correr el test para verificar que pasa**
 
 Run: `pnpm --filter @taller/api test -- excel.service`
 Expected: PASS — 6 tests.
 
-- [ ] **Step 6: Crear el módulo**
+- [x] **Step 6: Crear el módulo**
 
 Crear `apps/api/src/common/excel/excel.module.ts`, copiando el patrón `@Global()` de `apps/api/src/common/pdf/pdf.module.ts` (ser global evita tener que importarlo en cada módulo de dominio que exporte datos):
 
@@ -316,7 +316,7 @@ import { ExcelService } from './excel.service';
 export class ExcelModule {}
 ```
 
-- [ ] **Step 7: Registrar el módulo en `app.module.ts`**
+- [x] **Step 7: Registrar el módulo en `app.module.ts`**
 
 En `apps/api/src/app.module.ts`, agregar el import junto a `PdfModule` y sumarlo al array `imports` del `@Module`:
 
@@ -326,7 +326,7 @@ import { ExcelModule } from './common/excel/excel.module';
 
 Colocar `ExcelModule` inmediatamente después de `PdfModule` en el array `imports`.
 
-- [ ] **Step 8: Verificar build y tests**
+- [x] **Step 8: Verificar build y tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -334,7 +334,7 @@ pnpm --filter @taller/api test
 ```
 Expected: build sin errores; todos los tests pasando (52 existentes + 6 nuevos = 58).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add apps/api/package.json apps/api/src/common/excel apps/api/src/app.module.ts pnpm-lock.yaml
