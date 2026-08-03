@@ -1432,7 +1432,7 @@ git commit -m "Add Excel export endpoint for invoices"
 - Create: `apps/api/src/reports/reports.module.ts`
 - Modify: `apps/api/src/app.module.ts`
 
-- [ ] **Step 1: Crear el DTO**
+- [x] **Step 1: Crear el DTO**
 
 Crear `apps/api/src/reports/dto/revenue-report-query.dto.ts`:
 
@@ -1454,7 +1454,7 @@ export class RevenueReportQueryDto extends ExportQueryDto {
 }
 ```
 
-- [ ] **Step 2: Escribir el test de la utilidad de agrupación**
+- [x] **Step 2: Escribir el test de la utilidad de agrupación**
 
 Crear `apps/api/src/reports/revenue.util.spec.ts`:
 
@@ -1481,12 +1481,12 @@ describe('periodKey', () => {
 });
 ```
 
-- [ ] **Step 3: Correr el test para verificar que falla**
+- [x] **Step 3: Correr el test para verificar que falla**
 
 Run: `pnpm --filter @taller/api test -- revenue.util`
 Expected: FAIL — `Cannot find module './revenue.util'`.
 
-- [ ] **Step 4: Implementar la utilidad**
+- [x] **Step 4: Implementar la utilidad**
 
 Crear `apps/api/src/reports/revenue.util.ts`:
 
@@ -1508,12 +1508,12 @@ export function periodKey(date: Date, groupBy: RevenueGroupBy): string {
 }
 ```
 
-- [ ] **Step 5: Correr el test para verificar que pasa**
+- [x] **Step 5: Correr el test para verificar que pasa**
 
 Run: `pnpm --filter @taller/api test -- revenue.util`
 Expected: PASS — 3 tests.
 
-- [ ] **Step 6: Implementar `ReportsService`**
+- [x] **Step 6: Implementar `ReportsService`**
 
 Crear `apps/api/src/reports/reports.service.ts`:
 
@@ -1674,7 +1674,7 @@ export class ReportsService {
 }
 ```
 
-- [ ] **Step 7: Implementar el controller**
+- [x] **Step 7: Implementar el controller**
 
 Crear `apps/api/src/reports/reports.controller.ts`:
 
@@ -1720,7 +1720,7 @@ export class ReportsController {
 }
 ```
 
-- [ ] **Step 8: Crear el módulo y registrarlo**
+- [x] **Step 8: Crear el módulo y registrarlo**
 
 Crear `apps/api/src/reports/reports.module.ts`:
 
@@ -1738,7 +1738,7 @@ export class ReportsModule {}
 
 En `apps/api/src/app.module.ts`, importar `ReportsModule` y sumarlo al array `imports` (al final, junto a los demás módulos de dominio).
 
-- [ ] **Step 9: Verificar build, tests y el endpoint**
+- [x] **Step 9: Verificar build, tests y el endpoint**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1756,7 +1756,7 @@ curl -s -D - -o /tmp/ingresos.xlsx "http://localhost:3001/api/reports/revenue/ex
 ```
 Expected: `HTTP/1.1 200` y un `.xlsx` no vacío.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add apps/api/src/reports apps/api/src/app.module.ts
