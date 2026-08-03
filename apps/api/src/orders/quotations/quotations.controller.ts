@@ -22,6 +22,7 @@ import { Role } from '../../generated/prisma/enums';
 export class QuotationsController {
   constructor(private readonly quotationsService: QuotationsService) {}
 
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
   @Get()
   findOne(
     @CurrentUser('tenantId') tenantId: string,
@@ -30,7 +31,7 @@ export class QuotationsController {
     return this.quotationsService.findOne(tenantId, orderId);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.TECHNICIAN, Role.RECEPTIONIST)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
   @Audit('Quotation')
   @Put()
   upsert(
