@@ -54,7 +54,7 @@ export class DiagnosisService {
       let diagnosis = await tx.diagnosis.findUnique({ where: { orderId } });
       if (!diagnosis) {
         diagnosis = await tx.diagnosis.create({
-          data: { orderId, technicianId, description: '', faultFound: '' },
+          data: { orderId, technicianId, description: '' },
         });
       }
 

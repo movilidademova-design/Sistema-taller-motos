@@ -482,22 +482,16 @@ model OrderPhoto {
 }
 
 model Diagnosis {
-  id                String   @id @default(uuid())
-  orderId           String   @unique
-  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  technicianId      String
-  technician        User     @relation(fields: [technicianId], references: [id], onDelete: Restrict)
-  description       String
-  faultFound        String
-  testsPerformed    String?
-  batteryVoltage    String?
-  controllerStatus  String?
-  motorStatus       String?
-  observations      String?
-  estimatedTimeHours Decimal? @db.Decimal(6, 2)
-  estimatedCost     Decimal? @db.Decimal(10, 2)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             String   @id @default(uuid())
+  orderId        String   @unique
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  technicianId   String
+  technician     User     @relation(fields: [technicianId], references: [id], onDelete: Restrict)
+  description    String
+  faultFound     String?
+  testsPerformed String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   requiredParts DiagnosisPart[]
 
