@@ -118,6 +118,7 @@ export interface ChecklistItem {
 export interface OrderPhoto {
   id: string;
   category?: PhotoCategory | null;
+  stage: 'INTAKE' | 'WORK';
   url: string;
   uploadedAt: string;
 }
