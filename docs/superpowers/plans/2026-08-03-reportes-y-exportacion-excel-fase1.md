@@ -346,45 +346,64 @@ git commit -m "Add generic ExcelService for tabular report exports"
 ## Task 2: Backend — utilidades de filtro (fechas y sucursal)
 
 **Files:**
-- Create: `apps/api/src/common/excel/export-filters.util.ts`
-- Create: `apps/api/src/common/excel/export-filters.util.spec.ts`
+- Create: `apps/api/src/common/utils/export-filters.util.ts`
+- Create: `apps/api/src/common/utils/export-filters.util.spec.ts`
 - Create: `apps/api/src/common/dto/export-query.dto.ts`
 
 - [ ] **Step 1: Escribir el test que falla**
 
-Crear `apps/api/src/common/excel/export-filters.util.spec.ts`:
+Crear `apps/api/src/common/utils/export-filters.util.spec.ts`:
 
 ```ts
+import { BadRequestException } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
-import {
-  dateRangeFilter,
-  resolveExportBranchId,
-} from './export-filters.util';
+import { dateRangeFilter, resolveExportBranchId } from './export-filters.util';
 
 describe('dateRangeFilter', () => {
   it('returns undefined when neither bound is given, so the caller omits the filter', () => {
     expect(dateRangeFilter(undefined, undefined)).toBeUndefined();
   });
 
-  it('builds a gte filter from the lower bound only', () => {
+  it('anchors the lower bound to local midnight, not UTC midnight', () => {
+    // El taller está en UTC-5: la medianoche local del 1 de julio son las 05:00
+    // UTC. Usar la medianoche UTC arrastraría cinco horas del 30 de junio.
     expect(dateRangeFilter('2026-07-01', undefined)).toEqual({
-      gte: new Date('2026-07-01T00:00:00.000Z'),
+      gte: new Date('2026-07-01T05:00:00.000Z'),
     });
   });
 
-  it('makes the upper bound inclusive of the whole day', () => {
-    // A user picking "hasta 31 de julio" means through the end of the 31st.
-    // lte: 2026-07-31T00:00:00Z would silently drop everything that day.
+  it('makes the upper bound inclusive of the whole local day', () => {
+    // Quien pide "hasta el 31 de julio" espera todo el 31 en hora local. Un
+    // `lte` a medianoche del 31 dejaría fuera el día entero, y un `lt` a
+    // medianoche UTC del 1 de agosto cortaría a las 19:00 hora local del 31.
     expect(dateRangeFilter(undefined, '2026-07-31')).toEqual({
-      lt: new Date('2026-08-01T00:00:00.000Z'),
+      lt: new Date('2026-08-01T05:00:00.000Z'),
     });
   });
 
   it('combines both bounds', () => {
     expect(dateRangeFilter('2026-07-01', '2026-07-31')).toEqual({
-      gte: new Date('2026-07-01T00:00:00.000Z'),
-      lt: new Date('2026-08-01T00:00:00.000Z'),
+      gte: new Date('2026-07-01T05:00:00.000Z'),
+      lt: new Date('2026-08-01T05:00:00.000Z'),
     });
+  });
+
+  it('includes a record created late on the last evening of the range', () => {
+    // 20:30 hora local del 31 de julio = 01:30 UTC del 1 de agosto. Es el caso
+    // exacto que se perdía anclando el límite a UTC.
+    const lateSale = new Date('2026-08-01T01:30:00.000Z');
+    const { lt } = dateRangeFilter('2026-07-01', '2026-07-31')!;
+
+    expect(lateSale.getTime()).toBeLessThan(lt!.getTime());
+  });
+
+  it('rejects a malformed date instead of handing Prisma an Invalid Date', () => {
+    expect(() => dateRangeFilter('ayer', undefined)).toThrow(
+      BadRequestException,
+    );
+    expect(() => dateRangeFilter(undefined, '31-07-2026')).toThrow(
+      BadRequestException,
+    );
   });
 });
 
@@ -393,16 +412,30 @@ describe('resolveExportBranchId', () => {
   const otherBranch = 'branch-ajeno';
 
   it('pins a MANAGER to their active branch', () => {
-    expect(
-      resolveExportBranchId(Role.MANAGER, currentBranch, undefined),
-    ).toBe(currentBranch);
+    expect(resolveExportBranchId(Role.MANAGER, currentBranch, undefined)).toBe(
+      currentBranch,
+    );
   });
 
   it('ignores a branchId a MANAGER tries to request for another branch', () => {
-    expect(
-      resolveExportBranchId(Role.MANAGER, currentBranch, otherBranch),
-    ).toBe(currentBranch);
+    expect(resolveExportBranchId(Role.MANAGER, currentBranch, otherBranch)).toBe(
+      currentBranch,
+    );
   });
+
+  it.each([Role.RECEPTIONIST, Role.TECHNICIAN, Role.CLIENT])(
+    'pins %s to their active branch too, in case an endpoint forgets @Roles',
+    (role) => {
+      // RolesGuard deja pasar cualquier rol si al endpoint le falta @Roles, así
+      // que estos roles nunca deben caer en la rama "ve todas las sucursales".
+      expect(resolveExportBranchId(role, currentBranch, otherBranch)).toBe(
+        currentBranch,
+      );
+      expect(resolveExportBranchId(role, currentBranch, undefined)).toBe(
+        currentBranch,
+      );
+    },
+  );
 
   it('lets an ADMIN narrow the export to a chosen branch', () => {
     expect(resolveExportBranchId(Role.ADMIN, currentBranch, otherBranch)).toBe(
@@ -425,10 +458,36 @@ Expected: FAIL — `Cannot find module './export-filters.util'`.
 
 - [ ] **Step 3: Implementar las utilidades**
 
-Crear `apps/api/src/common/excel/export-filters.util.ts`:
+Crear `apps/api/src/common/utils/export-filters.util.ts`:
 
 ```ts
+import { BadRequestException } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
+
+/**
+ * El taller opera en Colombia (UTC-5), pero Prisma guarda las fechas en UTC.
+ * Interpretar "2026-07-31" como medianoche UTC dejaría fuera todo lo registrado
+ * entre las 19:00 y la medianoche hora local de ese día — justo las horas de
+ * cierre — y metería cinco horas del día anterior por el otro extremo. Para un
+ * reporte de caja eso son cifras equivocadas, no un detalle cosmético, así que
+ * los límites se anclan al día local.
+ *
+ * Colombia no aplica horario de verano, de modo que el desfase es constante y
+ * un valor fijo alcanza. El día que la aplicación soporte talleres en otros
+ * países, esto tiene que salir de la configuración del tenant (que hoy solo
+ * guarda `currency`), igual que el `es-CO` que ya está fijo en `PdfService`.
+ */
+const WORKSHOP_UTC_OFFSET = '-05:00';
+
+function startOfLocalDay(isoDate: string): Date {
+  const date = new Date(`${isoDate}T00:00:00${WORKSHOP_UTC_OFFSET}`);
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException(
+      `Fecha inválida: "${isoDate}". Usa el formato AAAA-MM-DD.`,
+    );
+  }
+  return date;
+}
 
 /**
  * Traduce un rango de fechas (formato YYYY-MM-DD) a un filtro de Prisma.
@@ -443,9 +502,12 @@ export function dateRangeFilter(
   if (!from && !to) return undefined;
 
   const filter: { gte?: Date; lt?: Date } = {};
-  if (from) filter.gte = new Date(from);
+  if (from) filter.gte = startOfLocalDay(from);
   if (to) {
-    const end = new Date(to);
+    const end = startOfLocalDay(to);
+    // Sumar un día a una medianoche de desfase fijo da la medianoche del día
+    // siguiente en ese mismo desfase, porque no hay cambio de horario que lo
+    // corra.
     end.setUTCDate(end.getUTCDate() + 1);
     filter.lt = end;
   }
@@ -455,29 +517,34 @@ export function dateRangeFilter(
 /**
  * Decide por qué sucursal se filtra un export.
  *
- * Un MANAGER queda anclado a la sucursal en la que está trabajando y el
- * `branchId` que venga en el query se ignora — si se respetara, bastaría con
- * mandar el parámetro a mano para leer datos de una sede ajena. Es la misma
- * regla que ya aplica `UsersService.create` al ignorar `dto.branchIds` cuando
- * quien crea es un gerente.
+ * Solo un ADMIN puede elegir sucursal: con `branchId` acota a esa sede, sin él
+ * exporta todas (y el reporte incluye la columna "Sucursal" para distinguirlas).
+ * Cualquier otro rol queda anclado a la sucursal en la que está trabajando y el
+ * `branchId` del query se ignora — si se respetara, bastaría con mandar el
+ * parámetro a mano para leer datos de una sede ajena. Es la misma regla que ya
+ * aplica `UsersService.create` al ignorar `dto.branchIds` cuando quien crea es
+ * un gerente.
  *
- * Un ADMIN sí puede elegir: con `branchId` acota a esa sucursal, sin él exporta
- * todas (y el reporte incluye la columna "Sucursal" para distinguirlas).
+ * Está escrito como lista blanca (solo ADMIN pasa) y no como lista negra (todos
+ * menos MANAGER pasan) a propósito: `RolesGuard` deja pasar cualquier rol cuando
+ * al endpoint le falta el decorador `@Roles`, así que si algún export futuro se
+ * olvida de ponerlo, el peor caso es que alguien vea su propia sucursal, no que
+ * un técnico se descargue los datos de todas.
  */
 export function resolveExportBranchId(
   role: Role,
   currentBranchId: string,
   requestedBranchId?: string,
 ): string | undefined {
-  if (role === Role.MANAGER) return currentBranchId;
-  return requestedBranchId;
+  if (role === Role.ADMIN) return requestedBranchId;
+  return currentBranchId;
 }
 ```
 
 - [ ] **Step 4: Correr el test para verificar que pasa**
 
 Run: `pnpm --filter @taller/api test -- export-filters`
-Expected: PASS — 8 tests.
+Expected: PASS — 13 tests.
 
 - [ ] **Step 5: Crear el DTO base de export**
 
@@ -519,12 +586,12 @@ export class ExportQueryDto {
 pnpm --filter @taller/api build
 pnpm --filter @taller/api test
 ```
-Expected: build limpio; 65 tests pasando.
+Expected: build limpio; 71 tests pasando (58 de antes + 13 nuevos).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/api/src/common/excel apps/api/src/common/dto/export-query.dto.ts
+git add apps/api/src/common/utils/export-filters.util.ts apps/api/src/common/utils/export-filters.util.spec.ts apps/api/src/common/dto/export-query.dto.ts
 git commit -m "Add date-range and branch-scoping helpers for report exports"
 ```
 
@@ -564,7 +631,7 @@ import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import {
   dateRangeFilter,
   resolveExportBranchId,
-} from '../common/excel/export-filters.util';
+} from '../common/utils/export-filters.util';
 import { ExportOrdersQueryDto } from './dto/export-orders-query.dto';
 import { Role } from '../generated/prisma/enums';
 ```
@@ -783,7 +850,7 @@ function makeService(): PrivateOrdersService {
 pnpm --filter @taller/api build
 pnpm --filter @taller/api test
 ```
-Expected: build limpio; 65 tests pasando.
+Expected: build limpio; 66 tests pasando.
 
 - [ ] **Step 6: Probar el endpoint a mano**
 
@@ -818,7 +885,7 @@ En `apps/api/src/clients/clients.service.ts`, agregar imports:
 
 ```ts
 import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
-import { dateRangeFilter } from '../common/excel/export-filters.util';
+import { dateRangeFilter } from '../common/utils/export-filters.util';
 import { ExportQueryDto } from '../common/dto/export-query.dto';
 ```
 
@@ -985,7 +1052,7 @@ import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import {
   dateRangeFilter,
   resolveExportBranchId,
-} from '../common/excel/export-filters.util';
+} from '../common/utils/export-filters.util';
 import { ExportPaymentsQueryDto } from './dto/export-payments-query.dto';
 import { PaymentMethod, Role } from '../generated/prisma/enums';
 ```
@@ -1177,7 +1244,7 @@ import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import {
   dateRangeFilter,
   resolveExportBranchId,
-} from '../common/excel/export-filters.util';
+} from '../common/utils/export-filters.util';
 import { ExportInvoicesQueryDto } from './dto/export-invoices-query.dto';
 import { Role } from '../generated/prisma/enums';
 ```
@@ -1450,7 +1517,7 @@ import { ExcelService } from '../common/excel/excel.service';
 import {
   dateRangeFilter,
   resolveExportBranchId,
-} from '../common/excel/export-filters.util';
+} from '../common/utils/export-filters.util';
 import {
   RevenueGroupBy,
   RevenueReportQueryDto,
