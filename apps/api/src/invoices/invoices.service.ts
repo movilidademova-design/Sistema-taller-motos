@@ -8,7 +8,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PdfService } from '../common/pdf/pdf.service';
 import { EmailService } from '../notifications/email.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import { InvoiceStatus, QuotationStatus } from '../generated/prisma/enums';
+import {
+  InvoiceStatus,
+  QuotationStatus,
+  Role,
+} from '../generated/prisma/enums';
+import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
+import {
+  dateRangeFilter,
+  resolveExportBranchId,
+} from '../common/utils/export-filters.util';
+import { ExportInvoicesQueryDto } from './dto/export-invoices-query.dto';
+
+const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  DRAFT: 'Borrador',
+  ISSUED: 'Emitida',
+  PARTIALLY_PAID: 'Pago parcial',
+  PAID: 'Pagada',
+  CANCELLED: 'Anulada',
+};
 
 @Injectable()
 export class InvoicesService {
@@ -16,6 +34,7 @@ export class InvoicesService {
     private readonly prisma: PrismaService,
     private readonly pdfService: PdfService,
     private readonly emailService: EmailService,
+    private readonly excel: ExcelService,
   ) {}
 
   findAll(tenantId: string) {
@@ -137,5 +156,154 @@ export class InvoicesService {
       data: { sentAt: new Date() },
     });
     return { success: true };
+  }
+
+  async exportToExcel(
+    tenantId: string,
+    currentBranchId: string,
+    role: Role,
+    query: ExportInvoicesQueryDto,
+  ): Promise<Buffer> {
+    const branchId = resolveExportBranchId(
+      role,
+      currentBranchId,
+      query.branchId,
+    );
+    const issuedAt = dateRangeFilter(query.from, query.to);
+
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        tenantId,
+        ...(issuedAt ? { issuedAt } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(branchId ? { order: { branchId } } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                {
+                  invoiceNumber: {
+                    contains: query.search,
+                    mode: 'insensitive' as const,
+                  },
+                },
+                {
+                  client: {
+                    firstName: {
+                      contains: query.search,
+                      mode: 'insensitive' as const,
+                    },
+                  },
+                },
+                {
+                  client: {
+                    lastName: {
+                      contains: query.search,
+                      mode: 'insensitive' as const,
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { issuedAt: 'desc' },
+      take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
+      include: {
+        client: {
+          select: { firstName: true, lastName: true, documentId: true },
+        },
+        order: {
+          select: { orderNumber: true, branch: { select: { name: true } } },
+        },
+      },
+    });
+
+    type Row = (typeof invoices)[number];
+
+    return this.excel.generate<Row>({
+      sheetName: 'Facturas',
+      rows: invoices,
+      columns: [
+        {
+          header: 'Número de factura',
+          key: 'invoiceNumber',
+          value: (i) => i.invoiceNumber,
+        },
+        {
+          header: 'Fecha de emisión',
+          key: 'issuedAt',
+          format: 'datetime',
+          value: (i) => i.issuedAt,
+        },
+        {
+          header: 'Cliente',
+          key: 'client',
+          width: 26,
+          value: (i) => `${i.client.firstName} ${i.client.lastName}`,
+        },
+        {
+          header: 'Documento',
+          key: 'document',
+          value: (i) => i.client.documentId,
+        },
+        {
+          header: 'Número de orden',
+          key: 'order',
+          value: (i) => i.order.orderNumber,
+        },
+        {
+          header: 'Sucursal',
+          key: 'branch',
+          value: (i) => i.order.branch.name,
+        },
+        {
+          header: 'Subtotal',
+          key: 'subtotal',
+          format: 'currency',
+          value: (i) => Number(i.subtotal),
+        },
+        {
+          header: 'Impuesto',
+          key: 'taxAmount',
+          format: 'currency',
+          value: (i) => Number(i.taxAmount),
+        },
+        {
+          header: 'Descuento',
+          key: 'discount',
+          format: 'currency',
+          value: (i) => Number(i.discount),
+        },
+        {
+          header: 'Total',
+          key: 'total',
+          format: 'currency',
+          value: (i) => Number(i.total),
+        },
+        {
+          header: 'Pagado',
+          key: 'amountPaid',
+          format: 'currency',
+          value: (i) => Number(i.amountPaid),
+        },
+        {
+          header: 'Saldo pendiente',
+          key: 'balance',
+          format: 'currency',
+          value: (i) => Number(i.total) - Number(i.amountPaid),
+        },
+        {
+          header: 'Estado',
+          key: 'status',
+          value: (i) => INVOICE_STATUS_LABELS[i.status],
+        },
+        {
+          header: 'Vencimiento',
+          key: 'dueAt',
+          format: 'date',
+          value: (i) => i.dueAt,
+        },
+      ],
+    });
   }
 }
