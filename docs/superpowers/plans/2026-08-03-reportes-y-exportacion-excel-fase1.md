@@ -1038,7 +1038,7 @@ git commit -m "Add Excel export endpoint for clients"
 - Modify: `apps/api/src/payments/payments.service.ts`
 - Modify: `apps/api/src/payments/payments.controller.ts`
 
-- [ ] **Step 1: Crear el DTO**
+- [x] **Step 1: Crear el DTO**
 
 Crear `apps/api/src/payments/dto/export-payments-query.dto.ts`:
 
@@ -1056,7 +1056,7 @@ export class ExportPaymentsQueryDto extends ExportQueryDto {
 }
 ```
 
-- [ ] **Step 2: Agregar `exportToExcel` a `PaymentsService`**
+- [x] **Step 2: Agregar `exportToExcel` a `PaymentsService`**
 
 En `apps/api/src/payments/payments.service.ts`, agregar imports:
 
@@ -1110,12 +1110,11 @@ async exportToExcel(
       ...(createdAt ? { createdAt } : {}),
       ...(query.method ? { method: query.method } : {}),
       // Payment no tiene branchId propio (ver sección 3.5 del spec): la sucursal
-      // se deriva de la orden. Un pago sin orden no se puede atribuir a ninguna
-      // sede, así que se incluye siempre — es preferible que aparezca de más en
-      // un reporte de sucursal a que desaparezca de todos y descuadre la caja.
-      ...(branchId
-        ? { OR: [{ order: { branchId } }, { orderId: null }] }
-        : {}),
+      // se deriva de la orden, y un pago sin orden no pertenece a ninguna sede.
+      // Esos quedan fuera del reporte por sucursal y solo salen cuando un ADMIN
+      // exporta todo, marcados "Sin sucursal" — repetirlos en cada sede haría
+      // que sumar los reportes diera de más.
+      ...(branchId ? { order: { branchId } } : {}),
     },
     orderBy: { createdAt: 'desc' },
     take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
@@ -1165,7 +1164,7 @@ async exportToExcel(
 }
 ```
 
-- [ ] **Step 3: Agregar el endpoint al controller**
+- [x] **Step 3: Agregar el endpoint al controller**
 
 En `apps/api/src/payments/payments.controller.ts`, agregar imports:
 
@@ -1203,7 +1202,7 @@ async export(
 }
 ```
 
-- [ ] **Step 4: Verificar build y tests**
+- [x] **Step 4: Verificar build y tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1211,7 +1210,7 @@ pnpm --filter @taller/api test
 ```
 Expected: ambos limpios.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/payments
