@@ -876,7 +876,7 @@ git commit -m "Add Excel export endpoint for orders"
 - Modify: `apps/api/src/clients/clients.service.ts`
 - Modify: `apps/api/src/clients/clients.controller.ts`
 
-- [ ] **Step 1: Agregar `exportToExcel` a `ClientsService`**
+- [x] **Step 1: Agregar `exportToExcel` a `ClientsService`**
 
 En `apps/api/src/clients/clients.service.ts`, agregar imports:
 
@@ -984,7 +984,7 @@ async exportToExcel(tenantId: string, query: ExportQueryDto): Promise<Buffer> {
 }
 ```
 
-- [ ] **Step 2: Agregar el endpoint al controller**
+- [x] **Step 2: Agregar el endpoint al controller**
 
 En `apps/api/src/clients/clients.controller.ts`, agregar imports (`StreamableFile` se suma a los de `@nestjs/common`):
 
@@ -1014,7 +1014,7 @@ async export(
 }
 ```
 
-- [ ] **Step 3: Verificar build y tests**
+- [x] **Step 3: Verificar build y tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -1022,7 +1022,7 @@ pnpm --filter @taller/api test
 ```
 Expected: ambos limpios.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/clients
