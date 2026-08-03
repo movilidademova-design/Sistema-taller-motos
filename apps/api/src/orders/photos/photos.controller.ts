@@ -30,7 +30,7 @@ export class PhotosController {
     return this.photosService.findAll(tenantId, orderId);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST, Role.TECHNICIAN)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.TECHNICIAN)
   @Audit('OrderPhoto')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
@@ -44,7 +44,7 @@ export class PhotosController {
     return this.photosService.upload(tenantId, orderId, category, file);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST, Role.TECHNICIAN)
+  @Roles(Role.ADMIN, Role.MANAGER, Role.TECHNICIAN)
   @Audit('OrderPhoto')
   @Delete(':photoId')
   remove(

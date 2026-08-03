@@ -108,6 +108,12 @@ export const PhotoCategory = {
 } as const;
 export type PhotoCategory = (typeof PhotoCategory)[keyof typeof PhotoCategory];
 
+export const PhotoStage = {
+  INTAKE: 'INTAKE',
+  WORK: 'WORK',
+} as const;
+export type PhotoStage = (typeof PhotoStage)[keyof typeof PhotoStage];
+
 export const QuotationItemType = {
   PART: 'PART',
   LABOR: 'LABOR',

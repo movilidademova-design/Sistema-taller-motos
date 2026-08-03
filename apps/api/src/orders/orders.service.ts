@@ -11,7 +11,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { IntakeOrderDto } from './dto/intake-order.dto';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { OrderStatus, Role } from '../generated/prisma/enums';
+import { OrderStatus, PhotoStage, Role } from '../generated/prisma/enums';
 import { Prisma } from '../generated/prisma/client';
 import { canTransition } from './order-status.util';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
@@ -506,7 +506,9 @@ export class OrdersService {
           pickupCode,
           signatureUrl,
           signedAt: new Date(),
-          photos: { create: photoUrls.map((url) => ({ url })) },
+          photos: {
+            create: photoUrls.map((url) => ({ url, stage: PhotoStage.INTAKE })),
+          },
         },
       });
 

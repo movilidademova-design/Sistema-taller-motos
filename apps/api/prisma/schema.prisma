@@ -96,6 +96,11 @@ enum PhotoCategory {
   OTHER
 }
 
+enum PhotoStage {
+  INTAKE
+  WORK
+}
+
 enum QuotationItemType {
   PART
   LABOR
@@ -468,6 +473,7 @@ model OrderPhoto {
   orderId    String
   order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   category   PhotoCategory?
+  stage      PhotoStage
   url        String
   uploadedAt DateTime      @default(now())
 
