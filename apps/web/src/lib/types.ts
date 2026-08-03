@@ -2,8 +2,6 @@ import type {
   Role,
   OrderStatus,
   QuotationStatus,
-  ConditionRating,
-  ChecklistItemType,
   PhotoCategory,
   QuotationItemType,
   WarrantyStatus,
@@ -108,13 +106,6 @@ export interface Branch {
   createdAt: string;
 }
 
-export interface ChecklistItem {
-  id: string;
-  item: ChecklistItemType;
-  condition: ConditionRating;
-  observations?: string | null;
-}
-
 export interface OrderPhoto {
   id: string;
   category?: PhotoCategory | null;
@@ -135,14 +126,8 @@ export interface DiagnosisPart {
 export interface Diagnosis {
   id: string;
   description: string;
-  faultFound: string;
+  faultFound?: string | null;
   testsPerformed?: string | null;
-  batteryVoltage?: string | null;
-  controllerStatus?: string | null;
-  motorStatus?: string | null;
-  observations?: string | null;
-  estimatedTimeHours?: string | null;
-  estimatedCost?: string | null;
   requiredParts: DiagnosisPart[];
 }
 
@@ -202,17 +187,6 @@ export interface Notification {
   createdAt: string;
 }
 
-export interface LaborEntry {
-  id: string;
-  technicianId: string;
-  technician?: { firstName: string; lastName: string };
-  activity: string;
-  startTime: string;
-  endTime?: string | null;
-  hours?: string | null;
-  cost: string;
-}
-
 export interface Order {
   id: string;
   orderNumber: string;
@@ -236,12 +210,10 @@ export interface Order {
   motorcycle?: Motorcycle;
   receptionist?: { id: string; firstName: string; lastName: string };
   technician?: { id: string; firstName: string; lastName: string } | null;
-  checklistItems?: ChecklistItem[];
   photos?: OrderPhoto[];
   diagnosis?: Diagnosis | null;
   quotation?: Quotation | null;
   statusHistory?: OrderStatusHistoryEntry[];
-  laborEntries?: LaborEntry[];
   invoice?: Invoice | null;
   payments?: Payment[];
   warranties?: Warranty[];

@@ -21,15 +21,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { OrderStatusBadge } from '@/components/shared/order-status-badge';
 import { NotifyClientDialog } from '@/components/orders/notify-client-dialog';
-import { ChecklistTab } from '@/components/orders/checklist-tab';
 import { PhotosTab } from '@/components/orders/photos-tab';
 import { DiagnosisTab } from '@/components/orders/diagnosis-tab';
 import { QuotationTab } from '@/components/orders/quotation-tab';
-import { LaborTab } from '@/components/orders/labor-tab';
 import { HistoryTab } from '@/components/orders/history-tab';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api, openAuthedBlobInNewTab } from '@/lib/api';
-import { getErrorMessage } from '@/components/providers/auth-provider';
+import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
 import { ORDER_STATUS_LABELS, PaymentMethod, type OrderStatus } from '@taller/shared';
 import type { Invoice, Order } from '@/lib/types';
 
@@ -37,6 +35,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { id } = React.use(params);
   const { data: order, isLoading, mutate } = useApiSWR<Order>(`/orders/${id}`);
   const [notifyOpen, setNotifyOpen] = React.useState(false);
+  const { user } = useAuth();
+  const isTechnician = user?.role === 'TECHNICIAN';
 
   if (isLoading) {
     return (
@@ -128,30 +128,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       */}
       <NotifyClientDialog orderId={order.id} open={notifyOpen} onOpenChange={setNotifyOpen} />
 
-      <Tabs defaultValue="checklist">
+      <Tabs defaultValue="diagnosis">
         <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="checklist">Checklist</TabsTrigger>
-          <TabsTrigger value="photos">Fotos</TabsTrigger>
           <TabsTrigger value="diagnosis">Diagnóstico</TabsTrigger>
-          <TabsTrigger value="quotation">Cotización</TabsTrigger>
-          <TabsTrigger value="labor">Mano de obra</TabsTrigger>
+          <TabsTrigger value="photos">Fotos</TabsTrigger>
+          {!isTechnician && <TabsTrigger value="quotation">Cotización</TabsTrigger>}
           <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
-        <TabsContent value="checklist">
-          <ChecklistTab orderId={order.id} items={order.checklistItems ?? []} onUpdated={() => mutate()} />
+        <TabsContent value="diagnosis">
+          <DiagnosisTab orderId={order.id} diagnosis={order.diagnosis} onUpdated={() => mutate()} />
         </TabsContent>
         <TabsContent value="photos">
           <PhotosTab orderId={order.id} photos={order.photos ?? []} onUpdated={() => mutate()} />
         </TabsContent>
-        <TabsContent value="diagnosis">
-          <DiagnosisTab orderId={order.id} diagnosis={order.diagnosis} onUpdated={() => mutate()} />
-        </TabsContent>
-        <TabsContent value="quotation">
-          <QuotationTab orderId={order.id} quotation={order.quotation} onUpdated={() => mutate()} />
-        </TabsContent>
-        <TabsContent value="labor">
-          <LaborTab orderId={order.id} entries={order.laborEntries ?? []} onUpdated={() => mutate()} />
-        </TabsContent>
+        {!isTechnician && (
+          <TabsContent value="quotation">
+            <QuotationTab orderId={order.id} quotation={order.quotation} onUpdated={() => mutate()} />
+          </TabsContent>
+        )}
         <TabsContent value="history">
           <HistoryTab history={order.statusHistory ?? []} />
         </TabsContent>
