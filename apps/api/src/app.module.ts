@@ -23,6 +23,7 @@ import { QuickServicesModule } from './quick-services/quick-services.module';
 import { AccessoryOptionsModule } from './accessory-options/accessory-options.module';
 import { BranchesModule } from './branches/branches.module';
 import { NotificationInboxModule } from './notification-inbox/notification-inbox.module';
+import { ReportsModule } from './reports/reports.module';
 import { StorageModule } from './storage/storage.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule } from './audit/audit.module';
@@ -60,6 +61,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     BranchesModule,
     NotificationInboxModule,
     AuditModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [
