@@ -7,17 +7,20 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { IntakeOrderDto } from './dto/intake-order.dto';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
+import { ExportOrdersQueryDto } from './dto/export-orders-query.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -46,6 +49,32 @@ export class OrdersController {
     // limited to orders explicitly assigned to them, since this shop doesn't
     // pre-assign a technician at intake; anyone can pick up and work an order.
     return this.ordersService.findAll(tenantId, { ...query, branchId });
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @Get('export')
+  async export(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('role') role: Role,
+    @CurrentBranch() branchId: string,
+    @Query() query: ExportOrdersQueryDto,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.ordersService.exportToExcel(
+      tenantId,
+      branchId,
+      role,
+      query,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="ordenes-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+    );
+    res.send(buffer);
   }
 
   @Get(':id')

@@ -24,6 +24,7 @@ function makeService(): PrivateOrdersService {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   ) as PrivateOrdersService;
 }
 

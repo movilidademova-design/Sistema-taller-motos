@@ -11,7 +11,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { IntakeOrderDto } from './dto/intake-order.dto';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
-import { OrderStatus } from '../generated/prisma/enums';
+import { OrderStatus, Role } from '../generated/prisma/enums';
 import { Prisma } from '../generated/prisma/client';
 import { canTransition } from './order-status.util';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
@@ -22,6 +22,25 @@ import { generatePickupCode } from '../common/utils/pickup-code.util';
 import { buildIntakeReason } from './intake-reason.util';
 import { buildAccessoriesText } from './intake-accessories.util';
 import { buildStatusChangeMessage } from './notification-message.util';
+import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
+import {
+  dateRangeFilter,
+  resolveExportBranchId,
+} from '../common/utils/export-filters.util';
+import { ExportOrdersQueryDto } from './dto/export-orders-query.dto';
+
+const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  RECEIVED: 'Recibida',
+  DIAGNOSING: 'En diagnóstico',
+  WAITING_APPROVAL: 'Esperando aprobación',
+  WAITING_PARTS: 'Esperando repuestos',
+  IN_REPAIR: 'En reparación',
+  TESTING: 'En pruebas',
+  READY_FOR_DELIVERY: 'Lista para entrega',
+  DELIVERED: 'Entregada',
+  CANCELLED: 'Cancelada',
+  WARRANTY: 'Garantía',
+};
 
 export const ORDER_DETAIL_INCLUDE = {
   client: true,
@@ -50,6 +69,7 @@ export class OrdersService {
     private readonly whatsapp: WhatsappService,
     private readonly email: EmailService,
     private readonly storage: StorageService,
+    private readonly excel: ExcelService,
   ) {}
 
   async findAll(
@@ -641,5 +661,114 @@ export class OrdersService {
     const updated = await this.findOne(tenantId, id);
     this.realtime.emitOrderUpdated(tenantId, updated);
     return updated;
+  }
+
+  async exportToExcel(
+    tenantId: string,
+    currentBranchId: string,
+    role: Role,
+    query: ExportOrdersQueryDto,
+  ): Promise<Buffer> {
+    const branchId = resolveExportBranchId(role, currentBranchId, query.branchId);
+    const receivedAt = dateRangeFilter(query.from, query.to);
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(receivedAt ? { receivedAt } : {}),
+        ...(query.search
+          ? {
+              OR: [
+                { reason: { contains: query.search, mode: 'insensitive' as const } },
+                { orderNumber: { contains: query.search, mode: 'insensitive' as const } },
+                {
+                  client: {
+                    firstName: { contains: query.search, mode: 'insensitive' as const },
+                  },
+                },
+                {
+                  client: {
+                    lastName: { contains: query.search, mode: 'insensitive' as const },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { receivedAt: 'desc' },
+      // Corta la consulta una fila por encima del tope para que ExcelService
+      // responda un 400 con instrucciones en vez de traer medio millón de filas
+      // a memoria y recién ahí darse cuenta.
+      take: MAX_ROWS + 1,
+      include: {
+        branch: { select: { name: true } },
+        client: {
+          select: { firstName: true, lastName: true, documentId: true, phone: true },
+        },
+        motorcycle: { select: { brand: true, model: true, serialNumber: true } },
+        receptionist: { select: { firstName: true, lastName: true } },
+        technician: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    type Row = (typeof orders)[number];
+    const fullName = (p: { firstName: string; lastName: string } | null) =>
+      p ? `${p.firstName} ${p.lastName}` : '';
+
+    return this.excel.generate<Row>({
+      sheetName: 'Órdenes',
+      rows: orders,
+      columns: [
+        { header: 'Número de orden', key: 'orderNumber', value: (o) => o.orderNumber },
+        { header: 'Sucursal', key: 'branch', value: (o) => o.branch.name },
+        { header: 'Estado', key: 'status', value: (o) => ORDER_STATUS_LABELS[o.status] },
+        { header: 'Cliente', key: 'client', width: 26, value: (o) => fullName(o.client) },
+        { header: 'Documento', key: 'document', value: (o) => o.client.documentId ?? '' },
+        { header: 'Teléfono', key: 'phone', value: (o) => o.client.phone ?? '' },
+        {
+          header: 'Vehículo',
+          key: 'vehicle',
+          width: 24,
+          value: (o) => `${o.motorcycle.brand} ${o.motorcycle.model}`,
+        },
+        { header: 'Serie', key: 'serial', value: (o) => o.motorcycle.serialNumber ?? '' },
+        { header: 'Motivo', key: 'reason', width: 40, value: (o) => o.reason },
+        {
+          header: 'Accesorios entregados',
+          key: 'accessories',
+          width: 30,
+          value: (o) => o.accessoriesDelivered ?? '',
+        },
+        { header: 'Recepcionista', key: 'receptionist', width: 22, value: (o) => fullName(o.receptionist) },
+        { header: 'Técnico', key: 'technician', width: 22, value: (o) => fullName(o.technician) },
+        { header: 'Clave de retiro', key: 'pickupCode', value: (o) => o.pickupCode },
+        {
+          header: 'Fecha de recepción',
+          key: 'receivedAt',
+          format: 'datetime',
+          value: (o) => o.receivedAt,
+        },
+        {
+          header: 'Entrega estimada',
+          key: 'estimatedDeliveryAt',
+          format: 'date',
+          value: (o) => o.estimatedDeliveryAt,
+        },
+        {
+          header: 'Fecha de entrega',
+          key: 'deliveredAt',
+          format: 'datetime',
+          value: (o) => o.deliveredAt,
+        },
+        {
+          header: 'Motivo de cancelación',
+          key: 'cancelReason',
+          width: 30,
+          value: (o) => o.cancelReason ?? '',
+        },
+      ],
+    });
   }
 }
