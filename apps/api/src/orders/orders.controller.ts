@@ -34,8 +34,6 @@ export class OrdersController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
-    @CurrentUser('userId') userId: string,
-    @CurrentUser('role') role: Role,
     @CurrentBranch() branchId: string,
     @Query()
     query: PaginationQueryDto & {
@@ -44,12 +42,10 @@ export class OrdersController {
       clientId?: string;
     },
   ) {
-    // Technicians only ever see orders assigned to them.
-    const scoped =
-      role === Role.TECHNICIAN
-        ? { ...query, technicianId: userId, branchId }
-        : { ...query, branchId };
-    return this.ordersService.findAll(tenantId, scoped);
+    // Every role sees every order in the current branch — a technician isn't
+    // limited to orders explicitly assigned to them, since this shop doesn't
+    // pre-assign a technician at intake; anyone can pick up and work an order.
+    return this.ordersService.findAll(tenantId, { ...query, branchId });
   }
 
   @Get(':id')
