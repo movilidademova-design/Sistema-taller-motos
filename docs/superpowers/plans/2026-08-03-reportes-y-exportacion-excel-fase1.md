@@ -886,6 +886,31 @@ import { dateRangeFilter } from '../common/utils/export-filters.util';
 import { ExportQueryDto } from '../common/dto/export-query.dto';
 ```
 
+Extraer el filtro de búsqueda a nivel de módulo (arriba del `@Injectable()`) y hacer que `findAll` lo use en vez de su bloque `OR` en línea. Es la misma lección que dejó el export de Órdenes: la lista y su export deben mirar los mismos campos, porque el botón manda el `search` que la lista tiene en pantalla.
+
+```ts
+/** Campos de búsqueda de Clientes, compartidos por `findAll` y `exportToExcel`. */
+export function clientSearchFilter(search?: string) {
+  if (!search) return undefined;
+  const contains = { contains: search, mode: 'insensitive' as const };
+  return {
+    OR: [
+      { firstName: contains },
+      { lastName: contains },
+      { documentId: contains },
+      { phone: contains },
+      { email: contains },
+    ],
+  };
+}
+```
+
+En `findAll`, reemplazar todo el bloque `...(query.search ? { OR: [...] } : {})` por:
+
+```ts
+      ...(clientSearchFilter(query.search) ?? {}),
+```
+
 Inyectar el servicio:
 
 ```ts
@@ -901,21 +926,15 @@ Agregar el método al final de la clase. **No recibe sucursal**: los clientes so
 async exportToExcel(tenantId: string, query: ExportQueryDto): Promise<Buffer> {
   const createdAt = dateRangeFilter(query.from, query.to);
 
+  // A diferencia de `findAll`, esto NO filtra `isActive: true`: un export es
+  // para analizar el histórico completo, y por eso lleva la columna "Estado"
+  // que distingue activos de inactivos. Es la única diferencia deliberada con
+  // la lista; el resto de los filtros son los mismos.
   const clients = await this.prisma.client.findMany({
     where: {
       tenantId,
       ...(createdAt ? { createdAt } : {}),
-      ...(query.search
-        ? {
-            OR: [
-              { firstName: { contains: query.search, mode: 'insensitive' as const } },
-              { lastName: { contains: query.search, mode: 'insensitive' as const } },
-              { documentId: { contains: query.search, mode: 'insensitive' as const } },
-              { phone: { contains: query.search, mode: 'insensitive' as const } },
-              { email: { contains: query.search, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
+      ...(clientSearchFilter(query.search) ?? {}),
     },
     orderBy: { createdAt: 'desc' },
     take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
@@ -930,17 +949,17 @@ async exportToExcel(tenantId: string, query: ExportQueryDto): Promise<Buffer> {
     columns: [
       { header: 'Nombre', key: 'firstName', width: 20, value: (c) => c.firstName },
       { header: 'Apellido', key: 'lastName', width: 20, value: (c) => c.lastName },
-      { header: 'Documento', key: 'documentId', value: (c) => c.documentId ?? '' },
-      { header: 'Teléfono', key: 'phone', value: (c) => c.phone ?? '' },
-      { header: 'Correo', key: 'email', width: 28, value: (c) => c.email ?? '' },
-      { header: 'Dirección', key: 'address', width: 32, value: (c) => c.address ?? '' },
+      { header: 'Documento', key: 'documentId', value: (c) => c.documentId },
+      { header: 'Teléfono', key: 'phone', value: (c) => c.phone },
+      { header: 'Correo', key: 'email', width: 28, value: (c) => c.email },
+      { header: 'Dirección', key: 'address', width: 32, value: (c) => c.address },
       {
         header: 'Fecha de nacimiento',
         key: 'birthDate',
         format: 'date',
         value: (c) => c.birthDate,
       },
-      { header: 'Notas', key: 'notes', width: 32, value: (c) => c.notes ?? '' },
+      { header: 'Notas', key: 'notes', width: 32, value: (c) => c.notes },
       {
         header: 'Vehículos',
         key: 'motorcycles',
