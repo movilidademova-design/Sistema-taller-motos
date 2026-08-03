@@ -604,7 +604,7 @@ git commit -m "Add date-range and branch-scoping helpers for report exports"
 - Modify: `apps/api/src/orders/orders.service.ts`
 - Modify: `apps/api/src/orders/orders.controller.ts`
 
-- [ ] **Step 1: Crear el DTO**
+- [x] **Step 1: Crear el DTO**
 
 Crear `apps/api/src/orders/dto/export-orders-query.dto.ts`:
 
@@ -622,7 +622,7 @@ export class ExportOrdersQueryDto extends ExportQueryDto {
 }
 ```
 
-- [ ] **Step 2: Agregar `exportToExcel` a `OrdersService`**
+- [x] **Step 2: Agregar `exportToExcel` a `OrdersService`**
 
 En `apps/api/src/orders/orders.service.ts`, agregar los imports que falten en la parte superior del archivo:
 
@@ -785,7 +785,7 @@ const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 
 **No importar esto de `@taller/shared`.** El paquete compartido define exactamente esta constante y el frontend la usa, pero `apps/api` **no declara `@taller/shared` como dependencia** (revisado: no aparece en su `package.json` ni en su `tsconfig.json`), así que ese import no compila. Duplicar la constante aquí es consistente con cómo el backend ya maneja las demás etiquetas en español (ver `PAYMENT_METHOD_LABELS` e `INVOICE_STATUS_LABELS` en las tareas 5 y 6).
 
-- [ ] **Step 3: Agregar el endpoint al controller**
+- [x] **Step 3: Agregar el endpoint al controller**
 
 En `apps/api/src/orders/orders.controller.ts`, agregar los imports:
 
@@ -824,7 +824,7 @@ async export(
 }
 ```
 
-- [ ] **Step 4: Arreglar el spec existente de `OrdersService`**
+- [x] **Step 4: Arreglar el spec existente de `OrdersService`**
 
 `apps/api/src/orders/orders.service.reactivate-client.spec.ts` instancia el servicio con 5 argumentos. Ahora son 6. En su función `makeService`, agregar el sexto stub:
 
@@ -841,7 +841,7 @@ function makeService(): PrivateOrdersService {
 }
 ```
 
-- [ ] **Step 5: Verificar build y tests**
+- [x] **Step 5: Verificar build y tests**
 
 ```bash
 pnpm --filter @taller/api build
@@ -849,7 +849,7 @@ pnpm --filter @taller/api test
 ```
 Expected: build limpio; 71 tests pasando (sin tests nuevos en esta tarea).
 
-- [ ] **Step 6: Probar el endpoint a mano**
+- [x] **Step 6: Probar el endpoint a mano**
 
 Con la API corriendo:
 
@@ -861,7 +861,7 @@ curl -s -D - -o /tmp/ordenes.xlsx "http://localhost:3001/api/orders/export" \
 ```
 Expected: `HTTP/1.1 200`, `Content-Type: application/vnd.openxmlformats-...`, `Content-Disposition: attachment; filename="ordenes-....xlsx"`, y un archivo `/tmp/ordenes.xlsx` no vacío.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/src/orders
