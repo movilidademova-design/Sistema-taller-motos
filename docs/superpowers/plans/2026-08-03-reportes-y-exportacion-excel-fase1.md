@@ -1343,7 +1343,7 @@ async exportToExcel(
         width: 26,
         value: (i) => `${i.client.firstName} ${i.client.lastName}`,
       },
-      { header: 'Documento', key: 'document', value: (i) => i.client.documentId ?? '' },
+      { header: 'Documento', key: 'document', value: (i) => i.client.documentId },
       { header: 'Número de orden', key: 'order', value: (i) => i.order.orderNumber },
       { header: 'Sucursal', key: 'branch', value: (i) => i.order.branch.name },
       { header: 'Subtotal', key: 'subtotal', format: 'currency', value: (i) => Number(i.subtotal) },
