@@ -287,7 +287,7 @@ git commit -m "Tell intake photos apart from work evidence and lock the intake o
 - Modify: `apps/api/src/orders/diagnosis/dto/upsert-diagnosis.dto.ts`
 - Modify: `apps/api/src/orders/diagnosis/diagnosis.service.ts`
 
-- [ ] **Step 1: Recortar el modelo**
+- [x] **Step 1: Recortar el modelo**
 
 En `apps/api/prisma/schema.prisma`, el modelo `Diagnosis` queda:
 
@@ -312,7 +312,7 @@ model Diagnosis {
 
 Es decir: se eliminan `batteryVoltage`, `controllerStatus`, `motorStatus`, `observations`, `estimatedTimeHours`, `estimatedCost`; y `faultFound` pasa de `String` a `String?`.
 
-- [ ] **Step 2: Generar y aplicar la migración**
+- [x] **Step 2: Generar y aplicar la migración**
 
 ```bash
 cd apps/api && npx prisma migrate dev --name diagnosis_only_three_fields
@@ -326,7 +326,7 @@ docker exec sistema-taller-motos-postgres-1 psql -U postgres -d taller_motos -c 
 ```
 Expected: la tabla queda con `id, orderId, technicianId, description, faultFound (nullable), testsPerformed, createdAt, updatedAt`.
 
-- [ ] **Step 3: Recortar el DTO**
+- [x] **Step 3: Recortar el DTO**
 
 `apps/api/src/orders/diagnosis/dto/upsert-diagnosis.dto.ts` queda completo así:
 
@@ -353,7 +353,7 @@ export class UpsertDiagnosisDto {
 
 Como el `ValidationPipe` global corre con `forbidNonWhitelisted: true` (ver `apps/api/src/main.ts`), quitar los campos del DTO hace que mandarlos devuelva 400 en vez de ignorarlos en silencio — que es lo que se quiere.
 
-- [ ] **Step 4: Ajustar `addPart`**
+- [x] **Step 4: Ajustar `addPart`**
 
 En `apps/api/src/orders/diagnosis/diagnosis.service.ts`, dentro de `addPart`, la creación del diagnóstico vacío ya no necesita `faultFound`:
 
@@ -363,7 +363,7 @@ En `apps/api/src/orders/diagnosis/diagnosis.service.ts`, dentro de `addPart`, la
         });
 ```
 
-- [ ] **Step 5: Verificar**
+- [x] **Step 5: Verificar**
 
 ```bash
 pnpm --filter @taller/api build
@@ -371,7 +371,7 @@ pnpm --filter @taller/api test
 ```
 Expected: ambos limpios.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/prisma apps/api/src/orders/diagnosis
@@ -393,21 +393,21 @@ git commit -m "Cut diagnosis down to the three fields technicians fill in"
 - Modify: `packages/shared/src/enums.ts`
 - Create: migración
 
-- [ ] **Step 1: Borrar los módulos**
+- [x] **Step 1: Borrar los módulos**
 
 ```bash
 rm -rf apps/api/src/orders/checklist apps/api/src/orders/labor
 ```
 
-- [ ] **Step 2: Desregistrarlos**
+- [x] **Step 2: Desregistrarlos**
 
 En `apps/api/src/orders/orders.module.ts`, quitar los imports de `ChecklistController`/`ChecklistService` y `LaborController`/`LaborService`, y sus entradas de los arrays `controllers` y `providers`.
 
-- [ ] **Step 3: Quitarlos de `ORDER_DETAIL_INCLUDE`**
+- [x] **Step 3: Quitarlos de `ORDER_DETAIL_INCLUDE`**
 
 En `apps/api/src/orders/orders.service.ts`, en la constante `ORDER_DETAIL_INCLUDE`, eliminar las líneas `checklistItems: true,` y `laborEntries: { orderBy: { startTime: 'desc' as const } },`.
 
-- [ ] **Step 4: Ajustar la productividad por técnico**
+- [x] **Step 4: Ajustar la productividad por técnico**
 
 En `apps/api/src/dashboard/dashboard.service.ts`, `getTechnicianProductivity` queda:
 
@@ -435,11 +435,11 @@ En `apps/api/src/dashboard/dashboard.service.ts`, `getTechnicianProductivity` qu
   }
 ```
 
-- [ ] **Step 5: Limpiar la semilla**
+- [x] **Step 5: Limpiar la semilla**
 
 En `apps/api/prisma/seed.ts`, eliminar el bloque `await prisma.checklistItem.createMany({...})` completo (alrededor de la línea 204) y cualquier arreglo de datos que solo alimente ese bloque.
 
-- [ ] **Step 6: Quitar los modelos del esquema**
+- [x] **Step 6: Quitar los modelos del esquema**
 
 En `apps/api/prisma/schema.prisma`, eliminar:
 - el modelo `ChecklistItem` completo
@@ -449,18 +449,18 @@ En `apps/api/prisma/schema.prisma`, eliminar:
 - la línea `laborEntries LaborEntry[]` del modelo `Order`
 - la relación inversa de `LaborEntry` en el modelo `User` (buscar `laborEntries` ahí)
 
-- [ ] **Step 7: Migración**
+- [x] **Step 7: Migración**
 
 ```bash
 cd apps/api && npx prisma migrate dev --name drop_checklist_and_labor && npx prisma generate
 docker exec sistema-taller-motos-postgres-1 psql -U postgres -d taller_motos -c "\dt" | grep -E "checklist|labor" || echo "tablas eliminadas correctamente"
 ```
 
-- [ ] **Step 8: Limpiar el paquete compartido**
+- [x] **Step 8: Limpiar el paquete compartido**
 
 En `packages/shared/src/enums.ts`, eliminar `ChecklistItemType`, `ConditionRating` y `CHECKLIST_ITEM_LABELS` (y cualquier etiqueta de condición asociada).
 
-- [ ] **Step 9: Verificar**
+- [x] **Step 9: Verificar**
 
 ```bash
 pnpm --filter @taller/api build
@@ -468,7 +468,7 @@ pnpm --filter @taller/api test
 ```
 Expected: ambos limpios. Si el build se queja de `@taller/shared`, reconstruirlo con `pnpm --filter @taller/shared build`.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add -A apps/api packages/shared
@@ -482,7 +482,7 @@ git commit -m "Remove the checklist and labor features nobody used"
 **Files:**
 - Modify: `apps/api/src/orders/quotations/quotations.controller.ts`
 
-- [ ] **Step 1: Ajustar los roles**
+- [x] **Step 1: Ajustar los roles**
 
 En `apps/api/src/orders/quotations/quotations.controller.ts`:
 
@@ -500,7 +500,7 @@ En `apps/api/src/orders/quotations/quotations.controller.ts`:
 
 - `approve` y `reject` ya son `@Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)`: no se tocan.
 
-- [ ] **Step 2: Verificar contra la API**
+- [x] **Step 2: Verificar contra la API**
 
 Con el servidor corriendo:
 
@@ -511,7 +511,7 @@ curl -s -o /dev/null -w "técnico -> cotización: %{http_code}\n" "http://127.0.
 ```
 Expected: `403`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/api/src/orders/quotations
@@ -526,7 +526,7 @@ git commit -m "Keep quotations out of reach of technicians"
 - Modify: `apps/web/src/lib/types.ts`
 - Modify: `apps/web/src/components/orders/photos-tab.tsx`
 
-- [ ] **Step 1: Tipar el campo nuevo**
+- [x] **Step 1: Tipar el campo nuevo**
 
 En `apps/web/src/lib/types.ts`, en la interfaz `OrderPhoto`, agregar:
 
@@ -534,7 +534,7 @@ En `apps/web/src/lib/types.ts`, en la interfaz `OrderPhoto`, agregar:
   stage: 'INTAKE' | 'WORK';
 ```
 
-- [ ] **Step 2: Reescribir `photos-tab.tsx`**
+- [x] **Step 2: Reescribir `photos-tab.tsx`**
 
 El componente pasa a renderizar dos bloques. Reemplazar el `return` completo de `PhotosTab` (y agregar el subcomponente `PhotoGrid` al final del archivo) por:
 
@@ -682,14 +682,14 @@ function PhotoGrid({
 
 Ajustar los imports del archivo: agregar `Trash2` a los de `lucide-react` y `useAuth` al import que ya trae `getErrorMessage` de `@/components/providers/auth-provider`.
 
-- [ ] **Step 3: Verificar build**
+- [x] **Step 3: Verificar build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: cero errores.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/lib/types.ts apps/web/src/components/orders/photos-tab.tsx
@@ -707,7 +707,7 @@ git commit -m "Split the photos tab into intake record and work evidence"
 - Delete: `apps/web/src/components/orders/checklist-tab.tsx`
 - Delete: `apps/web/src/components/orders/labor-tab.tsx`
 
-- [ ] **Step 1: Recortar el formulario de diagnóstico**
+- [x] **Step 1: Recortar el formulario de diagnóstico**
 
 En `apps/web/src/components/orders/diagnosis-tab.tsx`, el estado inicial queda:
 
@@ -740,20 +740,20 @@ En el JSX, dejar solo los tres campos —"Descripción técnica", "Falla encontr
 
 `<DiagnosisParts ... />` se conserva tal cual al final del componente.
 
-- [ ] **Step 2: Borrar los componentes muertos**
+- [x] **Step 2: Borrar los componentes muertos**
 
 ```bash
 rm apps/web/src/components/orders/checklist-tab.tsx apps/web/src/components/orders/labor-tab.tsx
 ```
 
-- [ ] **Step 3: Limpiar los tipos**
+- [x] **Step 3: Limpiar los tipos**
 
 En `apps/web/src/lib/types.ts`:
 - eliminar las interfaces `ChecklistItem` y `LaborEntry`
 - eliminar `checklistItems` y `laborEntries` de la interfaz `Order`
 - en la interfaz `Diagnosis`, eliminar `batteryVoltage`, `controllerStatus`, `motorStatus`, `observations`, `estimatedTimeHours`, `estimatedCost`, y volver `faultFound` opcional (`faultFound?: string | null`)
 
-- [ ] **Step 4: Reconstruir las pestañas**
+- [x] **Step 4: Reconstruir las pestañas**
 
 En `apps/web/src/app/(app)/orders/[id]/page.tsx`:
 - eliminar los imports de `ChecklistTab` y `LaborTab`
@@ -792,14 +792,14 @@ En `apps/web/src/app/(app)/orders/[id]/page.tsx`:
       </Tabs>
 ```
 
-- [ ] **Step 5: Verificar build**
+- [x] **Step 5: Verificar build**
 
 ```bash
 pnpm --filter @taller/web build
 ```
 Expected: cero errores. Si algo más importaba los tipos borrados, el compilador lo señalará — corregirlo ahí.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A apps/web
@@ -812,7 +812,7 @@ git commit -m "Trim the order tabs to diagnosis, photos, quotation and history"
 
 **Files:** ninguno (solo verificación)
 
-- [ ] **Step 1: Build y tests completos**
+- [x] **Step 1: Build y tests completos**
 
 ```bash
 pnpm --filter @taller/api build
@@ -827,7 +827,7 @@ cd apps/api && npx eslint src/orders/ src/dashboard/dashboard.service.ts
 cd ../web && npx eslint src/components/orders/ "src/app/(app)/orders/[id]/page.tsx" src/lib/types.ts
 ```
 
-- [ ] **Step 2: Verificar la API**
+- [x] **Step 2: Verificar la API**
 
 ```bash
 BR=33255f8b-2ef5-49df-a5fe-3d3518180cde
@@ -842,17 +842,17 @@ curl -s -o /dev/null -w "mano de obra (404, ya no existe): %{http_code}\n" "http
 curl -s -w "\nborrar foto de ingreso (400): " -o /dev/null -X DELETE "http://127.0.0.1:3001/api/orders/$OID/photos/$PID" -H "Authorization: Bearer $A" -H "X-Branch-Id: $BR" -w "%{http_code}\n"
 ```
 
-- [ ] **Step 3: Prueba manual en el navegador**
+- [x] **Step 3: Prueba manual en el navegador**
 
-- [ ] Como **admin**, abrir una orden: las pestañas son Diagnóstico (abierta por defecto), Fotos, Cotización, Historial. No aparecen Checklist ni Mano de obra.
-- [ ] En Fotos: se ven dos bloques. "Fotos de ingreso" muestra las de la recepción sin botones de subir ni borrar. "Evidencia del trabajo" tiene el botón de subir.
-- [ ] Subir una foto de evidencia y confirmar que aparece en el bloque de abajo, no arriba. Borrarla y confirmar que se va.
-- [ ] En Diagnóstico: solo tres campos más los repuestos. Guardar con "Falla encontrada" vacía y confirmar que guarda.
-- [ ] Agregar y quitar un repuesto: sigue descontando y reponiendo inventario.
-- [ ] Como **técnico**, abrir la misma orden: **no** aparece la pestaña Cotización. Sí puede subir evidencia y editar el diagnóstico.
-- [ ] Como **recepción**, abrir la orden: ve las dos galerías pero sin botón de subir evidencia; sí ve la Cotización.
+- [x] Como **admin**, abrir una orden: las pestañas son Diagnóstico (abierta por defecto), Fotos, Cotización, Historial. No aparecen Checklist ni Mano de obra.
+- [x] En Fotos: se ven dos bloques. "Fotos de ingreso" muestra las de la recepción sin botones de subir ni borrar. "Evidencia del trabajo" tiene el botón de subir.
+- [x] Subir una foto de evidencia y confirmar que aparece en el bloque de abajo, no arriba. Borrarla y confirmar que se va.
+- [x] En Diagnóstico: solo tres campos más los repuestos. Guardar con "Falla encontrada" vacía y confirmar que guarda.
+- [x] Agregar y quitar un repuesto: sigue descontando y reponiendo inventario.
+- [x] Como **técnico**, abrir la misma orden: **no** aparece la pestaña Cotización. Sí puede subir evidencia y editar el diagnóstico.
+- [x] Como **recepción**, abrir la orden: ve las dos galerías pero sin botón de subir evidencia; sí ve la Cotización.
 
-- [ ] **Step 4: Commit final (solo si la prueba manual requirió correcciones)**
+- [x] **Step 4: Commit final (solo si la prueba manual requirió correcciones)**
 
 ```bash
 git add -A
