@@ -15,6 +15,20 @@ import { Role } from '../../generated/prisma/enums';
  * guarda `currency`), igual que el `es-CO` que ya está fijo en `PdfService`.
  */
 const WORKSHOP_UTC_OFFSET = '-05:00';
+const WORKSHOP_UTC_OFFSET_MS = -5 * 60 * 60 * 1000;
+
+/**
+ * Corre un instante UTC al reloj del taller, para poder leerle año/mes/día
+ * locales con los getters `getUTC*`.
+ *
+ * Quien agrupe por periodo TIENE que usar esto: los límites de un rango se
+ * anclan al día local (ver arriba), así que agrupar por día/mes en UTC mezcla
+ * los dos criterios y una factura emitida a las 20:00 del 31 de julio —
+ * dentro de un rango "hasta el 31 de julio"— caería en el grupo de agosto.
+ */
+export function toWorkshopLocal(date: Date): Date {
+  return new Date(date.getTime() + WORKSHOP_UTC_OFFSET_MS);
+}
 
 function startOfLocalDay(isoDate: string): Date {
   const date = new Date(`${isoDate}T00:00:00${WORKSHOP_UTC_OFFSET}`);
