@@ -850,7 +850,7 @@ function makeService(): PrivateOrdersService {
 pnpm --filter @taller/api build
 pnpm --filter @taller/api test
 ```
-Expected: build limpio; 66 tests pasando.
+Expected: build limpio; 71 tests pasando (sin tests nuevos en esta tarea).
 
 - [ ] **Step 6: Probar el endpoint a mano**
 
