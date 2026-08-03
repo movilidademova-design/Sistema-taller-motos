@@ -2,11 +2,27 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { InvoiceStatus } from '../generated/prisma/enums';
+import { InvoiceStatus, PaymentMethod, Role } from '../generated/prisma/enums';
+import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
+import {
+  dateRangeFilter,
+  resolveExportBranchId,
+} from '../common/utils/export-filters.util';
+import { ExportPaymentsQueryDto } from './dto/export-payments-query.dto';
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: 'Efectivo',
+  TRANSFER: 'Transferencia',
+  CARD: 'Tarjeta',
+  QR: 'QR',
+};
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly excel: ExcelService,
+  ) {}
 
   findAll(tenantId: string, clientId?: string) {
     return this.prisma.payment.findMany({
@@ -58,6 +74,112 @@ export class PaymentsService {
       }
 
       return payment;
+    });
+  }
+
+  async exportToExcel(
+    tenantId: string,
+    currentBranchId: string,
+    role: Role,
+    query: ExportPaymentsQueryDto,
+  ): Promise<Buffer> {
+    const branchId = resolveExportBranchId(
+      role,
+      currentBranchId,
+      query.branchId,
+    );
+    const createdAt = dateRangeFilter(query.from, query.to);
+
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        tenantId,
+        ...(createdAt ? { createdAt } : {}),
+        ...(query.method ? { method: query.method } : {}),
+        // Payment no tiene branchId propio (ver sección 3.5 del spec de diseño):
+        // la sucursal se deriva de la orden. Un pago sin orden no se puede
+        // atribuir a ninguna sede, así que se incluye siempre — es preferible que
+        // aparezca de más en un reporte de sucursal a que desaparezca de todos y
+        // descuadre la caja.
+        ...(branchId
+          ? { OR: [{ order: { branchId } }, { orderId: null }] }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
+      include: {
+        client: {
+          select: { firstName: true, lastName: true, documentId: true },
+        },
+        order: {
+          select: { orderNumber: true, branch: { select: { name: true } } },
+        },
+        invoice: { select: { invoiceNumber: true } },
+        receivedBy: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    type Row = (typeof payments)[number];
+
+    return this.excel.generate<Row>({
+      sheetName: 'Pagos',
+      rows: payments,
+      columns: [
+        {
+          header: 'Número de recibo',
+          key: 'receiptNumber',
+          value: (p) => p.receiptNumber,
+        },
+        {
+          header: 'Fecha',
+          key: 'createdAt',
+          format: 'datetime',
+          value: (p) => p.createdAt,
+        },
+        {
+          header: 'Cliente',
+          key: 'client',
+          width: 26,
+          value: (p) => `${p.client.firstName} ${p.client.lastName}`,
+        },
+        {
+          header: 'Documento',
+          key: 'document',
+          value: (p) => p.client.documentId,
+        },
+        {
+          header: 'Número de orden',
+          key: 'order',
+          value: (p) => p.order?.orderNumber,
+        },
+        {
+          header: 'Número de factura',
+          key: 'invoice',
+          value: (p) => p.invoice?.invoiceNumber,
+        },
+        {
+          header: 'Método',
+          key: 'method',
+          value: (p) => PAYMENT_METHOD_LABELS[p.method],
+        },
+        {
+          header: 'Monto',
+          key: 'amount',
+          format: 'currency',
+          value: (p) => Number(p.amount),
+        },
+        { header: 'Referencia', key: 'reference', value: (p) => p.reference },
+        {
+          header: 'Recibido por',
+          key: 'receivedBy',
+          width: 22,
+          value: (p) => `${p.receivedBy.firstName} ${p.receivedBy.lastName}`,
+        },
+        {
+          header: 'Sucursal',
+          key: 'branch',
+          value: (p) => p.order?.branch.name ?? 'Sin sucursal',
+        },
+      ],
     });
   }
 }
