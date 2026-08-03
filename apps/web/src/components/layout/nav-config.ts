@@ -11,6 +11,7 @@ import {
   FileText,
   CalendarDays,
   Settings,
+  FileSpreadsheet,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,5 +33,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/payments', label: 'Pagos', icon: Wallet, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
   { href: '/invoices', label: 'Facturas', icon: FileText, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
   { href: '/appointments', label: 'Agenda', icon: CalendarDays, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
+  { href: '/reports', label: 'Reportes', icon: FileSpreadsheet, roles: ['ADMIN', 'MANAGER'] },
   { href: '/settings', label: 'Configuración', icon: Settings, roles: ['ADMIN', 'MANAGER'] },
 ];
