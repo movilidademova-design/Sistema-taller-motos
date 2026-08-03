@@ -24,10 +24,13 @@ import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import type { Client, PaginatedResult } from '@/lib/types';
+import { ExportButton } from '@/components/reports/export-button';
+import { DateRangeFilter, defaultDateRange, type DateRange } from '@/components/reports/date-range-filter';
 
 export default function ClientsPage() {
   const [search, setSearch] = React.useState('');
   const [open, setOpen] = React.useState(false);
+  const [range, setRange] = React.useState<DateRange>(defaultDateRange());
   const key = `/clients?search=${encodeURIComponent(search)}`;
   const { data, isLoading } = useApiSWR<PaginatedResult<Client>>(key);
 
@@ -38,31 +41,42 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Clientes</h1>
           <p className="text-sm text-muted-foreground">{data?.total ?? 0} clientes registrados</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus /> Nuevo cliente
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <NewClientForm
-              onSuccess={() => {
-                setOpen(false);
-                mutate((k) => typeof k === 'string' && k.startsWith('/clients'));
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            endpoint="/clients/export"
+            filename="clientes"
+            params={{ search, from: range.from, to: range.to }}
+            hint="El archivo incluye también los clientes inactivos, marcados en la columna Estado."
+          />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus /> Nuevo cliente
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <NewClientForm
+                onSuccess={() => {
+                  setOpen(false);
+                  mutate((k) => typeof k === 'string' && k.startsWith('/clients'));
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nombre, documento o teléfono..."
-          className="pl-8"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nombre, documento o teléfono..."
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
       <div className="rounded-lg border">

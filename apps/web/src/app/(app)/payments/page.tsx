@@ -22,9 +22,12 @@ import { api } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from '@taller/shared';
 import type { Client, PaginatedResult, Payment } from '@/lib/types';
+import { ExportButton } from '@/components/reports/export-button';
+import { DateRangeFilter, defaultDateRange, type DateRange } from '@/components/reports/date-range-filter';
 
 export default function PaymentsPage() {
   const [open, setOpen] = React.useState(false);
+  const [range, setRange] = React.useState<DateRange>(defaultDateRange());
   const { data, mutate } = useApiSWR<Payment[]>('/payments');
 
   return (
@@ -34,21 +37,32 @@ export default function PaymentsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Pagos</h1>
           <p className="text-sm text-muted-foreground">Historial de pagos recibidos</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus /> Registrar pago
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <NewPaymentForm
-              onSuccess={() => {
-                setOpen(false);
-                mutate();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            endpoint="/payments/export"
+            filename="pagos"
+            params={{ from: range.from, to: range.to }}
+          />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus /> Registrar pago
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <NewPaymentForm
+                onSuccess={() => {
+                  setOpen(false);
+                  mutate();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
       <div className="rounded-lg border">

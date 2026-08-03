@@ -13,12 +13,15 @@ import { OrderStatusBadge } from '@/components/shared/order-status-badge';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { ORDER_STATUS_LABELS, type OrderStatus } from '@taller/shared';
 import type { Order, PaginatedResult } from '@/lib/types';
+import { ExportButton } from '@/components/reports/export-button';
+import { DateRangeFilter, defaultDateRange, type DateRange } from '@/components/reports/date-range-filter';
 
 const STATUS_OPTIONS = Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, string][];
 
 export default function OrdersPage() {
   const [search, setSearch] = React.useState('');
   const [status, setStatus] = React.useState<string>('ALL');
+  const [range, setRange] = React.useState<DateRange>(defaultDateRange());
   const router = useRouter();
 
   const params = new URLSearchParams();
@@ -35,11 +38,23 @@ export default function OrdersPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Órdenes de trabajo</h1>
           <p className="text-sm text-muted-foreground">{data?.total ?? 0} órdenes</p>
         </div>
-        <Button asChild>
-          <Link href="/orders/new">
-            <Plus /> Nueva orden
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            endpoint="/orders/export"
+            filename="ordenes"
+            params={{
+              search,
+              status: status !== 'ALL' ? status : undefined,
+              from: range.from,
+              to: range.to,
+            }}
+          />
+          <Button asChild>
+            <Link href="/orders/new">
+              <Plus /> Nueva orden
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -65,6 +80,7 @@ export default function OrdersPage() {
             ))}
           </SelectContent>
         </Select>
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
       <div className="rounded-lg border">

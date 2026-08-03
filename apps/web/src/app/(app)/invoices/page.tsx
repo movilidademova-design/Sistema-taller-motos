@@ -10,6 +10,8 @@ import { useApiSWR } from '@/hooks/use-api-swr';
 import { api, openAuthedBlobInNewTab } from '@/lib/api';
 import { getErrorMessage } from '@/components/providers/auth-provider';
 import type { Invoice } from '@/lib/types';
+import { ExportButton } from '@/components/reports/export-button';
+import { DateRangeFilter, defaultDateRange, type DateRange } from '@/components/reports/date-range-filter';
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'success' | 'warning' | 'destructive'> = {
   DRAFT: 'secondary',
@@ -21,12 +23,24 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'success' | 'warn
 
 export default function InvoicesPage() {
   const { data: invoices } = useApiSWR<Invoice[]>('/invoices');
+  const [range, setRange] = React.useState<DateRange>(defaultDateRange());
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Facturas</h1>
-        <p className="text-sm text-muted-foreground">Facturación generada a partir de órdenes con cotización aprobada</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Facturas</h1>
+          <p className="text-sm text-muted-foreground">Facturación generada a partir de órdenes con cotización aprobada</p>
+        </div>
+        <ExportButton
+          endpoint="/invoices/export"
+          filename="facturas"
+          params={{ from: range.from, to: range.to }}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
       <div className="rounded-lg border">
