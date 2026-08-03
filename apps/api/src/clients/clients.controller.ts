@@ -7,12 +7,18 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ExportQueryDto } from '../common/dto/export-query.dto';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../common/excel/excel.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentBranch } from '../common/decorators/current-branch.decorator';
@@ -40,6 +46,19 @@ export class ClientsController {
     @Param('documentId') documentId: string,
   ) {
     return this.clientsService.findByDocumentId(tenantId, documentId);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @Get('export')
+  async export(
+    @CurrentUser('tenantId') tenantId: string,
+    @Query() query: ExportQueryDto,
+  ): Promise<StreamableFile> {
+    const buffer = await this.clientsService.exportToExcel(tenantId, query);
+    return new StreamableFile(buffer, {
+      type: EXCEL_CONTENT_TYPE,
+      disposition: excelAttachment('clientes'),
+    });
   }
 
   @Get(':id')
