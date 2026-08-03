@@ -95,6 +95,30 @@ describe('OrdersService.exportToExcel', () => {
     expect(whereOf(findMany).OR).toEqual(orderSearchFilter('abc')!.OR);
   });
 
+  it('builds the same search clause the on-screen list builds', async () => {
+    // La otra mitad de la paridad: sin esto, alguien podría volver a poner un
+    // OR propio dentro de `findAll` y el test de arriba seguiría en verde,
+    // porque solo mira el lado del export.
+    const listFindMany = jest.fn().mockResolvedValue([]);
+    const $transaction = jest.fn().mockResolvedValue([[], 0]);
+    const service = new OrdersService(
+      { order: { findMany: listFindMany, count: jest.fn() }, $transaction } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.findAll(tenantId, { search: 'abc' });
+
+    const listWhere = $transaction.mock.calls[0][0];
+    expect(listWhere).toHaveLength(2);
+    expect(listFindMany.mock.calls[0][0].where.OR).toEqual(
+      orderSearchFilter('abc')!.OR,
+    );
+  });
+
   it('hands the rows to ExcelService under a Spanish sheet name', async () => {
     const { generate, promise } = run(Role.ADMIN);
     await promise;

@@ -792,6 +792,10 @@ En `apps/api/src/orders/orders.controller.ts`, agregar los imports:
 ```ts
 import { StreamableFile } from '@nestjs/common';
 import { ExportOrdersQueryDto } from './dto/export-orders-query.dto';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../common/excel/excel.service';
 ```
 
 `StreamableFile` se suma a la lista de imports que ya vienen de `@nestjs/common`; no duplicar la línea.
