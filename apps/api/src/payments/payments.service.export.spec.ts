@@ -1,6 +1,11 @@
 import { PaymentsService } from './payments.service';
 import { MAX_ROWS } from '../common/excel/excel.service';
-import { findManyArgs, whereOf } from '../common/testing/export-test-utils';
+import {
+  findManyArgs,
+  stubExcel,
+  stubPrisma,
+  whereOf,
+} from '../common/testing/export-test-utils';
 import { PaymentMethod, Role } from '../generated/prisma/enums';
 import type { ExportPaymentsQueryDto } from './dto/export-payments-query.dto';
 
@@ -9,8 +14,8 @@ function makeService(overrides: {
   generate?: jest.Mock;
 }): PaymentsService {
   return new PaymentsService(
-    { payment: { findMany: overrides.findMany } } as never,
-    { generate: overrides.generate ?? jest.fn() } as never,
+    stubPrisma('payment', overrides.findMany),
+    stubExcel(overrides.generate),
   );
 }
 
@@ -19,19 +24,14 @@ describe('PaymentsService.exportToExcel', () => {
   const currentBranch = 'branch-actual';
   const otherBranch = 'branch-ajeno';
 
-  function run(role: Role, query: Partial<ExportPaymentsQueryDto> = {}) {
+  function run(role: Role, query: ExportPaymentsQueryDto = {}) {
     const findMany = jest.fn().mockResolvedValue([]);
     const generate = jest.fn().mockResolvedValue(Buffer.from(''));
     const service = makeService({ findMany, generate });
     return {
       findMany,
       generate,
-      promise: service.exportToExcel(
-        tenantId,
-        currentBranch,
-        role,
-        query as ExportPaymentsQueryDto,
-      ),
+      promise: service.exportToExcel(tenantId, currentBranch, role, query),
     };
   }
 
@@ -50,9 +50,7 @@ describe('PaymentsService.exportToExcel', () => {
   it('pins a MANAGER to their own branch, ignoring a requested one', async () => {
     const { findMany, promise } = run(Role.MANAGER, { branchId: otherBranch });
     await promise;
-    expect(whereOf(findMany).OR).toContainEqual({
-      order: { branchId: currentBranch },
-    });
+    expect(whereOf(findMany).order).toEqual({ branchId: currentBranch });
   });
 
   it('exports every branch for an ADMIN who picked none, with no branch/OR clause at all', async () => {
@@ -62,15 +60,25 @@ describe('PaymentsService.exportToExcel', () => {
     expect(whereOf(findMany)).not.toHaveProperty('OR');
   });
 
-  it('includes orphan payments (no linked order) even when scoped to a branch', async () => {
+  it('leaves orphan payments out of a branch-scoped export', async () => {
     // Payment no guarda su propia sucursal — se deriva de la orden asociada
     // (ver el comentario en el servicio). Un pago sin orden no pertenece a
-    // ninguna sede en particular, así que un reporte por sucursal debe seguir
-    // incluyéndolo: es preferible que aparezca de más a que desaparezca de
-    // todos los reportes y descuadre la caja. Este test fija esa decisión.
+    // ninguna sede, así que un reporte por sucursal lo deja fuera: si cada
+    // sucursal lo incluyera, sumar los reportes de todas daría de más, y un
+    // pago contado dos veces no salta a la vista al cuadrar caja. Decisión
+    // confirmada con el usuario; este test la fija.
     const { findMany, promise } = run(Role.MANAGER);
     await promise;
-    expect(whereOf(findMany).OR).toContainEqual({ orderId: null });
+    expect(whereOf(findMany)).not.toHaveProperty('OR');
+    expect(whereOf(findMany).order).toEqual({ branchId: currentBranch });
+  });
+
+  it('includes orphan payments when an ADMIN exports every branch', async () => {
+    // La contraparte: sin filtro de sucursal no hay condición sobre la orden,
+    // así que los pagos huérfanos entran y salen marcados "Sin sucursal".
+    const { findMany, promise } = run(Role.ADMIN);
+    await promise;
+    expect(whereOf(findMany)).not.toHaveProperty('order');
   });
 
   it('filters by payment date over the requested range', async () => {

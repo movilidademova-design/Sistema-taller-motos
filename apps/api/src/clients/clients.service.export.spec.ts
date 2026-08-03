@@ -1,30 +1,34 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { ClientsService, clientSearchFilter } from './clients.service';
 import { MAX_ROWS } from '../common/excel/excel.service';
-import { findManyArgs, whereOf } from '../common/testing/export-test-utils';
-import type { ExportQueryDto } from '../common/dto/export-query.dto';
+import {
+  findManyArgs,
+  stubExcel,
+  stubPrisma,
+  whereOf,
+} from '../common/testing/export-test-utils';
+import type { ExportClientsQueryDto } from './dto/export-clients-query.dto';
 
 function makeService(overrides: {
   findMany: jest.Mock;
   generate?: jest.Mock;
 }): ClientsService {
   return new ClientsService(
-    { client: { findMany: overrides.findMany } } as never,
-    { generate: overrides.generate ?? jest.fn() } as never,
+    stubPrisma('client', overrides.findMany),
+    stubExcel(overrides.generate),
   );
 }
 
 describe('ClientsService.exportToExcel', () => {
   const tenantId = 'tenant-1';
 
-  function run(query: Partial<ExportQueryDto> = {}) {
+  function run(query: ExportClientsQueryDto = {}) {
     const findMany = jest.fn().mockResolvedValue([]);
     const generate = jest.fn().mockResolvedValue(Buffer.from(''));
     const service = makeService({ findMany, generate });
     return {
       findMany,
       generate,
-      promise: service.exportToExcel(tenantId, query as ExportQueryDto),
+      promise: service.exportToExcel(tenantId, query),
     };
   }
 
@@ -74,17 +78,16 @@ describe('ClientsService.exportToExcel', () => {
     const listFindMany = jest.fn().mockResolvedValue([]);
     const $transaction = jest.fn().mockResolvedValue([[], 0]);
     const service = new ClientsService(
-      { client: { findMany: listFindMany, count: jest.fn() }, $transaction } as never,
+      {
+        client: { findMany: listFindMany, count: jest.fn() },
+        $transaction,
+      } as never,
       {} as never,
     );
 
     await service.findAll(tenantId, { search: 'abc' });
 
-    const listWhere = $transaction.mock.calls[0][0];
-    expect(listWhere).toHaveLength(2);
-    expect(listFindMany.mock.calls[0][0].where.OR).toEqual(
-      clientSearchFilter('abc')!.OR,
-    );
+    expect(whereOf(listFindMany).OR).toEqual(clientSearchFilter('abc')!.OR);
   });
 
   it('does not filter isActive — the export covers the full history, active or not', async () => {
@@ -93,17 +96,20 @@ describe('ClientsService.exportToExcel', () => {
     expect(whereOf(findMany)).not.toHaveProperty('isActive');
   });
 
-  it("findAll DOES filter isActive, unlike the export", async () => {
+  it('findAll DOES filter isActive, unlike the export', async () => {
     const listFindMany = jest.fn().mockResolvedValue([]);
     const $transaction = jest.fn().mockResolvedValue([[], 0]);
     const service = new ClientsService(
-      { client: { findMany: listFindMany, count: jest.fn() }, $transaction } as never,
+      {
+        client: { findMany: listFindMany, count: jest.fn() },
+        $transaction,
+      } as never,
       {} as never,
     );
 
     await service.findAll(tenantId, {});
 
-    expect(listFindMany.mock.calls[0][0].where.isActive).toBe(true);
+    expect(whereOf(listFindMany).isActive).toBe(true);
   });
 
   it('hands the rows to ExcelService under a Spanish sheet name', async () => {

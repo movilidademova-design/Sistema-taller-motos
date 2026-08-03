@@ -10,7 +10,8 @@
 /** El primer argumento con el que se llamó a un `findMany` simulado. */
 export function findManyArgs(findMany: jest.Mock): Record<string, unknown> {
   expect(findMany).toHaveBeenCalled();
-  return findMany.mock.calls[0][0] as Record<string, unknown>;
+  const [args] = findMany.mock.calls[0] as [Record<string, unknown>];
+  return args;
 }
 
 /** El `where` con el que se llamó a un `findMany` simulado. */

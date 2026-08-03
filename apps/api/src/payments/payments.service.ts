@@ -96,13 +96,16 @@ export class PaymentsService {
         ...(createdAt ? { createdAt } : {}),
         ...(query.method ? { method: query.method } : {}),
         // Payment no tiene branchId propio (ver sección 3.5 del spec de diseño):
-        // la sucursal se deriva de la orden. Un pago sin orden no se puede
-        // atribuir a ninguna sede, así que se incluye siempre — es preferible que
-        // aparezca de más en un reporte de sucursal a que desaparezca de todos y
-        // descuadre la caja.
-        ...(branchId
-          ? { OR: [{ order: { branchId } }, { orderId: null }] }
-          : {}),
+        // la sucursal se deriva de la orden, y un pago sin orden (un abono
+        // adelantado, por ejemplo) no se puede atribuir a ninguna sede.
+        //
+        // Esos pagos huérfanos quedan FUERA de un reporte por sucursal y solo
+        // aparecen cuando un ADMIN exporta el taller completo, marcados como
+        // "Sin sucursal". Repetirlos en el reporte de cada sede haría que sumar
+        // los reportes de todas diera de más, y un pago contado dos veces no
+        // salta a la vista al cuadrar caja; uno que falta, sí. La solución de
+        // fondo es darle `branchId` propio a Payment — ver el spec.
+        ...(branchId ? { order: { branchId } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
