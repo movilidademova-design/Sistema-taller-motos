@@ -77,6 +77,37 @@ describe('ExcelService', () => {
     expect(sheet!.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
   });
 
+  it('leaves a cell empty for null and undefined instead of printing "null"', async () => {
+    // Casi toda columna de estos reportes mapea un campo opcional de Prisma
+    // (deliveredAt, birthDate, documentId...) sin normalizarlo antes, así que
+    // este comportamiento es del que dependen los cinco servicios que exportan.
+    interface Nullable {
+      name: string | null;
+      amount: number | undefined;
+      when: Date | null;
+    }
+
+    const buffer = await service.generate<Nullable>({
+      sheetName: 'Nulos',
+      columns: [
+        { header: 'Nombre', key: 'name', value: (r) => r.name },
+        {
+          header: 'Monto',
+          key: 'amount',
+          format: 'currency',
+          value: (r) => r.amount,
+        },
+        { header: 'Fecha', key: 'when', format: 'date', value: (r) => r.when },
+      ],
+      rows: [{ name: null, amount: undefined, when: null }],
+    });
+    const sheet = (await readBack(buffer)).getWorksheet('Nulos');
+
+    expect(sheet!.getRow(2).getCell(1).value).toBeNull();
+    expect(sheet!.getRow(2).getCell(2).value).toBeNull();
+    expect(sheet!.getRow(2).getCell(3).value).toBeNull();
+  });
+
   it('still produces a valid file with a header when there are no rows', async () => {
     const buffer = await service.generate({
       sheetName: 'Vacio',

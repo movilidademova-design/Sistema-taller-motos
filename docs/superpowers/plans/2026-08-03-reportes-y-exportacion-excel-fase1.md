@@ -504,7 +504,7 @@ export class ExportOrdersQueryDto extends ExportQueryDto {
 En `apps/api/src/orders/orders.service.ts`, agregar los imports que falten en la parte superior del archivo:
 
 ```ts
-import { ExcelService } from '../common/excel/excel.service';
+import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import {
   dateRangeFilter,
   resolveExportBranchId,
@@ -568,6 +568,10 @@ async exportToExcel(
         : {}),
     },
     orderBy: { receivedAt: 'desc' },
+    // Corta la consulta una fila por encima del tope para que ExcelService
+    // responda un 400 con instrucciones en vez de traer medio millón de filas
+    // a memoria y recién ahí darse cuenta.
+    take: MAX_ROWS + 1,
     include: {
       branch: { select: { name: true } },
       client: {
@@ -757,7 +761,7 @@ git commit -m "Add Excel export endpoint for orders"
 En `apps/api/src/clients/clients.service.ts`, agregar imports:
 
 ```ts
-import { ExcelService } from '../common/excel/excel.service';
+import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import { dateRangeFilter } from '../common/excel/export-filters.util';
 import { ExportQueryDto } from '../common/dto/export-query.dto';
 ```
@@ -794,6 +798,7 @@ async exportToExcel(tenantId: string, query: ExportQueryDto): Promise<Buffer> {
         : {}),
     },
     orderBy: { createdAt: 'desc' },
+    take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
     include: { _count: { select: { motorcycles: true, orders: true } } },
   });
 
@@ -920,7 +925,7 @@ export class ExportPaymentsQueryDto extends ExportQueryDto {
 En `apps/api/src/payments/payments.service.ts`, agregar imports:
 
 ```ts
-import { ExcelService } from '../common/excel/excel.service';
+import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import {
   dateRangeFilter,
   resolveExportBranchId,
@@ -977,6 +982,7 @@ async exportToExcel(
         : {}),
     },
     orderBy: { createdAt: 'desc' },
+    take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
     include: {
       client: { select: { firstName: true, lastName: true, documentId: true } },
       order: {
@@ -1111,7 +1117,7 @@ export class ExportInvoicesQueryDto extends ExportQueryDto {
 En `apps/api/src/invoices/invoices.service.ts`, agregar imports:
 
 ```ts
-import { ExcelService } from '../common/excel/excel.service';
+import { ExcelService, MAX_ROWS } from '../common/excel/excel.service';
 import {
   dateRangeFilter,
   resolveExportBranchId,
@@ -1182,6 +1188,7 @@ async exportToExcel(
         : {}),
     },
     orderBy: { issuedAt: 'desc' },
+    take: MAX_ROWS + 1, // ver la nota en el export de Órdenes
     include: {
       client: { select: { firstName: true, lastName: true, documentId: true } },
       order: {
@@ -1421,6 +1428,12 @@ export class ReportsService {
     const groupBy = query.groupBy ?? RevenueGroupBy.MONTH;
     const range = dateRangeFilter(query.from, query.to);
 
+    // A diferencia de los exports de detalle, aquí NO se usa `take: MAX_ROWS + 1`:
+    // estas consultas alimentan una agregación, así que truncarlas devolvería
+    // totales incorrectos en silencio — mucho peor que un reporte que tarda. El
+    // riesgo de memoria es bajo porque el `select` trae solo cuatro campos
+    // pequeños por fila, y lo que llega a ExcelService son los buckets ya
+    // agregados (una fila por periodo y sucursal), no las facturas crudas.
     const [invoices, deliveredOrders] = await Promise.all([
       this.prisma.invoice.findMany({
         where: {

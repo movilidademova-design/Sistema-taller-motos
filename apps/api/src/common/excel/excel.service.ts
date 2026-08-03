@@ -8,14 +8,35 @@ export type ExcelColumnFormat =
   | 'currency'
   | 'number';
 
-export interface ExcelColumn<T> {
+interface ExcelColumnBase {
   /** Encabezado visible, en español. */
   header: string;
   key: string;
   width?: number;
-  format?: ExcelColumnFormat;
-  value: (row: T) => unknown;
 }
+
+/**
+ * El tipo que devuelve `value` está atado al `format` declarado. Sin esa
+ * restricción, declarar `format: 'currency'` y devolver un `Decimal` de Prisma
+ * (en vez de `Number(...)`) o una cadena compila sin problema y solo se detecta
+ * abriendo el archivo — y entre los reportes de esta fase hay decenas de
+ * columnas de dinero y de fecha donde ese descuido es fácil.
+ *
+ * `null`/`undefined` se aceptan en todos los casos: la mayoría de las columnas
+ * mapean campos opcionales de Prisma y exceljs los escribe como celda vacía.
+ */
+export type ExcelColumn<T> = ExcelColumnBase &
+  (
+    | { format?: 'text'; value: (row: T) => string | null | undefined }
+    | {
+        format: 'number' | 'currency';
+        value: (row: T) => number | null | undefined;
+      }
+    | {
+        format: 'date' | 'datetime';
+        value: (row: T) => Date | null | undefined;
+      }
+  );
 
 export interface GenerateOptions<T> {
   sheetName: string;
@@ -24,12 +45,16 @@ export interface GenerateOptions<T> {
 }
 
 /**
- * exceljs arma el libro completo en memoria antes de devolver el Buffer, así que
- * un export sin tope podría tumbar el proceso. Con el volumen real de un taller
- * (miles de filas al año) nunca se llega a este número; el tope existe para que
- * un rango de fechas mal elegido devuelva un error claro en vez de un crash.
+ * Tope de filas por reporte.
+ *
+ * No evita por sí solo un problema de memoria: para cuando `generate` corre, el
+ * llamador ya trajo todas las filas de la base de datos. Por eso los servicios
+ * que exportan una fila por registro limitan su consulta con
+ * `take: MAX_ROWS + 1`, de modo que la consulta se corta temprano y este chequeo
+ * convierte ese exceso en un 400 con instrucciones, en vez de intentar armar el
+ * libro. Se exporta justamente para que esos servicios usen el mismo número.
  */
-const MAX_ROWS = 50_000;
+export const MAX_ROWS = 50_000;
 
 const NUMBER_FORMATS: Record<ExcelColumnFormat, string | undefined> = {
   text: undefined,
