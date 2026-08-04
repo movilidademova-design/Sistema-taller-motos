@@ -10,7 +10,7 @@ import {
   UpdateProductDto,
   AdjustStockDto,
 } from './dto/product.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { InventoryMovementType } from '../../generated/prisma/enums';
 
 @Injectable()
@@ -19,7 +19,7 @@ export class ProductsService {
 
   async findAll(
     tenantId: string,
-    query: PaginationQueryDto & { categoryId?: string; lowStock?: boolean },
+    query: ListProductsQueryDto,
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;

@@ -11,7 +11,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { MotorcyclesService } from './motorcycles.service';
 import { CreateMotorcycleDto } from './dto/create-motorcycle.dto';
 import { UpdateMotorcycleDto } from './dto/update-motorcycle.dto';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ListMotorcyclesQueryDto } from './dto/list-motorcycles-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentBranch } from '../common/decorators/current-branch.decorator';
@@ -27,7 +27,7 @@ export class MotorcyclesController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
-    @Query() query: PaginationQueryDto & { clientId?: string },
+    @Query() query: ListMotorcyclesQueryDto,
   ) {
     return this.motorcyclesService.findAll(tenantId, query);
   }

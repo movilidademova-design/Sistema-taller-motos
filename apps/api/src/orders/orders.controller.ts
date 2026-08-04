@@ -24,7 +24,7 @@ import {
   EXCEL_CONTENT_TYPE,
   excelAttachment,
 } from '../common/excel/excel.service';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentBranch } from '../common/decorators/current-branch.decorator';
@@ -41,12 +41,7 @@ export class OrdersController {
   findAll(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentBranch() branchId: string,
-    @Query()
-    query: PaginationQueryDto & {
-      status?: OrderStatus;
-      technicianId?: string;
-      clientId?: string;
-    },
+    @Query() query: ListOrdersQueryDto,
   ) {
     // Every role sees every order in the current branch — a technician isn't
     // limited to orders explicitly assigned to them, since this shop doesn't

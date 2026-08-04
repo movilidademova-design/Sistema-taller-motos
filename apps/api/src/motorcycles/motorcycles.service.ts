@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMotorcycleDto } from './dto/create-motorcycle.dto';
 import { UpdateMotorcycleDto } from './dto/update-motorcycle.dto';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ListMotorcyclesQueryDto } from './dto/list-motorcycles-query.dto';
 
 @Injectable()
 export class MotorcyclesService {
@@ -13,7 +13,7 @@ export class MotorcyclesService {
   // (see docs/superpowers/specs/2026-07-28-sucursales-fase1-design.md).
   async findAll(
     tenantId: string,
-    query: PaginationQueryDto & { clientId?: string },
+    query: ListMotorcyclesQueryDto,
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;

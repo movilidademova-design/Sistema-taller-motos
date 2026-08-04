@@ -10,7 +10,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { IntakeOrderDto } from './dto/intake-order.dto';
 import { DeliverOrderDto } from './dto/deliver-order.dto';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { OrderStatus, PhotoStage, Role } from '../generated/prisma/enums';
 import { Prisma } from '../generated/prisma/client';
 import { canTransition } from './order-status.util';
@@ -96,12 +96,7 @@ export class OrdersService {
 
   async findAll(
     tenantId: string,
-    query: PaginationQueryDto & {
-      status?: OrderStatus;
-      technicianId?: string;
-      clientId?: string;
-      branchId?: string;
-    },
+    query: ListOrdersQueryDto & { branchId?: string },
   ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;

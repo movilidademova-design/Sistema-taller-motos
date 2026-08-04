@@ -14,7 +14,7 @@ import {
   UpdateProductDto,
   AdjustStockDto,
 } from './dto/product.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
@@ -30,7 +30,7 @@ export class ProductsController {
   findAll(
     @CurrentUser('tenantId') tenantId: string,
     @Query()
-    query: PaginationQueryDto & { categoryId?: string; lowStock?: boolean },
+    query: ListProductsQueryDto,
   ) {
     return this.productsService.findAll(tenantId, query);
   }
