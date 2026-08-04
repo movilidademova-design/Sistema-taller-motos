@@ -19,7 +19,7 @@
 
 **Files:** `apps/api/prisma/schema.prisma`, migración, `packages/shared/src/enums.ts`
 
-- [ ] **Step 1: Enums y modelos**
+- [x] **Step 1: Enums y modelos**
 
 En `apps/api/prisma/schema.prisma`:
 
@@ -63,7 +63,7 @@ model QuotationStatusHistory {
 
 Agregar la relación inversa en `User`: `quotationStatusChanges QuotationStatusHistory[]`.
 
-- [ ] **Step 2: Migración**
+- [x] **Step 2: Migración**
 
 Hay 0 cotizaciones en la base, así que borrar `laborCost` y el valor `LABOR` no pierde datos. Postgres no permite quitar un valor de un enum, así que hay que recrearlo.
 
@@ -78,7 +78,7 @@ npx prisma migrate dev && npx prisma generate
 docker exec sistema-taller-motos-postgres-1 psql -U postgres -d taller_motos -c "\d quotations" -c "\d quotation_status_history"
 ```
 
-- [ ] **Step 3: Enums compartidos**
+- [x] **Step 3: Enums compartidos**
 
 En `packages/shared/src/enums.ts`, reemplazar `QuotationStatus` por los 7 valores y quitar `LABOR` de `QuotationItemType`. Agregar etiquetas:
 
@@ -94,7 +94,7 @@ export const QUOTATION_STATUS_LABELS: Record<QuotationStatus, string> = {
 };
 ```
 
-- [ ] **Step 4: Verificar y commitear**
+- [x] **Step 4: Verificar y commitear**
 
 El build queda roto (el servicio usa `laborCost` y `LABOR`); se cierra en la tarea 2. **No commitear todavía** — la tarea 2 hace el commit conjunto.
 
@@ -104,7 +104,7 @@ El build queda roto (el servicio usa `laborCost` y `LABOR`); se cierra en la tar
 
 **Files:** `apps/api/src/orders/diagnosis/diagnosis.service.ts`, `apps/api/src/orders/quotations/quotations.service.ts`, `apps/api/src/orders/quotations/dto/upsert-quotation.dto.ts`
 
-- [ ] **Step 1: Quitar el movimiento de inventario del diagnóstico**
+- [x] **Step 1: Quitar el movimiento de inventario del diagnóstico**
 
 En `diagnosis.service.ts`, `addPart` deja de tocar stock — solo consulta el producto para copiar su precio:
 
@@ -125,7 +125,7 @@ En `diagnosis.service.ts`, `addPart` deja de tocar stock — solo consulta el pr
 
 Y `removePart` deja de reponer stock: borra la fila y ya. Eliminar de ambos métodos las llamadas a `tx.product.update` y `tx.inventoryMovement.create`, y los imports que queden sin uso (`InventoryMovementType`, y `BadRequestException` si no lo usa nada más).
 
-- [ ] **Step 2: Crear la cotización al guardar el diagnóstico**
+- [x] **Step 2: Crear la cotización al guardar el diagnóstico**
 
 En `diagnosis.service.ts`, al final de `upsert`, después de guardar el diagnóstico:
 
@@ -147,7 +147,7 @@ En `diagnosis.service.ts`, al final de `upsert`, después de guardar el diagnós
 
 Inyectar `QuotationsService` en el constructor de `DiagnosisService`. Ambos viven en `OrdersModule`, así que no hace falta tocar módulos. **Si NestJS reporta dependencia circular** (`QuotationsService` inyecta `OrdersService`, no `DiagnosisService`, así que no debería), resolver con `forwardRef` y reportarlo.
 
-- [ ] **Step 3: `createFromDiagnosis` en `QuotationsService`**
+- [x] **Step 3: `createFromDiagnosis` en `QuotationsService`**
 
 ```ts
   /**
@@ -237,11 +237,11 @@ function totalsOf(items: { quantity: Prisma.Decimal; subtotal: Prisma.Decimal }[
 }
 ```
 
-- [ ] **Step 4: Limpiar `upsert` y el DTO**
+- [x] **Step 4: Limpiar `upsert` y el DTO**
 
 En `upsert`, eliminar la línea `const laborCost = sumByType(dto.items, [QuotationItemType.LABOR]);` y todas las referencias a `laborCost`; `taxable` pasa a ser `partsCost - discount`. Quitar `laborCost` de los objetos `create`/`update`. Cambiar el `status` que fija a `QuotationStatus.PENDING_REVIEW`, y **eliminar** de `upsert` el bloque que mueve la orden a `WAITING_APPROVAL` y el `this.whatsapp.notifyQuotationReady(...)` — eso ahora lo hace `createFromDiagnosis` y el envío es explícito (tarea 5). Si `WhatsappService` queda sin uso en este servicio, quitar la inyección.
 
-- [ ] **Step 5: Verificar y commitear (tareas 1 y 2 juntas)**
+- [x] **Step 5: Verificar y commitear (tareas 1 y 2 juntas)**
 
 ```bash
 pnpm --filter @taller/api build && pnpm --filter @taller/api test
@@ -255,7 +255,7 @@ git commit -m "Turn a diagnosis with parts into a quotation awaiting review"
 
 **Files:** `apps/api/src/orders/quotations/quotations.service.ts`, `quotations.controller.ts`, nuevo `dto/change-quotation-status.dto.ts`, nuevo `quotations.service.spec.ts`
 
-- [ ] **Step 1: DTO**
+- [x] **Step 1: DTO**
 
 ```ts
 import { ApiProperty } from '@nestjs/swagger';
@@ -274,7 +274,7 @@ export class ChangeQuotationStatusDto {
 }
 ```
 
-- [ ] **Step 2: Transiciones permitidas**
+- [x] **Step 2: Transiciones permitidas**
 
 A nivel de módulo en `quotations.service.ts`:
 
@@ -304,7 +304,7 @@ const QUOTATION_TRANSITIONS: Record<QuotationStatus, QuotationStatus[]> = {
 };
 ```
 
-- [ ] **Step 3: `changeStatus`**
+- [x] **Step 3: `changeStatus`**
 
 Reemplaza a `decide()`. Conserva el descuento de inventario y el movimiento de la orden que ya existían, ahora disparados solo por `APPROVED`:
 
@@ -358,7 +358,7 @@ Reemplaza a `decide()`. Conserva el descuento de inventario y el movimiento de l
 
 `consumeStock` es un método privado con el cuerpo que hoy está dentro de `decide()` (el bucle que descuenta `product.quantity`, crea el `InventoryMovement` y mueve la orden a `IN_REPAIR`/`WAITING_PARTS`), extraído tal cual salvo que `createdById` pasa a ser el `userId` que decide, no `order.receptionistId`. Borrar `decide()`.
 
-- [ ] **Step 4: Controller**
+- [x] **Step 4: Controller**
 
 Reemplazar los endpoints `approve`/`reject` por uno solo:
 
@@ -378,11 +378,11 @@ Reemplazar los endpoints `approve`/`reject` por uno solo:
 
 `findOne` debe incluir `history` ordenado por `createdAt desc` con `changedBy: { select: { firstName: true, lastName: true } }`.
 
-- [ ] **Step 5: Tests**
+- [x] **Step 5: Tests**
 
 `apps/api/src/orders/quotations/quotations.service.spec.ts`, con el patrón de instanciación directa del proyecto (ver `apps/api/src/reports/reports.service.spec.ts`). Cubrir: transición válida cambia el estado y escribe historial; transición inválida (p. ej. `PENDING_REVIEW → APPROVED`) lanza `BadRequestException`; `APPROVED` descuenta stock; `REJECTED` **no** lo toca; una cotización ya `SENT` no se pisa desde `createFromDiagnosis`.
 
-- [ ] **Step 6: Verificar y commitear**
+- [x] **Step 6: Verificar y commitear**
 
 ```bash
 pnpm --filter @taller/api build && pnpm --filter @taller/api test
@@ -396,7 +396,7 @@ git commit -m "Put every quotation status change in a person's hands"
 
 **Files:** nuevo `apps/api/src/common/pdf/quotation-pdf.service.ts`, `apps/api/src/common/pdf/pdf.module.ts`
 
-- [ ] **Step 1: El renderizador**
+- [x] **Step 1: El renderizador**
 
 Servicio nuevo, no una variante del `generateDocument` genérico: el pedido pide expresamente un PDF que no se vea genérico, y el existente es para facturas.
 
@@ -577,11 +577,11 @@ export class QuotationPdfService {
 }
 ```
 
-- [ ] **Step 2: Registrarlo**
+- [x] **Step 2: Registrarlo**
 
 En `apps/api/src/common/pdf/pdf.module.ts`, agregar `QuotationPdfService` a `providers` y `exports` (el módulo ya es `@Global()`).
 
-- [ ] **Step 3: Verificar que produce un PDF válido**
+- [x] **Step 3: Verificar que produce un PDF válido**
 
 Test mínimo, `quotation-pdf.service.spec.ts`: renderizar con dos ítems y comprobar que el Buffer empieza con `%PDF` y pesa más de 1 KB; y que un `logoUrl` inexistente no lanza.
 
@@ -597,7 +597,7 @@ git commit -m "Render quotations as a PDF in the workshop's own format"
 
 **Files:** `apps/api/src/orders/quotations/quotations.service.ts`, `quotations.controller.ts`
 
-- [ ] **Step 1: `generatePdf`**
+- [x] **Step 1: `generatePdf`**
 
 Inyectar `QuotationPdfService` y `StorageService`. Método nuevo:
 
@@ -669,7 +669,7 @@ Inyectar `QuotationPdfService` y `StorageService`. Método nuevo:
 
 Con `const QUOTATION_VALIDITY_DAYS = 8;` a nivel de módulo.
 
-- [ ] **Step 2: `prepareSend`**
+- [x] **Step 2: `prepareSend`**
 
 Reutiliza el mecanismo de envío que ya existe: crea una `Notification` con el enlace del PDF; el botón de WhatsApp de `/notifications` (y el de la orden) hace el resto.
 
@@ -720,7 +720,7 @@ Reutiliza el mecanismo de envío que ya existe: crea una `Notification` con el e
 
 Inyectar `ConfigService`. Agregar `PUBLIC_URL=http://localhost:3001` a `apps/api/.env.example` (y a `.env` si existe) con un comentario: es la base del enlace que ve el cliente; en producción debe ser el dominio público.
 
-- [ ] **Step 3: Endpoints**
+- [x] **Step 3: Endpoints**
 
 ```ts
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
@@ -734,7 +734,7 @@ Inyectar `ConfigService`. Agregar `PUBLIC_URL=http://localhost:3001` a `apps/api
   send(...) { return this.quotationsService.prepareSend(tenantId, orderId, userId); }
 ```
 
-- [ ] **Step 4: Verificar y commitear**
+- [x] **Step 4: Verificar y commitear**
 
 Probar contra la API corriendo: crear diagnóstico con repuesto, poner precio, generar PDF, abrir la URL devuelta y confirmar que el PDF se descarga.
 
@@ -749,11 +749,11 @@ git commit -m "Generate the quotation PDF and queue it for WhatsApp"
 
 **Files:** `apps/web/src/lib/types.ts`, `apps/web/src/components/orders/quotation-tab.tsx`
 
-- [ ] **Step 1: Tipos**
+- [x] **Step 1: Tipos**
 
 En `types.ts`, actualizar `Quotation`: `status` pasa a los 7 valores, agregar `pdfUrl?: string | null`, `sentAt?: string | null`, `history?: QuotationStatusHistory[]`, y quitar `laborCost`. Agregar la interfaz del historial.
 
-- [ ] **Step 2: La pestaña**
+- [x] **Step 2: La pestaña**
 
 Se conserva el editor de ítems que ya existe (agregar/quitar fila, descripción, cantidad, precio) y se le suma alrededor:
 
@@ -769,7 +769,7 @@ Se conserva el editor de ítems que ya existe (agregar/quitar fila, descripción
   - `PARTIALLY_APPROVED` → se vuelve a habilitar el editor y aparece **Generar PDF** otra vez
 - Una lista con el historial de estados (quién, cuándo, de qué a qué, observaciones).
 
-- [ ] **Step 3: Verificar y commitear**
+- [x] **Step 3: Verificar y commitear**
 
 ```bash
 pnpm --filter @taller/web build
@@ -783,7 +783,7 @@ git commit -m "Rebuild the quotation tab around its review-and-send flow"
 
 **Files:** `apps/web/src/components/layout/sidebar-nav.tsx` (o donde se rendericen los `NAV_ITEMS`)
 
-- [ ] **Step 1: El contador**
+- [x] **Step 1: El contador**
 
 Junto al ítem "Órdenes", mostrar cuántas órdenes están en `WAITING_APPROVAL` para ADMIN/MANAGER/RECEPTIONIST, usando el endpoint de listado que ya existe:
 
@@ -795,7 +795,7 @@ const { data } = useApiSWR<PaginatedResult<Order>>(
 
 y pintar `data.total` como badge si es mayor que cero. Sin endpoint nuevo: se aprovecha el `total` que ya devuelve la lista paginada.
 
-- [ ] **Step 2: Verificar y commitear**
+- [x] **Step 2: Verificar y commitear**
 
 ```bash
 pnpm --filter @taller/web build
@@ -807,7 +807,7 @@ git commit -m "Badge orders waiting on a quotation review"
 
 ## Task 8: Verificación final
 
-- [ ] **Step 1: Build, tests y lint**
+- [x] **Step 1: Build, tests y lint**
 
 ```bash
 pnpm --filter @taller/api build && pnpm --filter @taller/api test
@@ -816,16 +816,16 @@ cd apps/api && npx eslint src/orders/ src/common/pdf/
 ```
 (No correr `pnpm lint`: reformatea todo el repo y se cuelga.)
 
-- [ ] **Step 2: Prueba manual del flujo completo**
+- [x] **Step 2: Prueba manual del flujo completo**
 
-- [ ] Técnico: diagnóstico **sin** repuestos → guardar → la orden NO pasa a Esperando aprobación y no hay cotización.
-- [ ] Técnico: agregar un repuesto → guardar → la orden pasa a Esperando aprobación, aparece la cotización en "Esperando revisión", y el inventario **no** se movió.
-- [ ] Admin: el menú muestra el contador. Editar ítems y precios, guardar.
-- [ ] Generar PDF con un ítem en 0 → error pidiendo el precio. Ponerle precio → PDF generado.
-- [ ] Abrir el PDF: logo, colores del taller, tabla de 4 columnas, total, cajas de validez y pago, pie.
-- [ ] Enviar por WhatsApp: se abre WhatsApp con el mensaje y el enlace; abrir el enlace en una ventana privada (sin sesión) y confirmar que el PDF se ve.
-- [ ] Marcar **Aprobada** → el inventario se descuenta una sola vez, la orden pasa a En reparación (o Esperando repuestos si falta stock).
-- [ ] En otra orden, marcar **Rechazada** → el inventario no se toca.
-- [ ] En otra, **Aprobada parcialmente** → se puede editar, regenerar PDF y reenviar.
-- [ ] El historial muestra cada cambio con usuario, fecha, estado anterior y nuevo.
-- [ ] Técnico: sigue sin ver la pestaña Cotización.
+- [x] Técnico: diagnóstico **sin** repuestos → guardar → la orden NO pasa a Esperando aprobación y no hay cotización.
+- [x] Técnico: agregar un repuesto → guardar → la orden pasa a Esperando aprobación, aparece la cotización en "Esperando revisión", y el inventario **no** se movió.
+- [x] Admin: el menú muestra el contador. Editar ítems y precios, guardar.
+- [x] Generar PDF con un ítem en 0 → error pidiendo el precio. Ponerle precio → PDF generado.
+- [x] Abrir el PDF: logo, colores del taller, tabla de 4 columnas, total, cajas de validez y pago, pie.
+- [x] Enviar por WhatsApp: se abre WhatsApp con el mensaje y el enlace; abrir el enlace en una ventana privada (sin sesión) y confirmar que el PDF se ve.
+- [x] Marcar **Aprobada** → el inventario se descuenta una sola vez, la orden pasa a En reparación (o Esperando repuestos si falta stock).
+- [x] En otra orden, marcar **Rechazada** → el inventario no se toca.
+- [x] En otra, **Aprobada parcialmente** → se puede editar, regenerar PDF y reenviar.
+- [x] El historial muestra cada cambio con usuario, fecha, estado anterior y nuevo.
+- [x] Técnico: sigue sin ver la pestaña Cotización.
