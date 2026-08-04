@@ -10,6 +10,7 @@ import { DiagnosisService } from './diagnosis/diagnosis.service';
 import { DiagnosisController } from './diagnosis/diagnosis.controller';
 import { QuotationsService } from './quotations/quotations.service';
 import { QuotationsController } from './quotations/quotations.controller';
+import { QuotationsListController } from './quotations/quotations-list.controller';
 
 @Module({
   imports: [RealtimeModule, NotificationsModule, StorageModule],
@@ -18,6 +19,7 @@ import { QuotationsController } from './quotations/quotations.controller';
     PhotosController,
     DiagnosisController,
     QuotationsController,
+    QuotationsListController,
   ],
   providers: [
     OrdersService,

@@ -72,6 +72,75 @@ export class QuotationsService {
     private readonly config: ConfigService,
   ) {}
 
+  /**
+   * Lista para la sección Cotizaciones (no una orden en particular): alcance
+   * por sucursal activa, no por orderId. Una cotización no tiene tenantId ni
+   * branchId propios — pertenece a una orden, y la orden a la sucursal — por
+   * eso el `where` filtra a través de `order`.
+   */
+  async findAllForBranch(
+    tenantId: string,
+    branchId: string,
+    status?: QuotationStatus,
+  ) {
+    const quotations = await this.prisma.quotation.findMany({
+      where: {
+        order: { tenantId, branchId },
+        ...(status ? { status } : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        total: true,
+        createdAt: true,
+        updatedAt: true,
+        pdfUrl: true,
+        _count: { select: { items: true } },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            client: { select: { firstName: true, lastName: true } },
+            motorcycle: { select: { brand: true, model: true } },
+          },
+        },
+      },
+    });
+
+    const rows = quotations.map((q) => ({
+      id: q.id,
+      status: q.status,
+      total: q.total,
+      createdAt: q.createdAt,
+      updatedAt: q.updatedAt,
+      pdfUrl: q.pdfUrl,
+      itemCount: q._count.items,
+      order: q.order,
+    }));
+
+    // PENDING_REVIEW primero (son las que hay que revisar), luego el resto por
+    // actualización más reciente. Prisma no puede ordenar por una secuencia de
+    // enum arbitraria, así que el orden se arma en JS después de traer los datos.
+    return rows.sort((a, b) => {
+      const aPending = a.status === QuotationStatus.PENDING_REVIEW ? 0 : 1;
+      const bPending = b.status === QuotationStatus.PENDING_REVIEW ? 0 : 1;
+      return aPending !== bPending
+        ? aPending - bPending
+        : b.updatedAt.getTime() - a.updatedAt.getTime();
+    });
+  }
+
+  /** Cuenta para la insignia del menú: solo lo que hay por revisar. */
+  async pendingCount(tenantId: string, branchId: string) {
+    const count = await this.prisma.quotation.count({
+      where: {
+        order: { tenantId, branchId },
+        status: QuotationStatus.PENDING_REVIEW,
+      },
+    });
+    return { count };
+  }
+
   async findOne(tenantId: string, orderId: string) {
     await this.ordersService.assertOrderExists(tenantId, orderId);
     const quotation = await this.prisma.quotation.findUnique({

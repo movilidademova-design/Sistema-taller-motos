@@ -199,3 +199,121 @@ describe('QuotationsService.createFromDiagnosis', () => {
     expect(tx.quotationItem.createMany).toHaveBeenCalled();
   });
 });
+
+function makeListService(findManyResult: unknown[] = []) {
+  const findMany = jest.fn().mockResolvedValue(findManyResult);
+  const service = new QuotationsService(
+    { quotation: { findMany } } as never,
+    {} as never,
+  );
+  return { service, findMany };
+}
+
+function listRow(id: string, status: QuotationStatus, updatedAt: string) {
+  return {
+    id,
+    status,
+    total: 100,
+    createdAt: new Date(updatedAt),
+    updatedAt: new Date(updatedAt),
+    pdfUrl: null,
+    _count: { items: 2 },
+    order: {
+      id: `order-${id}`,
+      orderNumber: '0001',
+      client: { firstName: 'Ana', lastName: 'Perez' },
+      motorcycle: { brand: 'Yamaha', model: 'XTZ' },
+    },
+  };
+}
+
+describe('QuotationsService.findAllForBranch', () => {
+  it('scopes the query to the tenant and the active branch through the order', async () => {
+    const { service, findMany } = makeListService([]);
+
+    await service.findAllForBranch('t1', 'branch-1');
+
+    const [args] = findMany.mock.calls[0] as [{ where: { order: unknown } }];
+    expect(args.where.order).toEqual({ tenantId: 't1', branchId: 'branch-1' });
+  });
+
+  it('adds the status filter when one is given', async () => {
+    const { service, findMany } = makeListService([]);
+
+    await service.findAllForBranch('t1', 'branch-1', QuotationStatus.SENT);
+
+    const [args] = findMany.mock.calls[0] as [
+      { where: { status?: QuotationStatus } },
+    ];
+    expect(args.where.status).toBe(QuotationStatus.SENT);
+  });
+
+  it('omits the status filter when none is given', async () => {
+    const { service, findMany } = makeListService([]);
+
+    await service.findAllForBranch('t1', 'branch-1');
+
+    const [args] = findMany.mock.calls[0] as [{ where: object }];
+    expect(args.where).not.toHaveProperty('status');
+  });
+
+  it('sorts PENDING_REVIEW ahead of everything else, then by updatedAt desc', async () => {
+    // "older-sent" y "newer-sent" no están por revisar, así que van después de
+    // "pending" aunque sean más recientes.
+    const rows = [
+      listRow('older-sent', QuotationStatus.SENT, '2026-08-01T00:00:00Z'),
+      listRow('newer-sent', QuotationStatus.SENT, '2026-08-03T00:00:00Z'),
+      listRow(
+        'pending',
+        QuotationStatus.PENDING_REVIEW,
+        '2026-07-01T00:00:00Z',
+      ),
+    ];
+    const { service } = makeListService(rows);
+
+    const result = await service.findAllForBranch('t1', 'branch-1');
+
+    expect(result.map((r) => r.id)).toEqual([
+      'pending',
+      'newer-sent',
+      'older-sent',
+    ]);
+  });
+
+  it('flattens the item count and order details into each row', async () => {
+    const { service } = makeListService([
+      listRow('q1', QuotationStatus.PENDING_REVIEW, '2026-08-01T00:00:00Z'),
+    ]);
+
+    const [row] = await service.findAllForBranch('t1', 'branch-1');
+
+    expect(row.itemCount).toBe(2);
+    expect(row.order).toEqual({
+      id: 'order-q1',
+      orderNumber: '0001',
+      client: { firstName: 'Ana', lastName: 'Perez' },
+      motorcycle: { brand: 'Yamaha', model: 'XTZ' },
+    });
+  });
+});
+
+describe('QuotationsService.pendingCount', () => {
+  it('counts only PENDING_REVIEW quotations, scoped to the tenant and branch', async () => {
+    const count = jest.fn().mockResolvedValue(3);
+    const service = new QuotationsService(
+      { quotation: { count } } as never,
+      {} as never,
+    );
+
+    const result = await service.pendingCount('t1', 'branch-1');
+
+    expect(result).toEqual({ count: 3 });
+    const [args] = count.mock.calls[0] as [
+      { where: { order: unknown; status: QuotationStatus } },
+    ];
+    expect(args.where).toEqual({
+      order: { tenantId: 't1', branchId: 'branch-1' },
+      status: QuotationStatus.PENDING_REVIEW,
+    });
+  });
+});
