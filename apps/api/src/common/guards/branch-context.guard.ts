@@ -46,13 +46,19 @@ export class BranchContextGuard implements CanActivate {
     });
     if (!branch) throw new ForbiddenException('Sucursal no encontrada');
 
-    if (!branch.isActive) return true;
+    if (!branch.isActive) {
+      request.branchUnavailable = true;
+      return true;
+    }
 
     if (request.user.role !== Role.ADMIN) {
       const access = await this.prisma.userBranch.findUnique({
         where: { userId_branchId: { userId: request.user.userId, branchId } },
       });
-      if (!access) return true;
+      if (!access) {
+        request.branchUnavailable = true;
+        return true;
+      }
     }
 
     request.branchId = branch.id;
