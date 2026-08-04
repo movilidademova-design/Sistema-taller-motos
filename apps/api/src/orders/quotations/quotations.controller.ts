@@ -1,16 +1,8 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { QuotationsService } from './quotations.service';
 import { UpsertQuotationDto } from './dto/upsert-quotation.dto';
+import { ChangeQuotationStatusDto } from './dto/change-quotation-status.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Audit } from '../../common/decorators/audit.decorator';
@@ -44,23 +36,13 @@ export class QuotationsController {
 
   @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
   @Audit('Quotation')
-  @HttpCode(HttpStatus.OK)
-  @Post('approve')
-  approve(
+  @Patch('status')
+  changeStatus(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
     @Param('orderId') orderId: string,
+    @Body() dto: ChangeQuotationStatusDto,
   ) {
-    return this.quotationsService.decide(tenantId, orderId, true);
-  }
-
-  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
-  @Audit('Quotation')
-  @HttpCode(HttpStatus.OK)
-  @Post('reject')
-  reject(
-    @CurrentUser('tenantId') tenantId: string,
-    @Param('orderId') orderId: string,
-  ) {
-    return this.quotationsService.decide(tenantId, orderId, false);
+    return this.quotationsService.changeStatus(tenantId, orderId, userId, dto);
   }
 }

@@ -43,8 +43,12 @@ enum OrderStatus {
 }
 
 enum QuotationStatus {
-  PENDING
+  DRAFT
+  PENDING_REVIEW
+  READY_TO_SEND
+  SENT
   APPROVED
+  PARTIALLY_APPROVED
   REJECTED
 }
 
@@ -79,7 +83,6 @@ enum PhotoStage {
 
 enum QuotationItemType {
   PART
-  LABOR
   OTHER
 }
 
@@ -279,6 +282,7 @@ model User {
   receptionistOrders  Order[]              @relation("receptionist")
   diagnoses           Diagnosis[]
   statusChanges       OrderStatusHistory[]
+  quotationStatusChanges QuotationStatusHistory[]
   auditLogs           AuditLog[]
   paymentsReceived    Payment[]
   warrantiesApproved  Warranty[]
@@ -477,22 +481,39 @@ model Quotation {
   id          String          @id @default(uuid())
   orderId     String          @unique
   order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  status      QuotationStatus @default(PENDING)
-  laborCost   Decimal         @default(0) @db.Decimal(10, 2)
+  status      QuotationStatus @default(DRAFT)
   partsCost   Decimal         @default(0) @db.Decimal(10, 2)
   discount    Decimal         @default(0) @db.Decimal(10, 2)
   taxRate     Decimal         @default(0) @db.Decimal(5, 2)
   taxAmount   Decimal         @default(0) @db.Decimal(10, 2)
   total       Decimal         @default(0) @db.Decimal(10, 2)
   notes       String?
+  pdfUrl      String?
+  sentAt      DateTime?
   approvedAt  DateTime?
   rejectedAt  DateTime?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  items QuotationItem[]
+  items   QuotationItem[]
+  history QuotationStatusHistory[]
 
   @@map("quotations")
+}
+
+model QuotationStatusHistory {
+  id          String           @id @default(uuid())
+  quotationId String
+  quotation   Quotation        @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  fromStatus  QuotationStatus?
+  toStatus    QuotationStatus
+  changedById String
+  changedBy   User             @relation(fields: [changedById], references: [id], onDelete: Restrict)
+  notes       String?
+  createdAt   DateTime         @default(now())
+
+  @@index([quotationId])
+  @@map("quotation_status_history")
 }
 
 model QuotationItem {

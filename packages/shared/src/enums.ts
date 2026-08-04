@@ -38,11 +38,25 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 };
 
 export const QuotationStatus = {
-  PENDING: 'PENDING',
+  DRAFT: 'DRAFT',
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  READY_TO_SEND: 'READY_TO_SEND',
+  SENT: 'SENT',
   APPROVED: 'APPROVED',
+  PARTIALLY_APPROVED: 'PARTIALLY_APPROVED',
   REJECTED: 'REJECTED',
 } as const;
 export type QuotationStatus = (typeof QuotationStatus)[keyof typeof QuotationStatus];
+
+export const QUOTATION_STATUS_LABELS: Record<QuotationStatus, string> = {
+  DRAFT: 'Borrador',
+  PENDING_REVIEW: 'Esperando revisión',
+  READY_TO_SEND: 'Lista para enviar',
+  SENT: 'Enviada',
+  APPROVED: 'Aprobada',
+  PARTIALLY_APPROVED: 'Aprobada parcialmente',
+  REJECTED: 'Rechazada',
+};
 
 export const PhotoCategory = {
   FRONT: 'FRONT',
@@ -66,7 +80,6 @@ export type PhotoStage = (typeof PhotoStage)[keyof typeof PhotoStage];
 
 export const QuotationItemType = {
   PART: 'PART',
-  LABOR: 'LABOR',
   OTHER: 'OTHER',
 } as const;
 export type QuotationItemType = (typeof QuotationItemType)[keyof typeof QuotationItemType];

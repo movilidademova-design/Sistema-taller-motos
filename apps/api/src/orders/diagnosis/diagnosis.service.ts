@@ -1,15 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OrdersService } from '../orders.service';
+import { QuotationsService } from '../quotations/quotations.service';
 import { UpsertDiagnosisDto } from './dto/upsert-diagnosis.dto';
 import { AddDiagnosisPartDto } from './dto/add-diagnosis-part.dto';
-import { InventoryMovementType } from '../../generated/prisma/enums';
 
 @Injectable()
 export class DiagnosisService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ordersService: OrdersService,
+    private readonly quotations: QuotationsService,
   ) {}
 
   async findOne(tenantId: string, orderId: string) {
@@ -35,6 +36,20 @@ export class DiagnosisService {
       create: { orderId, technicianId, ...dto },
       update: dto,
     });
+
+    const parts = await this.prisma.diagnosisPart.findMany({
+      where: { diagnosisId: diagnosis.id },
+    });
+
+    // Sin repuestos no hay nada que cotizar: la orden sigue su curso normal.
+    if (parts.length > 0) {
+      await this.quotations.createFromDiagnosis(
+        tenantId,
+        orderId,
+        technicianId,
+        parts,
+      );
+    }
 
     return this.prisma.diagnosis.findUniqueOrThrow({
       where: { id: diagnosis.id },
@@ -65,25 +80,9 @@ export class DiagnosisService {
           where: { id: dto.productId, tenantId },
         });
         if (!product) throw new NotFoundException('Producto no encontrado');
-        const newQuantity = product.quantity - dto.quantity;
-        if (newQuantity < 0) {
-          throw new BadRequestException('No hay suficiente stock disponible');
-        }
-        await tx.product.update({
-          where: { id: product.id },
-          data: { quantity: newQuantity },
-        });
-        await tx.inventoryMovement.create({
-          data: {
-            tenantId,
-            productId: product.id,
-            orderId,
-            type: InventoryMovementType.SALE_OUT,
-            quantity: dto.quantity,
-            reason: `Usado en diagnóstico — orden #${order.orderNumber}`,
-            createdById: technicianId,
-          },
-        });
+        // El stock NO se mueve aquí: el técnico solo está listando lo que hace
+        // falta. Sale del inventario cuando el cliente aprueba la cotización
+        // (ver QuotationsService.changeStatus) — si rechaza, nunca salió nada.
         unitCost = Number(product.unitCost);
       }
 
@@ -100,42 +99,14 @@ export class DiagnosisService {
     });
   }
 
-  async removePart(
-    tenantId: string,
-    orderId: string,
-    partId: string,
-    userId: string,
-  ) {
-    const order = await this.ordersService.assertOrderExists(tenantId, orderId);
+  async removePart(tenantId: string, orderId: string, partId: string) {
+    await this.ordersService.assertOrderExists(tenantId, orderId);
     const part = await this.prisma.diagnosisPart.findFirst({
       where: { id: partId, diagnosis: { orderId } },
     });
     if (!part) throw new NotFoundException('Repuesto no encontrado');
 
-    return this.prisma.$transaction(async (tx) => {
-      if (part.productId) {
-        const product = await tx.product.findFirst({
-          where: { id: part.productId, tenantId },
-        });
-        if (product) {
-          await tx.product.update({
-            where: { id: product.id },
-            data: { quantity: product.quantity + part.quantity },
-          });
-          await tx.inventoryMovement.create({
-            data: {
-              tenantId,
-              productId: part.productId,
-              orderId,
-              type: InventoryMovementType.ADJUSTMENT_IN,
-              quantity: part.quantity,
-              reason: `Reversión — repuesto eliminado de orden #${order.orderNumber}`,
-              createdById: userId,
-            },
-          });
-        }
-      }
-      return tx.diagnosisPart.delete({ where: { id: partId } });
-    });
+    // Nada que reponer: agregar el repuesto nunca descontó stock.
+    return this.prisma.diagnosisPart.delete({ where: { id: partId } });
   }
 }

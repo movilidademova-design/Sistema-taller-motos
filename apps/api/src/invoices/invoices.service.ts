@@ -91,9 +91,9 @@ export class InvoicesService {
           orderId: order.id,
           clientId: order.clientId,
           invoiceNumber,
-          subtotal:
-            Number(order.quotation!.partsCost) +
-            Number(order.quotation!.laborCost),
+          // partsCost ya es el total de los ítems: la mano de obra dejó de ser
+          // un concepto aparte y va incluida en el precio de cada repuesto.
+          subtotal: order.quotation!.partsCost,
           taxAmount: order.quotation!.taxAmount,
           discount: order.quotation!.discount,
           total: order.quotation!.total,

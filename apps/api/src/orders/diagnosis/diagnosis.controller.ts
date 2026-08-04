@@ -51,10 +51,9 @@ export class DiagnosisController {
   @Delete('parts/:partId')
   removePart(
     @CurrentUser('tenantId') tenantId: string,
-    @CurrentUser('userId') userId: string,
     @Param('orderId') orderId: string,
     @Param('partId') partId: string,
   ) {
-    return this.diagnosisService.removePart(tenantId, orderId, partId, userId);
+    return this.diagnosisService.removePart(tenantId, orderId, partId);
   }
 }
