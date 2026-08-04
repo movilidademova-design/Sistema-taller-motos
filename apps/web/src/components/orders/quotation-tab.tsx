@@ -327,11 +327,6 @@ export function QuotationTab({
                 </Button>
               </>
             )}
-            {quotation?.pdfUrl && (
-              <Button type="button" variant="outline" onClick={handleViewPdf}>
-                Ver PDF
-              </Button>
-            )}
             {quotation?.status === 'READY_TO_SEND' && (
               <Button
                 type="button"
@@ -366,6 +361,17 @@ export function QuotationTab({
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Fuera del bloque de acciones: una cotización aprobada o rechazada ya no
+          se puede tocar, pero su PDF es justo el documento que hay que poder
+          reabrir después — es lo que el cliente aceptó. */}
+      {quotation?.pdfUrl && (
+        <div>
+          <Button type="button" variant="outline" onClick={handleViewPdf}>
+            Ver PDF
+          </Button>
         </div>
       )}
 
