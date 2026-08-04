@@ -5,6 +5,7 @@ import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 import { MarkNotificationSentDto } from './dto/mark-notification-sent.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { Role } from '../generated/prisma/enums';
 
@@ -18,9 +19,10 @@ export class NotificationInboxController {
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
     @Query() query: ListNotificationsQueryDto,
   ) {
-    return this.notificationInboxService.findAll(tenantId, query);
+    return this.notificationInboxService.findAll(tenantId, branchId, query);
   }
 
   @Audit('Notification')

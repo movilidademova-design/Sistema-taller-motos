@@ -11,12 +11,21 @@ import { useApiSWR } from '@/hooks/use-api-swr';
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const canReviewQuotations = !!user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
+  const isStaff = !!user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
   // Cotizaciones esperando revisión en la sucursal activa.
-  const { data: pending } = useApiSWR<{ count: number }>(
-    canReviewQuotations ? '/quotations/pending-count' : null,
+  const { data: pendingQuotations } = useApiSWR<{ count: number }>(
+    isStaff ? '/quotations/pending-count' : null,
   );
-  const pendingCount = pending?.count ?? 0;
+  // Mensajes al cliente que quedaron por enviar. Se aprovecha el `total` que la
+  // lista paginada ya devuelve en vez de agregar un endpoint solo para contar.
+  const { data: pendingNotifications } = useApiSWR<{ total: number }>(
+    isStaff ? '/notifications?status=PENDING&pageSize=1' : null,
+  );
+
+  const badges: Record<string, number> = {
+    '/quotations': pendingQuotations?.count ?? 0,
+    '/notifications': pendingNotifications?.total ?? 0,
+  };
 
   const items = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
@@ -44,9 +53,9 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             >
               <Icon className="size-4" />
               {item.label}
-              {item.href === '/quotations' && pendingCount > 0 && (
+              {badges[item.href] > 0 && (
                 <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] text-destructive-foreground">
-                  {pendingCount > 99 ? '99+' : pendingCount}
+                  {badges[item.href] > 99 ? '99+' : badges[item.href]}
                 </span>
               )}
             </Link>

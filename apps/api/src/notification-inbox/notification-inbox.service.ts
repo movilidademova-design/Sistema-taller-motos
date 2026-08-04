@@ -25,11 +25,19 @@ export class NotificationInboxService {
     private readonly email: EmailService,
   ) {}
 
-  async findAll(tenantId: string, query: ListNotificationsQueryDto) {
+  async findAll(
+    tenantId: string,
+    branchId: string,
+    query: ListNotificationsQueryDto,
+  ) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
+    // Una notificación pertenece a una orden, y la orden a una sucursal. Sin
+    // este filtro el gerente de una sede veía los mensajes pendientes de las
+    // otras, que es justo lo que no puede atender.
     const where = {
       tenantId,
+      order: { branchId },
       ...(query.status ? { status: query.status } : {}),
     };
 
