@@ -150,6 +150,22 @@ export interface QuotationStatusHistory {
   changedBy?: { firstName: string; lastName: string };
 }
 
+export interface QuotationListRow {
+  id: string;
+  status: QuotationStatus;
+  total: string;
+  createdAt: string;
+  updatedAt: string;
+  pdfUrl?: string | null;
+  itemCount: number;
+  order: {
+    id: string;
+    orderNumber: string;
+    client: { firstName: string; lastName: string };
+    motorcycle: { brand: string; model: string };
+  };
+}
+
 export interface Quotation {
   id: string;
   status: QuotationStatus;
