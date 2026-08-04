@@ -51,7 +51,6 @@ export class InvoicesService {
       include: {
         client: true,
         order: { include: { quotation: { include: { items: true } } } },
-        payments: true,
       },
     });
     if (!invoice) throw new NotFoundException('Factura no encontrada');

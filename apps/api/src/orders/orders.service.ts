@@ -79,8 +79,6 @@ export const ORDER_DETAIL_INCLUDE = {
     include: { changedBy: { select: { firstName: true, lastName: true } } },
   },
   invoice: true,
-  payments: true,
-  warranties: true,
 } as const;
 
 @Injectable()

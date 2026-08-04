@@ -74,7 +74,6 @@ export class MotorcyclesService {
       include: {
         client: true,
         orders: { orderBy: { createdAt: 'desc' }, include: { invoice: true } },
-        warranties: { orderBy: { createdAt: 'desc' } },
       },
     });
     if (!motorcycle) throw new NotFoundException('Bicimoto no encontrada');

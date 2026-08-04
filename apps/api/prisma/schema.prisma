@@ -101,20 +101,6 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
-enum WarrantyStatus {
-  OPEN
-  APPROVED
-  REJECTED
-  RESOLVED
-}
-
-enum PaymentMethod {
-  CASH
-  TRANSFER
-  CARD
-  QR
-}
-
 enum InvoiceStatus {
   DRAFT
   ISSUED
@@ -173,8 +159,6 @@ model Tenant {
   suppliers        Supplier[]
   products         Product[]
   purchaseOrders   PurchaseOrder[]
-  warranties       Warranty[]
-  payments         Payment[]
   invoices         Invoice[]
   auditLogs        AuditLog[]
   appointments     Appointment[]
@@ -284,8 +268,6 @@ model User {
   statusChanges       OrderStatusHistory[]
   quotationStatusChanges QuotationStatusHistory[]
   auditLogs           AuditLog[]
-  paymentsReceived    Payment[]
-  warrantiesApproved  Warranty[]
   assignedAppointments Appointment[]
   notificationsCreated Notification[] @relation("NotificationCreatedBy")
   notificationsSent     Notification[] @relation("NotificationSentBy")
@@ -334,9 +316,7 @@ model Client {
 
   motorcycles  Motorcycle[]
   orders       Order[]
-  payments     Payment[]
   invoices     Invoice[]
-  warranties   Warranty[]
   appointments Appointment[]
 
   @@unique([tenantId, documentId])
@@ -374,7 +354,6 @@ model Motorcycle {
   updatedAt        DateTime  @updatedAt
 
   orders       Order[]
-  warranties   Warranty[]
   appointments Appointment[]
 
   @@index([tenantId])
@@ -421,9 +400,7 @@ model Order {
   quotation          Quotation?
   statusHistory      OrderStatusHistory[]
   inventoryMovements InventoryMovement[]
-  warranties         Warranty[]
   invoice            Invoice?
-  payments           Payment[]
   appointments       Appointment[]
   notifications      Notification[]
 
@@ -692,55 +669,8 @@ model PurchaseOrderItem {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Warranties / Payments / Invoicing
+// Invoicing
 // ─────────────────────────────────────────────────────────────────────────
-
-model Warranty {
-  id             String         @id @default(uuid())
-  tenantId       String
-  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orderId        String
-  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  motorcycleId   String
-  motorcycle     Motorcycle     @relation(fields: [motorcycleId], references: [id], onDelete: Restrict)
-  clientId       String
-  client         Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  requestedAt    DateTime       @default(now())
-  reason         String
-  status         WarrantyStatus @default(OPEN)
-  approvedById   String?
-  approvedBy     User?          @relation(fields: [approvedById], references: [id], onDelete: SetNull)
-  cost           Decimal        @default(0) @db.Decimal(10, 2)
-  result         String?
-  resolvedAt     DateTime?
-  createdAt      DateTime       @default(now())
-
-  @@index([tenantId])
-  @@map("warranties")
-}
-
-model Payment {
-  id             String        @id @default(uuid())
-  tenantId       String
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  orderId        String?
-  order          Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  invoiceId      String?
-  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  clientId       String
-  client         Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  method         PaymentMethod
-  amount         Decimal       @db.Decimal(10, 2)
-  reference      String?
-  receiptNumber  String
-  receivedById   String
-  receivedBy     User          @relation(fields: [receivedById], references: [id], onDelete: Restrict)
-  createdAt      DateTime      @default(now())
-
-  @@unique([tenantId, receiptNumber])
-  @@index([tenantId])
-  @@map("payments")
-}
 
 model Invoice {
   id            String        @id @default(uuid())
@@ -761,8 +691,6 @@ model Invoice {
   issuedAt      DateTime      @default(now())
   dueAt         DateTime?
   sentAt        DateTime?
-
-  payments Payment[]
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId])

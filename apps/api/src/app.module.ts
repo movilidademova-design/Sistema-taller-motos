@@ -14,8 +14,6 @@ import { MotorcyclesModule } from './motorcycles/motorcycles.module';
 import { OrdersModule } from './orders/orders.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PurchasesModule } from './purchases/purchases.module';
-import { WarrantiesModule } from './warranties/warranties.module';
-import { PaymentsModule } from './payments/payments.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AppointmentsModule } from './appointments/appointments.module';
@@ -51,8 +49,6 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     OrdersModule,
     InventoryModule,
     PurchasesModule,
-    WarrantiesModule,
-    PaymentsModule,
     InvoicesModule,
     DashboardModule,
     AppointmentsModule,

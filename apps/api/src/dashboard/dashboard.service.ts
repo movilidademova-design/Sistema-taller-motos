@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  OrderStatus,
-  WarrantyStatus,
-  InventoryMovementType,
-} from '../generated/prisma/enums';
+import { OrderStatus, InventoryMovementType } from '../generated/prisma/enums';
 
 function startOfDay(date = new Date()) {
   const d = new Date(date);
@@ -30,20 +26,23 @@ export class DashboardService {
       revenueMonth,
       newClientsThisMonth,
       deliveredThisMonth,
-      activeWarranties,
     ] = await Promise.all([
       this.prisma.order.groupBy({
         by: ['status'],
         where: { tenantId },
         _count: { _all: true },
       }),
-      this.prisma.payment.aggregate({
-        where: { tenantId, createdAt: { gte: today } },
-        _sum: { amount: true },
+      // Revenue now comes from invoices issued, not payments received — the
+      // payments table was removed. This also makes this number agree with
+      // the Ingresos report, which already summed invoices; before, the two
+      // came from different sources and could disagree.
+      this.prisma.invoice.aggregate({
+        where: { tenantId, issuedAt: { gte: today } },
+        _sum: { total: true },
       }),
-      this.prisma.payment.aggregate({
-        where: { tenantId, createdAt: { gte: monthStart } },
-        _sum: { amount: true },
+      this.prisma.invoice.aggregate({
+        where: { tenantId, issuedAt: { gte: monthStart } },
+        _sum: { total: true },
       }),
       this.prisma.client.count({
         where: { tenantId, createdAt: { gte: monthStart } },
@@ -53,12 +52,6 @@ export class DashboardService {
           tenantId,
           status: OrderStatus.DELIVERED,
           deliveredAt: { gte: monthStart },
-        },
-      }),
-      this.prisma.warranty.count({
-        where: {
-          tenantId,
-          status: { in: [WarrantyStatus.OPEN, WarrantyStatus.APPROVED] },
         },
       }),
     ]);
@@ -82,10 +75,9 @@ export class DashboardService {
         inRepair: countFor(OrderStatus.IN_REPAIR),
         readyForDelivery: countFor(OrderStatus.READY_FOR_DELIVERY),
         deliveredThisMonth,
-        revenueToday: Number(revenueToday._sum.amount ?? 0),
-        revenueMonth: Number(revenueMonth._sum.amount ?? 0),
+        revenueToday: Number(revenueToday._sum.total ?? 0),
+        revenueMonth: Number(revenueMonth._sum.total ?? 0),
         newClientsThisMonth,
-        activeWarranties,
       },
     };
   }
@@ -93,10 +85,12 @@ export class DashboardService {
   async getRevenueChart(tenantId: string, days = 30) {
     const since = new Date();
     since.setDate(since.getDate() - days);
+    // Revenue chart now sums invoices issued, not payments received — the
+    // payments table was removed.
     const rows = await this.prisma.$queryRaw<{ day: Date; total: string }[]>`
-      SELECT date_trunc('day', "createdAt") as day, SUM(amount) as total
-      FROM payments
-      WHERE "tenantId" = ${tenantId} AND "createdAt" >= ${since}
+      SELECT date_trunc('day', "issuedAt") as day, SUM(total) as total
+      FROM invoices
+      WHERE "tenantId" = ${tenantId} AND "issuedAt" >= ${since}
       GROUP BY day
       ORDER BY day ASC
     `;

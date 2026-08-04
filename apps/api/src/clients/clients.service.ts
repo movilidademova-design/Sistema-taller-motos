@@ -79,9 +79,7 @@ export class ClientsService {
           orderBy: { createdAt: 'desc' },
           include: { motorcycle: true, invoice: true },
         },
-        payments: { orderBy: { createdAt: 'desc' } },
         invoices: { orderBy: { issuedAt: 'desc' } },
-        warranties: { orderBy: { createdAt: 'desc' } },
       },
     });
     if (!client) throw new NotFoundException('Cliente no encontrado');
