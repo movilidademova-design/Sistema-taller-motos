@@ -83,12 +83,12 @@ Las acciones (editar, PDF, enviar, cambiar estado) **no se duplican**: siguen vi
 
 ## 6. Plan de implementación
 
-- [ ] **Task 1 — Backend: eliminar Pagos y Garantías.** Borrar ambos módulos, quitarlos de `app.module.ts` y del esquema (modelos, enums, relaciones inversas), migración, quitar `payments`/`warranties` de `ORDER_DETAIL_INCLUDE`, y ajustar `DashboardService` (ingresos desde facturas, fuera `activeWarranties`). Verificar build+tests y commitear.
-- [ ] **Task 2 — Backend: columnas de dinero que ya no aplican.** Quitar "Pagado" y "Saldo pendiente" del export de Facturas y "Total cobrado"/"Saldo pendiente" del reporte de Ingresos. Actualizar `reports.service.spec.ts`, que los verifica.
-- [ ] **Task 3 — Backend: lista de cotizaciones.** Controller nuevo en `quotations` con `GET /` (filtro por estado, alcance por sucursal) y `GET /pending-count`. Tests del alcance por sucursal y del conteo.
-- [ ] **Task 4 — Frontend: sección Cotizaciones.** `nav-config.ts` (agregar Cotizaciones, quitar Pagos y Garantías), páginas `/quotations` y `/quotations/[orderId]` reutilizando `QuotationTab`, y el contador leyendo `/quotations/pending-count`.
-- [ ] **Task 5 — Frontend: limpiar la orden.** Quitar la pestaña Cotización, quitar `RecordPaymentForm` y lo de pagos de `InvoiceActions`, agregar la línea de resumen con enlace. Borrar `/payments` y `/warranties` y sus tipos.
-- [ ] **Task 6 — Verificación.** Build+tests de ambos lados, y prueba manual del flujo completo: técnico genera → aparece en la sección con contador → revisar, PDF, enviar → aprobar → el contador baja.
+- [x] **Task 1 — Backend: eliminar Pagos y Garantías.** Borrar ambos módulos, quitarlos de `app.module.ts` y del esquema (modelos, enums, relaciones inversas), migración, quitar `payments`/`warranties` de `ORDER_DETAIL_INCLUDE`, y ajustar `DashboardService` (ingresos desde facturas, fuera `activeWarranties`). Verificar build+tests y commitear.
+- [x] **Task 2 — Backend: columnas de dinero que ya no aplican.** Quitar "Pagado" y "Saldo pendiente" del export de Facturas y "Total cobrado"/"Saldo pendiente" del reporte de Ingresos. Actualizar `reports.service.spec.ts`, que los verifica.
+- [x] **Task 3 — Backend: lista de cotizaciones.** Controller nuevo en `quotations` con `GET /` (filtro por estado, alcance por sucursal) y `GET /pending-count`. Tests del alcance por sucursal y del conteo.
+- [x] **Task 4 — Frontend: sección Cotizaciones.** `nav-config.ts` (agregar Cotizaciones, quitar Pagos y Garantías), páginas `/quotations` y `/quotations/[orderId]` reutilizando `QuotationTab`, y el contador leyendo `/quotations/pending-count`.
+- [x] **Task 5 — Frontend: limpiar la orden.** Quitar la pestaña Cotización, quitar `RecordPaymentForm` y lo de pagos de `InvoiceActions`, agregar la línea de resumen con enlace. Borrar `/payments` y `/warranties` y sus tipos.
+- [x] **Task 6 — Verificación.** Build+tests de ambos lados, y prueba manual del flujo completo: técnico genera → aparece en la sección con contador → revisar, PDF, enviar → aprobar → el contador baja.
 
 ## 7. Qué NO incluye
 
