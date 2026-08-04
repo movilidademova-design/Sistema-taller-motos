@@ -9,7 +9,6 @@ import {
   PackageCheck,
   CircleDollarSign,
   UserPlus,
-  ShieldCheck,
   Truck,
 } from 'lucide-react';
 import { useApiSWR } from '@/hooks/use-api-swr';
@@ -62,7 +61,6 @@ export default function DashboardPage() {
           <StatCard label="Facturación del día" value={formatCurrency(cards?.revenueToday ?? 0)} icon={CircleDollarSign} accent="success" />
           <StatCard label="Facturación del mes" value={formatCurrency(cards?.revenueMonth ?? 0)} icon={CircleDollarSign} accent="success" />
           <StatCard label="Clientes nuevos" value={cards?.newClientsThisMonth ?? 0} icon={UserPlus} />
-          <StatCard label="Garantías activas" value={cards?.activeWarranties ?? 0} icon={ShieldCheck} accent="warning" />
         </div>
       )}
 

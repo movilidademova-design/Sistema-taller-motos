@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileText, Receipt } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,20 +23,17 @@ import { OrderStatusBadge } from '@/components/shared/order-status-badge';
 import { NotifyClientDialog } from '@/components/orders/notify-client-dialog';
 import { PhotosTab } from '@/components/orders/photos-tab';
 import { DiagnosisTab } from '@/components/orders/diagnosis-tab';
-import { QuotationTab } from '@/components/orders/quotation-tab';
 import { HistoryTab } from '@/components/orders/history-tab';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api, openAuthedBlobInNewTab } from '@/lib/api';
-import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
-import { ORDER_STATUS_LABELS, PaymentMethod, type OrderStatus } from '@taller/shared';
+import { getErrorMessage } from '@/components/providers/auth-provider';
+import { ORDER_STATUS_LABELS, QUOTATION_STATUS_LABELS, type OrderStatus } from '@taller/shared';
 import type { Invoice, Order } from '@/lib/types';
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const { data: order, isLoading, mutate } = useApiSWR<Order>(`/orders/${id}`);
   const [notifyOpen, setNotifyOpen] = React.useState(false);
-  const { user } = useAuth();
-  const isTechnician = user?.role === 'TECHNICIAN';
 
   if (isLoading) {
     return (
@@ -128,11 +125,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       */}
       <NotifyClientDialog orderId={order.id} open={notifyOpen} onOpenChange={setNotifyOpen} />
 
+      {order.quotation && (
+        <Link
+          href={`/quotations/${order.id}`}
+          className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3 text-sm hover:bg-muted/50"
+        >
+          <span>
+            Cotización: {QUOTATION_STATUS_LABELS[order.quotation.status]} — $
+            {Number(order.quotation.total).toLocaleString('es-CO')}
+          </span>
+          <span aria-hidden>›</span>
+        </Link>
+      )}
+
       <Tabs defaultValue="diagnosis">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="diagnosis">Diagnóstico</TabsTrigger>
           <TabsTrigger value="photos">Fotos</TabsTrigger>
-          {!isTechnician && <TabsTrigger value="quotation">Cotización</TabsTrigger>}
           <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
         <TabsContent value="diagnosis">
@@ -141,16 +150,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <TabsContent value="photos">
           <PhotosTab orderId={order.id} photos={order.photos ?? []} onUpdated={() => mutate()} />
         </TabsContent>
-        {!isTechnician && (
-          <TabsContent value="quotation">
-            <QuotationTab
-              orderId={order.id}
-              quotation={order.quotation}
-              clientPhone={order.client?.phone}
-              onUpdated={() => mutate()}
-            />
-          </TabsContent>
-        )}
         <TabsContent value="history">
           <HistoryTab history={order.statusHistory ?? []} />
         </TabsContent>
@@ -209,7 +208,6 @@ function StatusChanger({
 
 function InvoiceActions({ order, onUpdated }: { order: Order; onUpdated: () => void }) {
   const [isGenerating, setIsGenerating] = React.useState(false);
-  const [paymentOpen, setPaymentOpen] = React.useState(false);
   const canInvoice = order.quotation?.status === 'APPROVED' && !order.invoice;
 
   async function handleGenerateInvoice() {
@@ -241,22 +239,6 @@ function InvoiceActions({ order, onUpdated }: { order: Order; onUpdated: () => v
           <FileText /> Ver factura {order.invoice.invoiceNumber}
         </Button>
       )}
-      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
-        <DialogTrigger asChild>
-          <Button size="sm" variant="outline">
-            <Receipt /> Registrar pago
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
-          <RecordPaymentForm
-            order={order}
-            onSuccess={() => {
-              setPaymentOpen(false);
-              onUpdated();
-            }}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -328,70 +310,5 @@ function DeliverVehicleDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function RecordPaymentForm({ order, onSuccess }: { order: Order; onSuccess: () => void }) {
-  const [method, setMethod] = React.useState<PaymentMethod>(PaymentMethod.CASH);
-  const [amount, setAmount] = React.useState('');
-  const [reference, setReference] = React.useState('');
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await api.post('/payments', {
-        clientId: order.clientId,
-        orderId: order.id,
-        invoiceId: order.invoice?.id,
-        method,
-        amount: Number(amount),
-        reference: reference || undefined,
-      });
-      toast.success('Pago registrado');
-      onSuccess();
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <DialogHeader>
-        <DialogTitle>Registrar pago</DialogTitle>
-      </DialogHeader>
-      <div className="flex flex-col gap-3 py-4">
-        <div className="flex flex-col gap-1.5">
-          <Label>Método de pago</Label>
-          <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="CASH">Efectivo</SelectItem>
-              <SelectItem value="TRANSFER">Transferencia</SelectItem>
-              <SelectItem value="CARD">Tarjeta</SelectItem>
-              <SelectItem value="QR">QR</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Monto</Label>
-          <Input type="number" required value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Referencia (opcional)</Label>
-          <Input value={reference} onChange={(e) => setReference(e.target.value)} />
-        </div>
-      </div>
-      <DialogFooter>
-        <Button type="submit" disabled={isSubmitting || !amount}>
-          {isSubmitting ? 'Guardando...' : 'Registrar pago'}
-        </Button>
-      </DialogFooter>
-    </form>
   );
 }

@@ -4,8 +4,6 @@ import type {
   QuotationStatus,
   PhotoCategory,
   QuotationItemType,
-  WarrantyStatus,
-  PaymentMethod,
   InvoiceStatus,
   AppointmentType,
   AppointmentStatus,
@@ -47,9 +45,7 @@ export interface Client {
   _count?: { motorcycles: number; orders: number };
   motorcycles?: Motorcycle[];
   orders?: Order[];
-  payments?: Payment[];
   invoices?: Invoice[];
-  warranties?: Warranty[];
 }
 
 export interface Motorcycle {
@@ -75,7 +71,6 @@ export interface Motorcycle {
   observations?: string | null;
   createdAt: string;
   orders?: Order[];
-  warranties?: Warranty[];
 }
 
 export interface QuickService {
@@ -242,8 +237,6 @@ export interface Order {
   quotation?: Quotation | null;
   statusHistory?: OrderStatusHistoryEntry[];
   invoice?: Invoice | null;
-  payments?: Payment[];
-  warranties?: Warranty[];
 }
 
 export interface Category {
@@ -315,39 +308,6 @@ export interface PurchaseOrder {
   createdAt: string;
 }
 
-export interface Warranty {
-  id: string;
-  orderId: string;
-  order?: { orderNumber: string };
-  motorcycleId: string;
-  motorcycle?: Motorcycle;
-  clientId: string;
-  client?: Client;
-  requestedAt: string;
-  reason: string;
-  status: WarrantyStatus;
-  approvedById?: string | null;
-  cost: string;
-  result?: string | null;
-  resolvedAt?: string | null;
-  createdAt: string;
-}
-
-export interface Payment {
-  id: string;
-  orderId?: string | null;
-  order?: { orderNumber: string };
-  invoiceId?: string | null;
-  clientId: string;
-  client?: { firstName: string; lastName: string };
-  method: PaymentMethod;
-  amount: string;
-  reference?: string | null;
-  receiptNumber: string;
-  receivedById: string;
-  createdAt: string;
-}
-
 export interface Invoice {
   id: string;
   orderId: string;
@@ -365,7 +325,6 @@ export interface Invoice {
   issuedAt: string;
   dueAt?: string | null;
   sentAt?: string | null;
-  payments?: Payment[];
 }
 
 export interface Appointment {
@@ -396,6 +355,5 @@ export interface DashboardSummary {
     revenueToday: number;
     revenueMonth: number;
     newClientsThisMonth: number;
-    activeWarranties: number;
   };
 }

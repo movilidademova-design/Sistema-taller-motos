@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { OrderStatusBadge } from '@/components/shared/order-status-badge';
 import { useApiSWR } from '@/hooks/use-api-swr';
-import { PAYMENT_METHOD_LABELS } from '@taller/shared';
 import type { Client } from '@/lib/types';
 
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -69,8 +68,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <TabsTrigger value="motorcycles">Vehículos ({client.motorcycles?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="orders">Órdenes ({client.orders?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="invoices">Facturas ({client.invoices?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="payments">Pagos ({client.payments?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="warranties">Garantías ({client.warranties?.length ?? 0})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="motorcycles">
@@ -164,66 +161,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <TableRow>
                   <TableCell colSpan={3} className="text-center text-muted-foreground">
                     Sin facturas registradas
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TabsContent>
-
-        <TabsContent value="payments">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Recibo</TableHead>
-                <TableHead>Método</TableHead>
-                <TableHead>Monto</TableHead>
-                <TableHead>Fecha</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {client.payments?.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.receiptNumber}</TableCell>
-                  <TableCell>{PAYMENT_METHOD_LABELS[p.method]}</TableCell>
-                  <TableCell>${Number(p.amount).toLocaleString('es-CO')}</TableCell>
-                  <TableCell>{new Date(p.createdAt).toLocaleDateString('es-CO')}</TableCell>
-                </TableRow>
-              ))}
-              {(!client.payments || client.payments.length === 0) && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    Sin pagos registrados
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TabsContent>
-
-        <TabsContent value="warranties">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Motivo</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Fecha</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {client.warranties?.map((w) => (
-                <TableRow key={w.id}>
-                  <TableCell className="max-w-64 truncate">{w.reason}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{w.status}</Badge>
-                  </TableCell>
-                  <TableCell>{new Date(w.createdAt).toLocaleDateString('es-CO')}</TableCell>
-                </TableRow>
-              ))}
-              {(!client.warranties || client.warranties.length === 0) && (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
-                    Sin garantías registradas
                   </TableCell>
                 </TableRow>
               )}
