@@ -143,7 +143,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </TabsContent>
         {!isTechnician && (
           <TabsContent value="quotation">
-            <QuotationTab orderId={order.id} quotation={order.quotation} onUpdated={() => mutate()} />
+            <QuotationTab
+              orderId={order.id}
+              quotation={order.quotation}
+              clientPhone={order.client?.phone}
+              onUpdated={() => mutate()}
+            />
           </TabsContent>
         )}
         <TabsContent value="history">

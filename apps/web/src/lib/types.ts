@@ -141,19 +141,30 @@ export interface QuotationItem {
   subtotal: string;
 }
 
+export interface QuotationStatusHistory {
+  id: string;
+  fromStatus?: QuotationStatus | null;
+  toStatus: QuotationStatus;
+  notes?: string | null;
+  createdAt: string;
+  changedBy?: { firstName: string; lastName: string };
+}
+
 export interface Quotation {
   id: string;
   status: QuotationStatus;
-  laborCost: string;
   partsCost: string;
   discount: string;
   taxRate: string;
   taxAmount: string;
   total: string;
   notes?: string | null;
+  pdfUrl?: string | null;
+  sentAt?: string | null;
   approvedAt?: string | null;
   rejectedAt?: string | null;
   items: QuotationItem[];
+  history?: QuotationStatusHistory[];
 }
 
 export interface OrderStatusHistoryEntry {
