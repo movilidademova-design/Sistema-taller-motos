@@ -6,10 +6,19 @@ import { Bike } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-config';
 import { useAuth } from '@/components/providers/auth-provider';
+import { useApiSWR } from '@/hooks/use-api-swr';
+import type { Order, PaginatedResult } from '@/lib/types';
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const canReviewQuotations = !!user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
+  // Órdenes cuya cotización espera revisión — se aprovecha el `total` del listado
+  // paginado que ya existe, sin endpoint nuevo.
+  const { data: waitingApproval } = useApiSWR<PaginatedResult<Order>>(
+    canReviewQuotations ? '/orders?status=WAITING_APPROVAL&pageSize=1' : null,
+  );
+  const waitingApprovalCount = waitingApproval?.total ?? 0;
 
   const items = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
@@ -37,6 +46,11 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             >
               <Icon className="size-4" />
               {item.label}
+              {item.href === '/orders' && waitingApprovalCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] text-destructive-foreground">
+                  {waitingApprovalCount > 99 ? '99+' : waitingApprovalCount}
+                </span>
+              )}
             </Link>
           );
         })}
