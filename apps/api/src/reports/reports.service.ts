@@ -18,7 +18,6 @@ interface RevenueRow {
   deliveredOrders: number;
   invoiceCount: number;
   invoiced: number;
-  collected: number;
 }
 
 /** Suma de decimales en punto flotante: 0.1+0.2 no da 0.3. Se redondea a centavos. */
@@ -61,7 +60,6 @@ export class ReportsService {
         select: {
           issuedAt: true,
           total: true,
-          amountPaid: true,
           order: { select: { branch: { select: { name: true } } } },
         },
       }),
@@ -87,7 +85,6 @@ export class ReportsService {
           deliveredOrders: 0,
           invoiceCount: 0,
           invoiced: 0,
-          collected: 0,
         };
         buckets.set(key, bucket);
       }
@@ -101,7 +98,6 @@ export class ReportsService {
       );
       bucket.invoiceCount += 1;
       bucket.invoiced += Number(invoice.total);
-      bucket.collected += Number(invoice.amountPaid);
     }
 
     for (const order of deliveredOrders) {
@@ -147,18 +143,6 @@ export class ReportsService {
           key: 'invoiced',
           format: 'currency',
           value: (r) => cents(r.invoiced),
-        },
-        {
-          header: 'Total cobrado',
-          key: 'collected',
-          format: 'currency',
-          value: (r) => cents(r.collected),
-        },
-        {
-          header: 'Saldo pendiente',
-          key: 'balance',
-          format: 'currency',
-          value: (r) => cents(r.invoiced - r.collected),
         },
       ],
     });

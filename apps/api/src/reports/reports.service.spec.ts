@@ -28,16 +28,10 @@ function makeService(overrides: {
   return { service, invoiceFindMany, orderFindMany };
 }
 
-function invoice(
-  issuedAt: string,
-  total: number,
-  amountPaid: number,
-  branchName: string,
-) {
+function invoice(issuedAt: string, total: number, branchName: string) {
   return {
     issuedAt: new Date(issuedAt),
     total,
-    amountPaid,
     order: { branch: { name: branchName } },
   };
 }
@@ -94,7 +88,7 @@ describe('ReportsService.exportRevenue', () => {
     // El rango "hasta el 31 de julio" la incluye (los límites se anclan al día
     // local), así que el grupo también tiene que decir julio. Cuando esto se
     // calculaba en UTC, un reporte de julio traía una fila "2026-08".
-    const invoices = [invoice('2026-08-01T01:00:00.000Z', 100, 100, 'Norte')];
+    const invoices = [invoice('2026-08-01T01:00:00.000Z', 100, 'Norte')];
     const { generate, promise } = run(
       Role.ADMIN,
       { from: '2026-07-01', to: '2026-07-31' },
@@ -109,9 +103,9 @@ describe('ReportsService.exportRevenue', () => {
 
   it('aggregates invoices and delivered orders into (period, branch) buckets', async () => {
     const invoices = [
-      invoice('2026-06-05T12:00:00.000Z', 100, 100, 'Norte'),
-      invoice('2026-06-20T12:00:00.000Z', 50, 20, 'Norte'),
-      invoice('2026-07-01T12:00:00.000Z', 200, 200, 'Sur'),
+      invoice('2026-06-05T12:00:00.000Z', 100, 'Norte'),
+      invoice('2026-06-20T12:00:00.000Z', 50, 'Norte'),
+      invoice('2026-07-01T12:00:00.000Z', 200, 'Sur'),
     ];
     const orders = [
       deliveredOrder('2026-06-10T12:00:00.000Z', 'Norte'),
@@ -129,7 +123,6 @@ describe('ReportsService.exportRevenue', () => {
         deliveredOrders: 2,
         invoiceCount: 2,
         invoiced: 150,
-        collected: 120,
       },
       {
         period: '2026-07',
@@ -137,15 +130,14 @@ describe('ReportsService.exportRevenue', () => {
         deliveredOrders: 1,
         invoiceCount: 1,
         invoiced: 200,
-        collected: 200,
       },
     ]);
   });
 
   it('rounds money columns to cents, absorbing float drift', async () => {
     const invoices = [
-      invoice('2026-06-01T12:00:00.000Z', 0.1, 0.1, 'Norte'),
-      invoice('2026-06-02T12:00:00.000Z', 0.2, 0.2, 'Norte'),
+      invoice('2026-06-01T12:00:00.000Z', 0.1, 'Norte'),
+      invoice('2026-06-02T12:00:00.000Z', 0.2, 'Norte'),
     ];
     const { generate, promise } = run(Role.ADMIN, {}, { invoices });
     await promise;
@@ -156,14 +148,12 @@ describe('ReportsService.exportRevenue', () => {
     expect(row.invoiced).not.toBe(0.3);
 
     expect(columnValue(args, 'Total facturado', row)).toBe(0.3);
-    expect(columnValue(args, 'Total cobrado', row)).toBe(0.3);
-    expect(columnValue(args, 'Saldo pendiente', row)).toBe(0);
   });
 
   it('defaults groupBy to MONTH when omitted', async () => {
     const invoices = [
-      invoice('2026-06-01T12:00:00.000Z', 10, 10, 'Norte'),
-      invoice('2026-06-15T12:00:00.000Z', 10, 10, 'Norte'),
+      invoice('2026-06-01T12:00:00.000Z', 10, 'Norte'),
+      invoice('2026-06-15T12:00:00.000Z', 10, 'Norte'),
     ];
     const { generate, promise } = run(Role.ADMIN, {}, { invoices });
     await promise;
@@ -174,8 +164,8 @@ describe('ReportsService.exportRevenue', () => {
 
   it('produces per-day buckets when groupBy is DAY', async () => {
     const invoices = [
-      invoice('2026-06-01T12:00:00.000Z', 10, 10, 'Norte'),
-      invoice('2026-06-15T12:00:00.000Z', 10, 10, 'Norte'),
+      invoice('2026-06-01T12:00:00.000Z', 10, 'Norte'),
+      invoice('2026-06-15T12:00:00.000Z', 10, 'Norte'),
     ];
     const { generate, promise } = run(
       Role.ADMIN,
@@ -213,9 +203,9 @@ describe('ReportsService.exportRevenue', () => {
 
   it('sorts rows by period, then by branch name', async () => {
     const invoices = [
-      invoice('2026-07-01T12:00:00.000Z', 10, 10, 'Sur'),
-      invoice('2026-06-01T12:00:00.000Z', 10, 10, 'Sur'),
-      invoice('2026-06-01T12:00:00.000Z', 10, 10, 'Norte'),
+      invoice('2026-07-01T12:00:00.000Z', 10, 'Sur'),
+      invoice('2026-06-01T12:00:00.000Z', 10, 'Sur'),
+      invoice('2026-06-01T12:00:00.000Z', 10, 'Norte'),
     ];
     const { generate, promise } = run(Role.ADMIN, {}, { invoices });
     await promise;

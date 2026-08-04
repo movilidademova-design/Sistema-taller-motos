@@ -280,18 +280,6 @@ export class InvoicesService {
           value: (i) => Number(i.total),
         },
         {
-          header: 'Pagado',
-          key: 'amountPaid',
-          format: 'currency',
-          value: (i) => Number(i.amountPaid),
-        },
-        {
-          header: 'Saldo pendiente',
-          key: 'balance',
-          format: 'currency',
-          value: (i) => Number(i.total) - Number(i.amountPaid),
-        },
-        {
           header: 'Estado',
           key: 'status',
           value: (i) => INVOICE_STATUS_LABELS[i.status],
