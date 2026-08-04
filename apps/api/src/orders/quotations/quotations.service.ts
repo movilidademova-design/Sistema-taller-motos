@@ -3,7 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageService } from '../../storage/storage.service';
+import { QuotationPdfService } from '../../common/pdf/quotation-pdf.service';
 import { Prisma } from '../../generated/prisma/client';
 import { OrdersService } from '../orders.service';
 import { UpsertQuotationDto } from './dto/upsert-quotation.dto';
@@ -48,6 +51,9 @@ const QUOTATION_TRANSITIONS: Record<QuotationStatus, QuotationStatus[]> = {
   REJECTED: [],
 };
 
+/** Días que el cliente tiene para responder antes de que los precios cambien. */
+const QUOTATION_VALIDITY_DAYS = 8;
+
 /** Estados en los que la cotización todavía se puede editar libremente. */
 export const EDITABLE_STATUSES: QuotationStatus[] = [
   QuotationStatus.DRAFT,
@@ -61,6 +67,9 @@ export class QuotationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ordersService: OrdersService,
+    private readonly quotationPdf: QuotationPdfService,
+    private readonly storage: StorageService,
+    private readonly config: ConfigService,
   ) {}
 
   async findOne(tenantId: string, orderId: string) {
@@ -215,6 +224,127 @@ export class QuotationsService {
       });
 
       return record;
+    });
+
+    return this.findOne(tenantId, orderId);
+  }
+
+  /** Genera el PDF y deja la cotización lista para enviar. */
+  async generatePdf(tenantId: string, orderId: string, userId: string) {
+    const order = await this.ordersService.findOne(tenantId, orderId);
+    const quotation = await this.findOne(tenantId, orderId);
+
+    if (!EDITABLE_STATUSES.includes(quotation.status)) {
+      throw new BadRequestException('Esta cotización ya no se puede modificar');
+    }
+    if (quotation.items.length === 0) {
+      throw new BadRequestException('La cotización no tiene repuestos');
+    }
+    // Un repuesto sin producto de inventario llega en cero desde el diagnóstico;
+    // quien revisa tiene que ponerle precio antes de que el cliente lo vea.
+    const sinPrecio = quotation.items.filter((i) => Number(i.unitPrice) <= 0);
+    if (sinPrecio.length > 0) {
+      throw new BadRequestException(
+        `Falta el precio de: ${sinPrecio.map((i) => i.description).join(', ')}`,
+      );
+    }
+
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({
+      where: { id: tenantId },
+    });
+    const buffer = await this.quotationPdf.render({
+      tenant,
+      quotationNumber: order.orderNumber,
+      date: new Date(),
+      clientName: `${order.client.firstName} ${order.client.lastName}`,
+      vehicle: `${order.motorcycle.brand} ${order.motorcycle.model}`,
+      items: quotation.items.map((i) => ({
+        description: i.description,
+        quantity: Number(i.quantity),
+        unitPrice: Number(i.unitPrice),
+        subtotal: Number(i.subtotal),
+      })),
+      total: Number(quotation.total),
+      notes: quotation.notes,
+      validityDays: QUOTATION_VALIDITY_DAYS,
+    });
+
+    const pdfUrl = await this.storage.upload(
+      buffer,
+      `cotizacion-${order.orderNumber}.pdf`,
+      'application/pdf',
+      'quotations',
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.quotation.update({
+        where: { id: quotation.id },
+        data: { pdfUrl, status: QuotationStatus.READY_TO_SEND },
+      });
+      await tx.quotationStatusHistory.create({
+        data: {
+          quotationId: quotation.id,
+          fromStatus: quotation.status,
+          toStatus: QuotationStatus.READY_TO_SEND,
+          changedById: userId,
+          notes: 'PDF generado',
+        },
+      });
+    });
+
+    return this.findOne(tenantId, orderId);
+  }
+
+  /**
+   * Deja el mensaje listo en la bandeja de notificaciones y marca la cotización
+   * como enviada. El botón de WhatsApp que ya existe en /notifications abre el
+   * chat con este texto; wa.me no adjunta archivos, por eso el PDF va como enlace.
+   */
+  async prepareSend(tenantId: string, orderId: string, userId: string) {
+    const order = await this.ordersService.findOne(tenantId, orderId);
+    const quotation = await this.findOne(tenantId, orderId);
+    if (!quotation.pdfUrl) {
+      throw new BadRequestException('Primero genera el PDF de la cotización');
+    }
+
+    const tenant = await this.prisma.tenant.findUniqueOrThrow({
+      where: { id: tenantId },
+    });
+    const baseUrl =
+      this.config.get<string>('PUBLIC_URL') ?? 'http://localhost:3001';
+    const message =
+      `Hola ${order.client.firstName}. Le compartimos la cotización de los repuestos para su vehículo (Orden #${order.orderNumber}).
+
+` +
+      `Puede verla aquí: ${baseUrl}${quotation.pdfUrl}
+
+` +
+      `Quedamos atentos a su aprobación para continuar con la reparación.
+Equipo ${tenant.name}`;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.notification.create({
+        data: {
+          tenantId,
+          orderId,
+          toStatus: order.status,
+          message,
+          createdById: userId,
+        },
+      });
+      await tx.quotation.update({
+        where: { id: quotation.id },
+        data: { status: QuotationStatus.SENT, sentAt: new Date() },
+      });
+      await tx.quotationStatusHistory.create({
+        data: {
+          quotationId: quotation.id,
+          fromStatus: quotation.status,
+          toStatus: QuotationStatus.SENT,
+          changedById: userId,
+          notes: 'Mensaje preparado para enviar por WhatsApp',
+        },
+      });
     });
 
     return this.findOne(tenantId, orderId);

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { QuotationsService } from './quotations.service';
 import { UpsertQuotationDto } from './dto/upsert-quotation.dto';
@@ -44,5 +44,27 @@ export class QuotationsController {
     @Body() dto: ChangeQuotationStatusDto,
   ) {
     return this.quotationsService.changeStatus(tenantId, orderId, userId, dto);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @Audit('Quotation')
+  @Post('pdf')
+  generatePdf(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.quotationsService.generatePdf(tenantId, orderId, userId);
+  }
+
+  @Roles(Role.ADMIN, Role.MANAGER, Role.RECEPTIONIST)
+  @Audit('Quotation')
+  @Post('send')
+  send(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentUser('userId') userId: string,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.quotationsService.prepareSend(tenantId, orderId, userId);
   }
 }
