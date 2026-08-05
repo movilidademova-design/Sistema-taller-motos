@@ -60,16 +60,27 @@ function NotificationBell() {
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel>Notificaciones pendientes</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {(!data || data.items.length === 0) && (
-          <p className="px-2 py-3 text-sm text-muted-foreground">Sin notificaciones pendientes</p>
-        )}
-        {data?.items.map((n) => (
-          <div key={n.id} className="flex flex-col gap-1.5 border-b p-2 text-sm last:border-b-0">
-            <p className="font-medium">Orden #{n.order.orderNumber}</p>
-            <p className="text-muted-foreground">{n.message}</p>
-            <NotificationActions notification={n} onSent={() => mutate()} />
-          </div>
-        ))}
+        {/* Solo la lista hace scroll: el encabezado y "Ver todas" quedan siempre
+            a la vista. Si desplazara el menú entero, con varias notificaciones
+            largas el enlace de escape quedaba fuera de la pantalla. */}
+        <div className="max-h-[50vh] overflow-y-auto">
+          {(!data || data.items.length === 0) && (
+            <p className="px-2 py-3 text-sm text-muted-foreground">Sin notificaciones pendientes</p>
+          )}
+          {data?.items.map((n) => (
+            <div key={n.id} className="flex flex-col gap-1.5 border-b p-2 text-sm last:border-b-0">
+              <p className="font-medium">Orden #{n.order.orderNumber}</p>
+              {/* El mensaje de una cotización lleva el enlace del PDF, una
+                  cadena larga sin espacios que sin break-words desborda a lo
+                  ancho. Se recorta a tres líneas; el texto completo está en
+                  /notifications. */}
+              <p className="line-clamp-3 break-words whitespace-pre-line text-muted-foreground">
+                {n.message}
+              </p>
+              <NotificationActions notification={n} onSent={() => mutate()} />
+            </div>
+          ))}
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="/notifications">Ver todas</Link>

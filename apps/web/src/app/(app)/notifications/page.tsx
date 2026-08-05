@@ -68,7 +68,9 @@ function NotificationList({ status }: { status: 'PENDING' | 'SENT' }) {
             <p className="text-muted-foreground">
               {n.order.client.firstName} {n.order.client.lastName}
             </p>
-            <p className="whitespace-pre-line">{n.message}</p>
+            {/* El enlace del PDF de una cotización es una cadena larga sin
+                espacios: sin break-words desborda la tarjeta a lo ancho. */}
+            <p className="whitespace-pre-line break-words">{n.message}</p>
             {status === 'PENDING' && <NotificationActions notification={n} onSent={() => mutate()} />}
             {status === 'SENT' && n.sentBy && (
               <p className="text-xs text-muted-foreground">
