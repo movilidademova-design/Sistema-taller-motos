@@ -11,14 +11,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PosRole, Role } from '../generated/prisma/enums';
 
-// Los DTOs todavía no declaran `posRole` (eso llega en la Task 5, junto con su
-// validación). Se amplía el tipo solo para que este servicio compile mientras
-// tanto: el ValidationPipe global usa whitelist:true, así que hoy un `posRole`
-// en el body real se descarta antes de llegar aquí — el acceso solo-POS queda
-// operativo de verdad cuando la Task 5 lo añada al DTO.
-type CreateUserInput = CreateUserDto & { posRole?: PosRole };
-type UpdateUserInput = UpdateUserDto & { posRole?: PosRole | null };
-
 const SAFE_SELECT = {
   id: true,
   email: true,
@@ -108,7 +100,7 @@ export class UsersService {
     tenantId: string,
     actorUserId: string,
     actorRole: Role | null,
-    dto: CreateUserInput,
+    dto: CreateUserDto,
   ) {
     // Una cuenta sin rol en ningún sistema puede iniciar sesión y no puede ir
     // a ninguna parte. La base tiene la misma regla como restricción CHECK.
@@ -174,7 +166,7 @@ export class UsersService {
     actorUserId: string,
     actorRole: Role | null,
     id: string,
-    dto: UpdateUserInput,
+    dto: UpdateUserDto,
   ) {
     const target = await this.findOneScoped(
       tenantId,

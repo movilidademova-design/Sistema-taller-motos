@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { PrismaClient } from '../src/generated/prisma/client';
-import { Role, OrderStatus } from '../src/generated/prisma/enums';
+import { Role, PosRole, OrderStatus } from '../src/generated/prisma/enums';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -27,56 +27,73 @@ async function main() {
     },
   });
 
-  const [admin, manager, receptionist, technician] = await Promise.all([
-    prisma.user.upsert({
-      where: { email: 'admin@tallerdemo.com' },
-      update: {},
-      create: {
-        tenantId: tenant.id,
-        email: 'admin@tallerdemo.com',
-        passwordHash,
-        firstName: 'Ana',
-        lastName: 'Administradora',
-        role: Role.ADMIN,
-      },
-    }),
-    prisma.user.upsert({
-      where: { email: 'gerente@tallerdemo.com' },
-      update: {},
-      create: {
-        tenantId: tenant.id,
-        email: 'gerente@tallerdemo.com',
-        passwordHash,
-        firstName: 'Gerardo',
-        lastName: 'Gerente',
-        role: Role.MANAGER,
-      },
-    }),
-    prisma.user.upsert({
-      where: { email: 'recepcion@tallerdemo.com' },
-      update: {},
-      create: {
-        tenantId: tenant.id,
-        email: 'recepcion@tallerdemo.com',
-        passwordHash,
-        firstName: 'Rita',
-        lastName: 'Recepción',
-        role: Role.RECEPTIONIST,
-      },
-    }),
-    prisma.user.upsert({
-      where: { email: 'tecnico@tallerdemo.com' },
-      update: {},
-      create: {
-        tenantId: tenant.id,
-        email: 'tecnico@tallerdemo.com',
-        passwordHash,
-        firstName: 'Tomás',
-        lastName: 'Técnico',
-        role: Role.TECHNICIAN,
-      },
-    }),
-  ]);
+  const [admin, manager, receptionist, technician, cashier] = await Promise.all(
+    [
+      prisma.user.upsert({
+        where: { email: 'admin@tallerdemo.com' },
+        update: {},
+        create: {
+          tenantId: tenant.id,
+          email: 'admin@tallerdemo.com',
+          passwordHash,
+          firstName: 'Ana',
+          lastName: 'Administradora',
+          role: Role.ADMIN,
+        },
+      }),
+      prisma.user.upsert({
+        where: { email: 'gerente@tallerdemo.com' },
+        update: {},
+        create: {
+          tenantId: tenant.id,
+          email: 'gerente@tallerdemo.com',
+          passwordHash,
+          firstName: 'Gerardo',
+          lastName: 'Gerente',
+          role: Role.MANAGER,
+        },
+      }),
+      prisma.user.upsert({
+        where: { email: 'recepcion@tallerdemo.com' },
+        update: {},
+        create: {
+          tenantId: tenant.id,
+          email: 'recepcion@tallerdemo.com',
+          passwordHash,
+          firstName: 'Rita',
+          lastName: 'Recepción',
+          role: Role.RECEPTIONIST,
+        },
+      }),
+      prisma.user.upsert({
+        where: { email: 'tecnico@tallerdemo.com' },
+        update: {},
+        create: {
+          tenantId: tenant.id,
+          email: 'tecnico@tallerdemo.com',
+          passwordHash,
+          firstName: 'Tomás',
+          lastName: 'Técnico',
+          role: Role.TECHNICIAN,
+        },
+      }),
+      prisma.user.upsert({
+        where: { email: 'cajero@tallerdemo.com' },
+        update: {},
+        create: {
+          tenantId: tenant.id,
+          email: 'cajero@tallerdemo.com',
+          passwordHash,
+          // Sin rol de taller a propósito: sirve para comprobar que un usuario
+          // solo-POS no ve ni una orden y entra directo al POS sin selector.
+          role: null,
+          posRole: PosRole.CASHIER,
+          firstName: 'Carlos',
+          lastName: 'Cajero',
+        },
+      }),
+    ],
+  );
 
   const branch = await prisma.branch.upsert({
     where: { tenantId_code: { tenantId: tenant.id, code: '0001' } },
@@ -91,8 +108,18 @@ async function main() {
     },
   });
 
+  // El cajero no es admin de POS, así que necesita una sucursal asignada para
+  // poder operar la caja (misma restricción que impone UsersService.create).
+  await prisma.userBranch.upsert({
+    where: { userId_branchId: { userId: cashier.id, branchId: branch.id } },
+    update: {},
+    create: { userId: cashier.id, branchId: branch.id },
+  });
+
   const client = await prisma.client.upsert({
-    where: { tenantId_documentId: { tenantId: tenant.id, documentId: '1020304050' } },
+    where: {
+      tenantId_documentId: { tenantId: tenant.id, documentId: '1020304050' },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
@@ -107,7 +134,9 @@ async function main() {
   });
 
   const motorcycle =
-    (await prisma.motorcycle.findFirst({ where: { tenantId: tenant.id, serialNumber: 'SN-0001' } })) ??
+    (await prisma.motorcycle.findFirst({
+      where: { tenantId: tenant.id, serialNumber: 'SN-0001' },
+    })) ??
     (await prisma.motorcycle.create({
       data: {
         tenantId: tenant.id,
@@ -165,7 +194,9 @@ async function main() {
     },
   });
 
-  const existingOrder = await prisma.order.findFirst({ where: { tenantId: tenant.id } });
+  const existingOrder = await prisma.order.findFirst({
+    where: { tenantId: tenant.id },
+  });
   if (!existingOrder) {
     // Mirrors OrdersService.nextOrderNumber (apps/api/src/orders/orders.service.ts) —
     // keep this formula in sync if that logic ever changes.
@@ -173,7 +204,10 @@ async function main() {
       where: { id: branch.id },
       data: { nextOrderNumber: { increment: 1 } },
     });
-    const sequence = String(branchForOrder.nextOrderNumber - 1).padStart(4, '0');
+    const sequence = String(branchForOrder.nextOrderNumber - 1).padStart(
+      4,
+      '0',
+    );
     const order = await prisma.order.create({
       data: {
         tenantId: tenant.id,
@@ -190,7 +224,12 @@ async function main() {
 
     await prisma.orderStatusHistory.createMany({
       data: [
-        { orderId: order.id, toStatus: OrderStatus.RECEIVED, changedById: receptionist.id, notes: 'Orden creada' },
+        {
+          orderId: order.id,
+          toStatus: OrderStatus.RECEIVED,
+          changedById: receptionist.id,
+          notes: 'Orden creada',
+        },
         {
           orderId: order.id,
           fromStatus: OrderStatus.RECEIVED,
@@ -211,6 +250,7 @@ async function main() {
   console.log(`  Gerente:      ${manager.email} / ${password}`);
   console.log(`  Recepción:    ${receptionist.email} / ${password}`);
   console.log(`  Técnico:      ${technician.email} / ${password}`);
+  console.log(`  Cajero (POS): ${cashier.email} / ${password}`);
   console.log(`Producto demo: ${product.name} (stock ${product.quantity})`);
 }
 

@@ -8,7 +8,7 @@ import {
   IsUUID,
   MinLength,
 } from 'class-validator';
-import { Role } from '../../generated/prisma/enums';
+import { PosRole, Role } from '../../generated/prisma/enums';
 
 export class CreateUserDto {
   @ApiProperty()
@@ -33,9 +33,17 @@ export class CreateUserDto {
   @IsString()
   phone?: string;
 
-  @ApiProperty({ enum: Role })
+  // Los dos son opcionales por separado, pero UsersService exige que al menos
+  // uno venga: un usuario sin ningún sistema no podría entrar a nada.
+  @ApiProperty({ enum: Role, required: false, nullable: true })
+  @IsOptional()
   @IsEnum(Role)
-  role: Role;
+  role?: Role | null;
+
+  @ApiProperty({ enum: PosRole, required: false, nullable: true })
+  @IsOptional()
+  @IsEnum(PosRole)
+  posRole?: PosRole | null;
 
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()

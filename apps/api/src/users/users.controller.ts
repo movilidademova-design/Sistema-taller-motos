@@ -13,6 +13,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignBranchesDto } from './dto/assign-branches.dto';
 import { Roles } from '../common/decorators/roles.decorator';
+import { PosRoles } from '../common/decorators/pos-roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { PosRole, Role } from '../generated/prisma/enums';
@@ -24,6 +25,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Roles(Role.ADMIN, Role.MANAGER)
+  @PosRoles(PosRole.ADMIN)
   @Get()
   findAll(
     @CurrentUser('tenantId') tenantId: string,
@@ -50,12 +52,14 @@ export class UsersController {
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
+  @PosRoles(PosRole.ADMIN)
   @Get(':id')
   findOne(@CurrentUser('tenantId') tenantId: string, @Param('id') id: string) {
     return this.usersService.findOne(tenantId, id);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
+  @PosRoles(PosRole.ADMIN)
   @Audit('User')
   @Post()
   create(
@@ -68,6 +72,7 @@ export class UsersController {
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
+  @PosRoles(PosRole.ADMIN)
   @Audit('User')
   @Patch(':id')
   update(
@@ -81,6 +86,7 @@ export class UsersController {
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)
+  @PosRoles(PosRole.ADMIN)
   @Audit('User')
   @Delete(':id')
   remove(
