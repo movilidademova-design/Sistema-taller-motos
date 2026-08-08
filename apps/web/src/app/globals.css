@@ -11,8 +11,12 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* Naranja Mobulaa #F26522. Sobre él va letra oscura, no blanca: con blanco
+     el contraste es 3,15:1 y el mínimo legible es 4,5:1 — un botón "Cobrar"
+     que no se lee en una pantalla de caja es una venta mal hecha. Con
+     oklch(0.145 0 0) sube a 6,28:1. */
+  --primary: oklch(0.676 0.189 42.04);
+  --primary-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -23,7 +27,7 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.676 0.189 42.04);
   --success: oklch(0.63 0.15 155);
   --warning: oklch(0.77 0.16 75);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -43,8 +47,10 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  /* Mismo naranja de marca que en el tema claro: no es una tonalidad que deba
+     invertirse con el tema. */
+  --primary: oklch(0.676 0.189 42.04);
+  --primary-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -55,7 +61,7 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.676 0.189 42.04);
   --success: oklch(0.7 0.15 155);
   --warning: oklch(0.8 0.16 75);
   --chart-1: oklch(0.488 0.243 264.376);
