@@ -142,6 +142,17 @@ Con dos roles, la regla pasa a ser: **ve todas las sucursales quien sea ADMIN en
   Hay una trampa aquí que obliga a usar dos claves separadas en vez de una sola lista: `Role.ADMIN` y `PosRole.ADMIN` son **la misma cadena `'ADMIN'`**. Si el guard mezclara ambos roles contra una sola lista de requeridos, un `@Roles(Role.ADMIN)` en cualquier endpoint del taller dejaría entrar a un administrador del POS sin querer. Los metadatos separados evitan esa confusión por construcción.
 - El guard de roles del POS aplicado a endpoints del POS es de la F2; en la F1 `@PosRoles()` se usa únicamente en `/users`.
 
+**Corrección hecha durante la implementación — el valor por omisión del guard.** Este documento daba por bueno conservar el comportamiento de siempre: *un endpoint sin `@Roles` queda abierto a cualquiera que haya iniciado sesión*. Al probar la API viva tras la Task 5 resultó ser una fuga real: un cajero **sin ningún rol de taller** recibía 200 en `/orders`, `/invoices`, `/appointments` y `/dashboard/summary`, que no declaran `@Roles`.
+
+Ese valor por omisión era correcto hasta esta fase. Cuando toda cuenta llevaba rol de taller, "autenticado" y "personal del taller" eran el mismo conjunto; las cuentas solo-POS los separan, y el guard seguía respondiendo a la pregunta vieja. Contradecía de plano el objetivo del §3.3.
+
+Regla nueva: **un endpoint que no declara ni `@Roles` ni `@PosRoles` exige rol de taller.** Hoy toda la API es del taller, y lo que debe ser accesible sin sesión ya se marca con `@Public`. Lo que el POS necesite se marca con `@PosRoles` a propósito, uno por uno.
+
+Dos consecuencias que costó descubrir y conviene no reaprender:
+
+1. `RolesGuard` tiene que mirar `@Public` él mismo. Es global y corre **después** de `JwtAuthGuard`, que en una ruta pública devuelve `true` sin dejar usuario en la petición; exigir rol sin esa comprobación deja el login fuera de servicio.
+2. `/users/me/branches` es el único endpoint que necesitan los dos sistemas — sin él un cajero no puede elegir sucursal, y sin sucursal no puede vender. Marcarlo solo con `@PosRoles` **excluye** al administrador del taller, porque entonces el guard ya no aplica el valor por omisión. Lleva los dos decoradores, enumerando los enums en vez de listar roles a mano.
+
 ### 4.4 Panel de accesos
 
 Es la pantalla de usuarios que ya existe en Configuración, extendida:
