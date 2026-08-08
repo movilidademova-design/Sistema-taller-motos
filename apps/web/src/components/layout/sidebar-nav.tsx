@@ -11,7 +11,7 @@ import { useApiSWR } from '@/hooks/use-api-swr';
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const isStaff = !!user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
+  const isStaff = !!user?.role && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
   // Cotizaciones esperando revisión en la sucursal activa.
   const { data: pendingQuotations } = useApiSWR<{ count: number }>(
     isStaff ? '/quotations/pending-count' : null,
@@ -27,7 +27,9 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     '/notifications': pendingNotifications?.total ?? 0,
   };
 
-  const items = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
+  const items = NAV_ITEMS.filter(
+    (item) => !item.roles || (!!user?.role && item.roles.includes(user.role)),
+  );
 
   return (
     <div className="flex h-full flex-col gap-4">

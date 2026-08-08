@@ -4,7 +4,8 @@ export interface StoredUser {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'ADMIN' | 'MANAGER' | 'RECEPTIONIST' | 'TECHNICIAN' | 'CLIENT';
+  role: 'ADMIN' | 'MANAGER' | 'RECEPTIONIST' | 'TECHNICIAN' | 'CLIENT' | null;
+  posRole: 'ADMIN' | 'CASHIER' | null;
 }
 
 const ACCESS_TOKEN_KEY = 'taller_access_token';

@@ -10,6 +10,12 @@ export const Role = {
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
+export const PosRole = {
+  ADMIN: 'ADMIN',
+  CASHIER: 'CASHIER',
+} as const;
+export type PosRole = (typeof PosRole)[keyof typeof PosRole];
+
 export const OrderStatus = {
   RECEIVED: 'RECEIVED',
   DIAGNOSING: 'DIAGNOSING',

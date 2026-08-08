@@ -34,7 +34,7 @@ const ROLE_LABELS: Record<Role, string> = {
   CLIENT: 'Cliente',
 };
 
-function assignableRoleOptions(currentUserRole: Role) {
+function assignableRoleOptions(currentUserRole: Role | null) {
   return Object.entries(ROLE_LABELS).filter(
     ([value]) => value !== 'CLIENT' && (currentUserRole === 'ADMIN' || value !== 'ADMIN'),
   );
@@ -250,7 +250,11 @@ function UsersSettings() {
               </TableCell>
               <TableCell>{u.email}</TableCell>
               <TableCell>
-                <Badge variant="secondary">{ROLE_LABELS[u.role]}</Badge>
+                {u.role ? (
+                  <Badge variant="secondary">{ROLE_LABELS[u.role]}</Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </TableCell>
               <TableCell>
                 <Badge variant={u.isActive ? 'success' : 'destructive'}>
@@ -288,7 +292,7 @@ function NewUserForm({
   currentUserRole,
   onSuccess,
 }: {
-  currentUserRole: Role;
+  currentUserRole: Role | null;
   onSuccess: () => void;
 }) {
   const [form, setForm] = React.useState({
@@ -411,13 +415,16 @@ function EditUserForm({
   onSuccess,
 }: {
   user: UserSummary;
-  currentUserRole: Role;
+  currentUserRole: Role | null;
   onSuccess: () => void;
 }) {
   const [form, setForm] = React.useState({
     firstName: user.firstName,
     lastName: user.lastName,
     phone: user.phone ?? '',
+    // Se conserva `null` tal cual en vez de forzar un rol por defecto: si esta
+    // cuenta es solo-POS y el selector no se toca, el PATCH reenvía `role: null`
+    // (que la API entiende como "sigue sin acceso al taller"), no un rol inventado.
     role: user.role,
     isActive: user.isActive,
   });
@@ -459,7 +466,7 @@ function EditUserForm({
         </div>
         <div className="col-span-2 flex flex-col gap-1.5">
           <Label>Rol</Label>
-          <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
+          <Select value={form.role ?? undefined} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>

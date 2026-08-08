@@ -32,7 +32,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 function NotificationBell() {
   const { user } = useAuth();
-  const canSeeInbox = user && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
+  const canSeeInbox = !!user?.role && ['ADMIN', 'MANAGER', 'RECEPTIONIST'].includes(user.role);
   const { data, mutate } = useApiSWR<PaginatedResult<Notification>>(
     canSeeInbox ? '/notifications?status=PENDING&pageSize=5' : null,
     { refreshInterval: 30_000 },
@@ -169,7 +169,7 @@ export function Topbar() {
             <div className="flex flex-col">
               <span>{user?.email}</span>
               <span className="text-xs font-normal text-muted-foreground">
-                {user ? ROLE_LABELS[user.role] : ''}
+                {user?.role ? ROLE_LABELS[user.role] : ''}
               </span>
             </div>
           </DropdownMenuLabel>

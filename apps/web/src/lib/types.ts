@@ -1,5 +1,6 @@
 import type {
   Role,
+  PosRole,
   OrderStatus,
   QuotationStatus,
   PhotoCategory,
@@ -24,7 +25,8 @@ export interface UserSummary {
   firstName: string;
   lastName: string;
   phone?: string | null;
-  role: Role;
+  role: Role | null;
+  posRole: PosRole | null;
   isActive: boolean;
   lastLoginAt?: string | null;
   createdAt: string;
