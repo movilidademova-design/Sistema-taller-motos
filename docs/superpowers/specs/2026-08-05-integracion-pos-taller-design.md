@@ -134,10 +134,13 @@ Con dos roles, la regla pasa a ser: **ve todas las sucursales quien sea ADMIN en
 
 ### 4.3 Autenticación
 
-- El payload del JWT pasa de `{ sub, tenantId, email, role }` a `{ sub, tenantId, email, role, posRole }`. Afecta a los tres puntos que lo emiten en `AuthService`: registro de empresa, login y refresco.
-- La respuesta de login y la de `/auth/me` incluyen `posRole`.
-- **`RolesGuard` no necesita cambios de lógica**: `requiredRoles.includes(user.role)` con `role = null` da `false`, que es exactamente denegar. Solo cambia el tipo a `Role | null`.
-- **No se agrega un guard para el POS en la F1.** No hay ni un endpoint del POS que proteger todavía. Se agregará en la F2 junto con los endpoints que lo necesiten.
+- **El payload del JWT no cambia.** `JwtStrategy.validate()` usa el token solo para sacar el `sub` y acto seguido lee el usuario de la base de datos, así que la base es la fuente de verdad del rol en cada petición. Se verificó que **nadie lee `payload.role`** en toda la API — el único consumidor del payload es `RealtimeGateway`, y solo usa `tenantId`. Agregar `posRole` al token sería peso muerto, y peor: un token viejo llevaría un rol desactualizado. Lo que sí cambia es lo que `validate()` devuelve, que sale de la base.
+- `AuthenticatedUser` gana `posRole: PosRole | null`, y `sanitizeUser` lo incluye para que llegue al navegador en las respuestas de registro, login y refresco.
+- **No existe un endpoint `/auth/me`.** El frontend guarda el usuario que devuelve el login. Solo hay que tocar esas tres respuestas.
+- **`RolesGuard` sí cambia**, pero no por lo del rol nulo: `requiredRoles.includes(user.role)` con `role = null` ya da `false`, que es exactamente denegar. Cambia porque el panel de accesos debe verlo también un ADMIN del POS (§4.4), y ese usuario tiene `role = null`. Se agrega un decorador `@PosRoles()` con su propia clave de metadatos, y el guard permite el paso si **coincide el rol de taller o el de POS**.
+
+  Hay una trampa aquí que obliga a usar dos claves separadas en vez de una sola lista: `Role.ADMIN` y `PosRole.ADMIN` son **la misma cadena `'ADMIN'`**. Si el guard mezclara ambos roles contra una sola lista de requeridos, un `@Roles(Role.ADMIN)` en cualquier endpoint del taller dejaría entrar a un administrador del POS sin querer. Los metadatos separados evitan esa confusión por construcción.
+- El guard de roles del POS aplicado a endpoints del POS es de la F2; en la F1 `@PosRoles()` se usa únicamente en `/users`.
 
 ### 4.4 Panel de accesos
 
@@ -188,7 +191,7 @@ Las tres cifras de contraste de este documento están calculadas con la fórmula
 - Fondos, tarjetas, bordes y tablas siguen en los grises actuales. El taller tiene tablas densas y formularios largos; saturarlos cansa la vista.
 - Los colores con significado se quedan: verde pagado, rojo anulado, ámbar stock bajo. No son decoración, son información.
 
-**Punto a verificar a ojo durante la implementación:** `--destructive` es `oklch(0.577 0.245 27.325)`, un rojo a 27° de matiz, y el naranja nuevo está a 42,5°. Están a 15° de distancia. Se diferencian bien porque además la claridad es distinta (0,677 contra 0,577), pero hay que confirmar en pantalla que un botón principal naranja y uno destructivo rojo no se confunden cuando quedan lado a lado.
+**Punto a verificar a ojo durante la implementación:** `--destructive` es `oklch(0.577 0.245 27.325)`, un rojo a 27° de matiz, y el naranja nuevo está a 42,04°. Están a 15° de distancia. Se diferencian bien porque además la claridad es distinta (0,676 contra 0,577), pero hay que confirmar en pantalla que un botón principal naranja y uno destructivo rojo no se confunden cuando quedan lado a lado.
 
 **El POS hereda el diseño gratis.** Como se reconstruye con los mismos componentes de shadcn/ui, en las fases 2, 3 y 4 no hay trabajo de diseño: sale igualado solo. Este es el beneficio concreto de haber elegido reescribir en vez de mantener Flask.
 
@@ -226,7 +229,7 @@ Decisión por defecto para la F4: **la hoja conserva la sección `GASTOS` en bla
 ## 8. Cómo se verifica la Fase 1
 
 1. **Pruebas unitarias** de `UsersService`: crear con solo rol de taller, solo rol de POS, ambos, y ninguno (debe fallar); un Gerente intentando otorgar ADMIN de POS (debe fallar).
-2. **`scripts/pruebas-humo.sh`** se amplía: un usuario solo-POS recibe 403 en los endpoints del taller, y `/auth/me` devuelve los dos roles.
+2. **`scripts/pruebas-humo.sh`** se amplía: un usuario solo-POS recibe 403 en los endpoints del taller, la respuesta del login devuelve los dos roles, y un ADMIN del POS sin rol de taller sí puede listar `/users`.
 3. **Verificación manual en el navegador**, que es donde se juega el objetivo real de esta fase:
    - Un usuario con los dos accesos ve el selector y puede cambiar de sistema de un clic.
    - Un usuario con un solo acceso entra directo y no ve el control de cambio.
