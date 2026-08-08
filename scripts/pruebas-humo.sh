@@ -25,10 +25,15 @@ ADMIN=$(login admin@tallerdemo.com)
 GER=$(login gerente@tallerdemo.com)
 REC=$(login recepcion@tallerdemo.com)
 TEC=$(login tecnico@tallerdemo.com)
+CAJ=$(login cajero@tallerdemo.com)
 HA=(-H "Authorization: Bearer $ADMIN" -H "X-Branch-Id: $BR_A")
 HG=(-H "Authorization: Bearer $GER"   -H "X-Branch-Id: $BR_A")
 HR=(-H "Authorization: Bearer $REC"   -H "X-Branch-Id: $BR_A")
 HT=(-H "Authorization: Bearer $TEC"   -H "X-Branch-Id: $BR_A")
+# El cajero solo-POS vive en la sucursal que crea la semilla, no en Calle 80,
+# así que su sucursal se pregunta en vez de darla por sabida.
+BR_CAJ=$(curl -s "$API/users/me/branches" -H "Authorization: Bearer $CAJ" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+HC=(-H "Authorization: Bearer $CAJ"   -H "X-Branch-Id: $BR_CAJ")
 
 echo ""; echo "AUTENTICACIÓN Y ROLES"
 check "login admin" 200 "$(code -X POST $API/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@tallerdemo.com","password":"Password123!"}')"
@@ -94,6 +99,19 @@ for e in "orders/export:órdenes" "clients/export:clientes" "invoices/export:fac
   check "export de $nm" 200 "$(code "$API/$ep" "${HA[@]}")"
 done
 check "técnico NO exporta" 403 "$(code $API/orders/export "${HT[@]}")"
+
+echo ""; echo "ACCESO POR SISTEMA"
+check "el cajero entra" 200 "$(code -X POST $API/auth/login -H 'Content-Type: application/json' -d '{"email":"cajero@tallerdemo.com","password":"Password123!"}')"
+POSROL=$(curl -s -X POST $API/auth/login -H 'Content-Type: application/json' -d '{"email":"cajero@tallerdemo.com","password":"Password123!"}' | grep -o '"posRole":"[^"]*"' | cut -d'"' -f4)
+check "el login devuelve el rol de POS" CASHIER "$POSROL"
+check "el cajero SÍ ve sus sucursales" 200 "$(code $API/users/me/branches -H "Authorization: Bearer $CAJ")"
+# Ninguno de estos cuatro declara @Roles. Antes de esta fase bastaba con estar
+# autenticado, y eso le entregaba el taller entero a una cuenta solo-POS.
+for ep in orders invoices appointments dashboard/summary clients quotations; do
+  check "el cajero NO ve /$ep" 403 "$(code $API/$ep "${HC[@]}")"
+done
+check "el cajero NO administra usuarios" 403 "$(code $API/users "${HC[@]}")"
+check "crear sin ningún sistema se rechaza" 400 "$(code -X POST $API/users "${HA[@]}" -H 'Content-Type: application/json' -d '{"email":"nadie'"$RANDOM"'@t.com","password":"Password123!","firstName":"N","lastName":"A","branchIds":["'"$BR_A"'"]}')"
 
 echo ""; echo "MÓDULOS ELIMINADOS (deben dar 404)"
 for m in payments warranties; do check "/$m eliminado" 404 "$(code $API/$m "${HA[@]}")"; done
