@@ -16,6 +16,7 @@
 
 Leer antes de empezar. Ignorarlas cuesta tiempo:
 
+- **En `apps/api`, comprobar tipos con `npx tsc -p tsconfig.build.json --noEmit`, nunca con `npx tsc --noEmit` a secas.** El `tsconfig.json` de raíz incluye `prisma/backfill-*.ts` y los `*.spec.ts`, que arrastran **22 errores de tipos preexistentes** ajenos a esta fase (un campo `orderNumberText` que ya no existe, una propiedad privada tocada desde una prueba, un constructor con otra aridad). El build real los excluye y `jest` pasa igualmente — 140 pruebas en verde. Medido al terminar la Task 1. No los arregles: no son de esta fase, y perseguirlos oculta los errores que sí lo son.
 - **Nunca `pnpm lint`.** Corre con `--fix` sobre todo el repo, lo reformatea entero y se pasa del tiempo límite. Usar siempre `npx eslint <rutas concretas>` desde `apps/api` o `apps/web` (el `eslint.config.js` vive dentro de cada app, no en la raíz).
 - **Nunca `prisma migrate dev`.** Es interactivo y falla en este entorno. El procedimiento está en la Task 1.
 - **Las pruebas no usan `TestingModule`.** Se instancia el servicio a mano con dobles escritos a mano: `new UsersService(prisma as never)`. Ver `apps/api/src/users/users.service.spec.ts`.
@@ -170,7 +171,7 @@ En este punto la API **no compila**: `role` ahora es `Role | null` y unos 40 sit
 - [ ] **Step 1: Ver la lista completa de sitios rotos**
 
 ```bash
-cd apps/api && npx tsc --noEmit
+cd apps/api && npx tsc -p tsconfig.build.json --noEmit
 ```
 
 Esperado: errores `Type 'Role | null' is not assignable to type 'Role'`. Esta lista es la tarea; el compilador no deja escapar ninguno.
@@ -257,7 +258,7 @@ En `apps/api/src/users/users.controller.ts`, cambiar los cinco `@CurrentUser('ro
 - [ ] **Step 6: Compilar y correr las pruebas**
 
 ```bash
-cd apps/api && npx tsc --noEmit && npx jest
+cd apps/api && npx tsc -p tsconfig.build.json --noEmit && npx jest
 ```
 
 Esperado: `tsc` sin salida, y todas las pruebas en verde. Las de `users.service.spec.ts` siguen pasando porque su lógica no cambió.
@@ -824,7 +825,7 @@ Añadir `PosRole` al import de enums del archivo. Mantener la misma forma que lo
 - [ ] **Step 4: Compilar, probar y sembrar**
 
 ```bash
-cd apps/api && npx tsc --noEmit && npx jest && npx prisma db seed
+cd apps/api && npx tsc -p tsconfig.build.json --noEmit && npx jest && npx prisma db seed
 ```
 
 Esperado: sin errores de tipos, pruebas en verde, y la semilla informando de los usuarios creados.
@@ -1679,7 +1680,7 @@ Esperado: **todas en verde**, las 44 que ya había más las 7 nuevas. Si `/order
 - [ ] **Step 3: Compilar todo y correr toda la suite**
 
 ```bash
-cd apps/api && npx tsc --noEmit && npx jest
+cd apps/api && npx tsc -p tsconfig.build.json --noEmit && npx jest
 cd ../.. && pnpm --filter @taller/web build
 ```
 
