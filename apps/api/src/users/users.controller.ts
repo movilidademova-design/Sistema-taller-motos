@@ -41,6 +41,12 @@ export class UsersController {
     return this.usersService.findTechnicians(tenantId);
   }
 
+  // "Mis sucursales" lo necesita cualquiera de los dos sistemas: sin él, una
+  // cuenta solo-POS no puede elegir sucursal, y sin sucursal no puede vender.
+  // Se enumeran los roles a partir del enum en vez de a mano para que un rol
+  // nuevo no se quede fuera por olvido.
+  @Roles(...Object.values(Role))
+  @PosRoles(...Object.values(PosRole))
   @Get('me/branches')
   findMyBranches(
     @CurrentUser('tenantId') tenantId: string,

@@ -4,6 +4,7 @@ import { RolesGuard } from './roles.guard';
 import { PosRole, Role } from '../../generated/prisma/enums';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { POS_ROLES_KEY } from '../decorators/pos-roles.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /** Un Reflector falso que devuelve lo que se le indique por clave de metadatos. */
 function makeReflector(metadata: Record<string, unknown>): Reflector {
@@ -25,9 +26,24 @@ describe('RolesGuard', () => {
   const posAdmin = { role: null, posRole: PosRole.ADMIN };
   const cashier = { role: null, posRole: PosRole.CASHIER };
 
-  it('deja pasar a cualquiera cuando no hay roles exigidos', () => {
+  it('deja pasar una ruta pública aunque no haya usuario', () => {
+    const guard = new RolesGuard(makeReflector({ [IS_PUBLIC_KEY]: true }));
+    expect(guard.canActivate(contextFor(undefined))).toBe(true);
+  });
+
+  it('sin roles exigidos, deja pasar a quien tiene rol de taller', () => {
     const guard = new RolesGuard(makeReflector({}));
-    expect(guard.canActivate(contextFor(cashier))).toBe(true);
+    expect(guard.canActivate(contextFor(tallerAdmin))).toBe(true);
+  });
+
+  // El agujero que abrió esta fase: /orders, /invoices, /appointments y
+  // /dashboard/summary no declaran @Roles, así que antes bastaba con estar
+  // autenticado. Cuando aparecieron las cuentas solo-POS, eso le entregaba al
+  // cajero el taller entero, que es justo lo que el diseño prohíbe.
+  it('sin roles exigidos, NO deja pasar a una cuenta solo-POS', () => {
+    const guard = new RolesGuard(makeReflector({}));
+    expect(guard.canActivate(contextFor(cashier))).toBe(false);
+    expect(guard.canActivate(contextFor(posAdmin))).toBe(false);
   });
 
   it('deja pasar cuando coincide el rol de taller', () => {

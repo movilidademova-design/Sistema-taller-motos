@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { POS_ROLES_KEY } from '../decorators/pos-roles.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { PosRole, Role } from '../../generated/prisma/enums';
 import { RequestWithUser } from '../decorators/current-user.decorator';
 
@@ -20,14 +21,25 @@ export class RolesGuard implements CanActivate {
       targets,
     );
 
-    const wantsTaller = !!requiredRoles?.length;
-    const wantsPos = !!requiredPosRoles?.length;
-    // Sin ninguna exigencia el endpoint queda abierto, que es como se ha
-    // comportado siempre; cambiarlo aquí cerraría media API de golpe.
-    if (!wantsTaller && !wantsPos) return true;
+    // Este guard es global y corre DESPUÉS de JwtAuthGuard, que en una ruta
+    // @Public() devuelve true sin dejar usuario en la petición. Sin esta
+    // comprobación, exigir rol más abajo dejaría el login fuera de servicio.
+    if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, targets)) {
+      return true;
+    }
 
     const user = context.switchToHttp().getRequest<RequestWithUser>().user;
     if (!user) return false;
+
+    const wantsTaller = !!requiredRoles?.length;
+    const wantsPos = !!requiredPosRoles?.length;
+    // Un endpoint sin exigencia explícita es del taller: hoy toda la API lo es,
+    // y lo que debe ser accesible sin sesión ya se marca con @Public. Antes
+    // bastaba con estar autenticado, porque cualquiera que entrara tenía rol de
+    // taller; desde que existen cuentas solo-POS eso le abría al cajero las
+    // órdenes, las facturas y la agenda. Lo que el POS necesite se marca con
+    // @PosRoles a propósito, uno por uno.
+    if (!wantsTaller && !wantsPos) return !!user.role;
 
     // Basta con cumplir uno de los dos lados: un endpoint puede ser para el
     // administrador del taller O para el del POS.
