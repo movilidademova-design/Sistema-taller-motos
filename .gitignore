@@ -25,3 +25,8 @@ uploads/
 
 # Test artifacts
 coverage/
+
+# Sistema POS anterior (Flask + SQLite). Se conserva como respaldo historico
+# y como especificacion de la logica a replicar en las fases 2-4. Tiene su
+# propio repositorio git anidado y no forma parte de la compilacion.
+motopos/
