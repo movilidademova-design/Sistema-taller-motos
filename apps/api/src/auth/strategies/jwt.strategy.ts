@@ -34,11 +34,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Usuario inválido o inactivo');
     }
+    // El payload del token no lleva rol a propósito: `validate` ya releyó al
+    // usuario de la base, así que el rol siempre viene fresco. Meterlo en el
+    // token haría que una sesión abierta conservara un rol revocado.
     return {
       userId: user.id,
       tenantId: user.tenantId,
       email: user.email,
       role: user.role,
+      posRole: user.posRole,
     };
   }
 }

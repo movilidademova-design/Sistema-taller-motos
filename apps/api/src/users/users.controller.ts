@@ -28,7 +28,7 @@ export class UsersController {
   findAll(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
-    @CurrentUser('role') role: Role,
+    @CurrentUser('role') role: Role | null,
   ) {
     return this.usersService.findAll(tenantId, userId, role);
   }
@@ -43,7 +43,7 @@ export class UsersController {
   findMyBranches(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
-    @CurrentUser('role') role: Role,
+    @CurrentUser('role') role: Role | null,
   ) {
     return this.usersService.findMyBranches(tenantId, userId, role);
   }
@@ -60,7 +60,7 @@ export class UsersController {
   create(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
-    @CurrentUser('role') role: Role,
+    @CurrentUser('role') role: Role | null,
     @Body() dto: CreateUserDto,
   ) {
     return this.usersService.create(tenantId, userId, role, dto);
@@ -72,7 +72,7 @@ export class UsersController {
   update(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
-    @CurrentUser('role') role: Role,
+    @CurrentUser('role') role: Role | null,
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
@@ -85,7 +85,7 @@ export class UsersController {
   remove(
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
-    @CurrentUser('role') role: Role,
+    @CurrentUser('role') role: Role | null,
     @Param('id') id: string,
   ) {
     return this.usersService.remove(tenantId, userId, role, id);

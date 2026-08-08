@@ -18,6 +18,9 @@ export class RolesGuard implements CanActivate {
     }
     const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
-    return !!user && requiredRoles.includes(user.role);
+    // `role` ahora puede ser null (cuenta sin acceso al Taller); un usuario
+    // así nunca cumple un @Roles(...), igual que antes cuando el campo no
+    // existía en el request.
+    return !!user?.role && requiredRoles.includes(user.role);
   }
 }

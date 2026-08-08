@@ -28,7 +28,7 @@ const SAFE_SELECT = {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(tenantId: string, actorUserId: string, actorRole: Role) {
+  async findAll(tenantId: string, actorUserId: string, actorRole: Role | null) {
     if (actorRole === Role.MANAGER) {
       const managerBranchIds = await this.userBranchIds(actorUserId);
       return this.prisma.user.findMany({
@@ -62,7 +62,7 @@ export class UsersService {
   private async findOneScoped(
     tenantId: string,
     actorUserId: string,
-    actorRole: Role,
+    actorRole: Role | null,
     id: string,
   ) {
     const target = await this.findOne(tenantId, id);
@@ -92,7 +92,7 @@ export class UsersService {
   async create(
     tenantId: string,
     actorUserId: string,
-    actorRole: Role,
+    actorRole: Role | null,
     dto: CreateUserDto,
   ) {
     if (actorRole === Role.MANAGER && dto.role === Role.ADMIN) {
@@ -147,7 +147,7 @@ export class UsersService {
   async update(
     tenantId: string,
     actorUserId: string,
-    actorRole: Role,
+    actorRole: Role | null,
     id: string,
     dto: UpdateUserDto,
   ) {
@@ -165,7 +165,7 @@ export class UsersService {
   async remove(
     tenantId: string,
     actorUserId: string,
-    actorRole: Role,
+    actorRole: Role | null,
     id: string,
   ) {
     await this.findOneScoped(tenantId, actorUserId, actorRole, id);
@@ -177,7 +177,7 @@ export class UsersService {
     });
   }
 
-  async findMyBranches(tenantId: string, userId: string, role: Role) {
+  async findMyBranches(tenantId: string, userId: string, role: Role | null) {
     if (role === Role.ADMIN) {
       return this.prisma.branch.findMany({
         where: { tenantId, isActive: true },

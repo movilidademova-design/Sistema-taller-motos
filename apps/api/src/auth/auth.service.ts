@@ -10,7 +10,7 @@ import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterTenantDto } from './dto/register-tenant.dto';
-import { Role } from '../generated/prisma/enums';
+import { PosRole, Role } from '../generated/prisma/enums';
 import {
   parseDurationToMs,
   parseDurationToSeconds,
@@ -161,7 +161,7 @@ export class AuthService {
     userId: string,
     tenantId: string,
     email: string,
-    role: Role,
+    role: Role | null,
     ip?: string,
   ): Promise<TokenPair & { refreshTokenId: string }> {
     const payload = { sub: userId, tenantId, email, role };
@@ -202,7 +202,8 @@ export class AuthService {
     email: string;
     firstName: string;
     lastName: string;
-    role: Role;
+    role: Role | null;
+    posRole: PosRole | null;
   }) {
     return {
       id: user.id,
@@ -211,6 +212,7 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      posRole: user.posRole,
     };
   }
 }
