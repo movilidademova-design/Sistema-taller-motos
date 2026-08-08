@@ -229,7 +229,7 @@ describe('UsersService — role/branch scoping', () => {
         service.create(tenantId, adminId, Role.ADMIN, {
           ...baseDto,
           branchIds: [branchA],
-        } as never),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -257,7 +257,7 @@ describe('UsersService — role/branch scoping', () => {
         ...baseDto,
         posRole: PosRole.CASHIER,
         branchIds: [branchA],
-      } as never);
+      });
 
       // Un cajero no es administrador de ningún lado, así que necesita sucursal.
       expect(tx.userBranch.createMany).toHaveBeenCalledWith({
@@ -277,7 +277,7 @@ describe('UsersService — role/branch scoping', () => {
       await service.create(tenantId, adminId, Role.ADMIN, {
         ...baseDto,
         posRole: PosRole.ADMIN,
-      } as never);
+      });
 
       expect(tx.userBranch.createMany).not.toHaveBeenCalled();
     });
@@ -288,7 +288,7 @@ describe('UsersService — role/branch scoping', () => {
         service.create(tenantId, managerId, Role.MANAGER, {
           ...baseDto,
           posRole: PosRole.ADMIN,
-        } as never),
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
 
