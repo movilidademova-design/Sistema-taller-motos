@@ -9,7 +9,15 @@ import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Role } from '../generated/prisma/enums';
+import { PosRole, Role } from '../generated/prisma/enums';
+
+// Los DTOs todavía no declaran `posRole` (eso llega en la Task 5, junto con su
+// validación). Se amplía el tipo solo para que este servicio compile mientras
+// tanto: el ValidationPipe global usa whitelist:true, así que hoy un `posRole`
+// en el body real se descarta antes de llegar aquí — el acceso solo-POS queda
+// operativo de verdad cuando la Task 5 lo añada al DTO.
+type CreateUserInput = CreateUserDto & { posRole?: PosRole };
+type UpdateUserInput = UpdateUserDto & { posRole?: PosRole | null };
 
 const SAFE_SELECT = {
   id: true,
@@ -18,11 +26,18 @@ const SAFE_SELECT = {
   lastName: true,
   phone: true,
   role: true,
+  posRole: true,
   isActive: true,
   avatarUrl: true,
   lastLoginAt: true,
   createdAt: true,
 };
+
+/** ADMIN de cualquiera de los dos sistemas ve todas las sucursales: un
+ * administrador del POS necesita ver todas las cajas aunque no toque el taller. */
+function isAnyAdmin(role: Role | null, posRole: PosRole | null) {
+  return role === Role.ADMIN || posRole === PosRole.ADMIN;
+}
 
 @Injectable()
 export class UsersService {
@@ -93,9 +108,19 @@ export class UsersService {
     tenantId: string,
     actorUserId: string,
     actorRole: Role | null,
-    dto: CreateUserDto,
+    dto: CreateUserInput,
   ) {
-    if (actorRole === Role.MANAGER && dto.role === Role.ADMIN) {
+    // Una cuenta sin rol en ningún sistema puede iniciar sesión y no puede ir
+    // a ninguna parte. La base tiene la misma regla como restricción CHECK.
+    if (!dto.role && !dto.posRole) {
+      throw new BadRequestException(
+        'El usuario debe tener acceso al menos a un sistema.',
+      );
+    }
+    if (
+      actorRole === Role.MANAGER &&
+      (dto.role === Role.ADMIN || dto.posRole === PosRole.ADMIN)
+    ) {
       throw new ForbiddenException('No puedes crear un usuario Administrador');
     }
     const existing = await this.prisma.user.findUnique({
@@ -103,12 +128,12 @@ export class UsersService {
     });
     if (existing) throw new ConflictException('Ese correo ya está registrado');
 
-    // ADMIN-role users need no branch assignment (they see every branch
-    // automatically). A MANAGER-created user is auto-scoped to the manager's own
-    // branches — no choice to make. An ADMIN creating anyone else must choose
-    // explicitly, since an ADMIN has no "own branch" to default to.
+    // Un ADMIN (de cualquiera de los dos sistemas) ve todas las sucursales, así
+    // que no necesita asignación. Un usuario creado por un GERENTE hereda las
+    // sucursales del gerente — no hay nada que elegir. Un ADMIN creando a otro
+    // debe elegir, porque no tiene "sucursal propia" de la cual heredar.
     let branchIds: string[] = [];
-    if (dto.role !== Role.ADMIN) {
+    if (!isAnyAdmin(dto.role ?? null, dto.posRole ?? null)) {
       if (actorRole === Role.MANAGER) {
         branchIds = await this.userBranchIds(actorUserId);
       } else {
@@ -149,11 +174,29 @@ export class UsersService {
     actorUserId: string,
     actorRole: Role | null,
     id: string,
-    dto: UpdateUserDto,
+    dto: UpdateUserInput,
   ) {
-    await this.findOneScoped(tenantId, actorUserId, actorRole, id);
-    if (actorRole === Role.MANAGER && dto.role === Role.ADMIN) {
+    const target = await this.findOneScoped(
+      tenantId,
+      actorUserId,
+      actorRole,
+      id,
+    );
+    if (
+      actorRole === Role.MANAGER &&
+      (dto.role === Role.ADMIN || dto.posRole === PosRole.ADMIN)
+    ) {
       throw new ForbiddenException('No puedes asignar el rol Administrador');
+    }
+    // Se evalúa el resultado, no lo que llega: una edición parcial que solo
+    // manda `role: null` deja el posRole que ya tenía, y eso sí es válido.
+    const finalRole = dto.role === undefined ? target.role : dto.role;
+    const finalPosRole =
+      dto.posRole === undefined ? target.posRole : dto.posRole;
+    if (!finalRole && !finalPosRole) {
+      throw new BadRequestException(
+        'El usuario debe tener acceso al menos a un sistema.',
+      );
     }
     return this.prisma.user.update({
       where: { id },
@@ -177,8 +220,13 @@ export class UsersService {
     });
   }
 
-  async findMyBranches(tenantId: string, userId: string, role: Role | null) {
-    if (role === Role.ADMIN) {
+  async findMyBranches(
+    tenantId: string,
+    userId: string,
+    role: Role | null,
+    posRole: PosRole | null,
+  ) {
+    if (isAnyAdmin(role, posRole)) {
       return this.prisma.branch.findMany({
         where: { tenantId, isActive: true },
         orderBy: { name: 'asc' },

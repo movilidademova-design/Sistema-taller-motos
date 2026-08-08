@@ -15,7 +15,7 @@ import { AssignBranchesDto } from './dto/assign-branches.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
-import { Role } from '../generated/prisma/enums';
+import { PosRole, Role } from '../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('users')
@@ -44,8 +44,9 @@ export class UsersController {
     @CurrentUser('tenantId') tenantId: string,
     @CurrentUser('userId') userId: string,
     @CurrentUser('role') role: Role | null,
+    @CurrentUser('posRole') posRole: PosRole | null,
   ) {
-    return this.usersService.findMyBranches(tenantId, userId, role);
+    return this.usersService.findMyBranches(tenantId, userId, role, posRole);
   }
 
   @Roles(Role.ADMIN, Role.MANAGER)

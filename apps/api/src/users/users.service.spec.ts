@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { Role } from '../generated/prisma/enums';
+import { PosRole, Role } from '../generated/prisma/enums';
 
 function makeService(prisma: Record<string, unknown>): UsersService {
   return new UsersService(prisma as never);
@@ -210,6 +210,147 @@ describe('UsersService — role/branch scoping', () => {
           data: { isActive: false },
         }),
       );
+    });
+  });
+
+  describe('acceso por sistema', () => {
+    const baseDto = {
+      email: 'nuevo@taller.com',
+      password: 'password123',
+      firstName: 'Nuevo',
+      lastName: 'Usuario',
+    };
+
+    it('rechaza crear un usuario sin acceso a ningún sistema', async () => {
+      const findUnique = jest.fn().mockResolvedValue(null);
+      const service = makeService({ user: { findUnique } });
+
+      await expect(
+        service.create(tenantId, adminId, Role.ADMIN, {
+          ...baseDto,
+          branchIds: [branchA],
+        } as never),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('permite crear un usuario que solo entra al POS', async () => {
+      const findUnique = jest.fn().mockResolvedValue(null);
+      const findManyBranch = jest.fn().mockResolvedValue([{ id: branchA }]);
+      const tx = {
+        user: {
+          create: jest.fn(({ data }: { data: Record<string, unknown> }) => {
+            expect(data.role).toBeUndefined();
+            expect(data.posRole).toBe(PosRole.CASHIER);
+            return { id: 'cajero-1' };
+          }),
+        },
+        userBranch: { createMany: jest.fn() },
+      };
+      const $transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(tx));
+      const service = makeService({
+        user: { findUnique },
+        branch: { findMany: findManyBranch },
+        $transaction,
+      });
+
+      await service.create(tenantId, adminId, Role.ADMIN, {
+        ...baseDto,
+        posRole: PosRole.CASHIER,
+        branchIds: [branchA],
+      } as never);
+
+      // Un cajero no es administrador de ningún lado, así que necesita sucursal.
+      expect(tx.userBranch.createMany).toHaveBeenCalledWith({
+        data: [{ userId: 'cajero-1', branchId: branchA }],
+      });
+    });
+
+    it('no exige sucursales a un administrador del POS', async () => {
+      const findUnique = jest.fn().mockResolvedValue(null);
+      const tx = {
+        user: { create: jest.fn().mockResolvedValue({ id: 'pos-admin' }) },
+        userBranch: { createMany: jest.fn() },
+      };
+      const $transaction = jest.fn((cb: (tx: unknown) => unknown) => cb(tx));
+      const service = makeService({ user: { findUnique }, $transaction });
+
+      await service.create(tenantId, adminId, Role.ADMIN, {
+        ...baseDto,
+        posRole: PosRole.ADMIN,
+      } as never);
+
+      expect(tx.userBranch.createMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza que un GERENTE otorgue el rol de administrador del POS', async () => {
+      const service = makeService({});
+      await expect(
+        service.create(tenantId, managerId, Role.MANAGER, {
+          ...baseDto,
+          posRole: PosRole.ADMIN,
+        } as never),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rechaza que una edición deje al usuario sin ningún sistema', async () => {
+      const findFirst = jest.fn().mockResolvedValue({
+        id: 'target',
+        role: Role.TECHNICIAN,
+        posRole: null,
+      });
+      const service = makeService({ user: { findFirst } });
+
+      await expect(
+        service.update(tenantId, adminId, Role.ADMIN, 'target', { role: null }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('permite quitar el rol de taller si conserva el del POS', async () => {
+      const findFirst = jest.fn().mockResolvedValue({
+        id: 'target',
+        role: Role.TECHNICIAN,
+        posRole: PosRole.CASHIER,
+      });
+      const update = jest.fn().mockResolvedValue({ id: 'target' });
+      const service = makeService({ user: { findFirst, update } });
+
+      await service.update(tenantId, adminId, Role.ADMIN, 'target', {
+        role: null,
+      });
+
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { role: null } }),
+      );
+    });
+
+    it('muestra todas las sucursales a un administrador del POS sin rol de taller', async () => {
+      const findManyBranch = jest.fn().mockResolvedValue([{ id: branchA }]);
+      const service = makeService({ branch: { findMany: findManyBranch } });
+
+      await service.findMyBranches(tenantId, 'pos-admin', null, PosRole.ADMIN);
+
+      expect(findManyBranch).toHaveBeenCalledWith({
+        where: { tenantId, isActive: true },
+        orderBy: { name: 'asc' },
+      });
+    });
+
+    it('limita a un cajero a las sucursales que tiene asignadas', async () => {
+      const findManyUserBranch = jest
+        .fn()
+        .mockResolvedValue([{ branch: { id: branchA } }]);
+      const service = makeService({
+        userBranch: { findMany: findManyUserBranch },
+      });
+
+      const result = await service.findMyBranches(
+        tenantId,
+        'cajero-1',
+        null,
+        PosRole.CASHIER,
+      );
+
+      expect(result).toEqual([{ id: branchA }]);
     });
   });
 });
