@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from './theme-toggle';
 import { SidebarNav } from './sidebar-nav';
+import { SystemSwitcher } from './system-switcher';
 import { useAuth } from '@/components/providers/auth-provider';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { NotificationActions } from '@/components/notifications/notification-actions';
@@ -149,6 +150,7 @@ export function Topbar() {
 
       <div className="flex-1" />
 
+      <SystemSwitcher />
       <BranchSwitcher />
       <NotificationBell />
       <ThemeToggle />

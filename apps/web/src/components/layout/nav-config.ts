@@ -12,8 +12,10 @@ import {
   Bell,
   Settings,
   FileSpreadsheet,
+  Store,
   type LucideIcon,
 } from 'lucide-react';
+import type { SystemId } from '@/lib/active-system';
 
 export interface NavItem {
   href: string;
@@ -22,7 +24,7 @@ export interface NavItem {
   roles?: Role[];
 }
 
-export const NAV_ITEMS: NavItem[] = [
+export const TALLER_NAV: NavItem[] = [
   { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
   { href: '/orders', label: 'Órdenes', icon: ClipboardList },
   { href: '/quotations', label: 'Cotizaciones', icon: ClipboardCheck, roles: ['ADMIN', 'MANAGER', 'RECEPTIONIST'] },
@@ -36,3 +38,13 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/reports', label: 'Reportes', icon: FileSpreadsheet, roles: ['ADMIN', 'MANAGER'] },
   { href: '/settings', label: 'Configuración', icon: Settings, roles: ['ADMIN', 'MANAGER'] },
 ];
+
+// El POS llega en la Fase 2. Su única entrada es la página que anuncia eso.
+export const POS_NAV: NavItem[] = [
+  { href: '/pos', label: 'Punto de venta', icon: Store },
+];
+
+export const NAV_BY_SYSTEM: Record<SystemId, NavItem[]> = {
+  TALLER: TALLER_NAV,
+  POS: POS_NAV,
+};
