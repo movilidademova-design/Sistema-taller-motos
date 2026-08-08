@@ -94,7 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await api.post<AuthResponse>('/auth/login', { email, password });
       authStorage.setSession(data.accessToken, data.refreshToken, data.user);
       setUser(data.user);
-      router.push('/dashboard');
+      // A la raíz, no al panel del taller: `/` decide según los accesos que
+      // tenga esta persona, y un cajero no tiene nada que hacer en /dashboard.
+      router.push('/');
     },
     [router],
   );
@@ -111,7 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await api.post<AuthResponse>('/auth/register-tenant', payload);
       authStorage.setSession(data.accessToken, data.refreshToken, data.user);
       setUser(data.user);
-      router.push('/dashboard');
+      // A la raíz, no al panel del taller: `/` decide según los accesos que
+      // tenga esta persona, y un cajero no tiene nada que hacer en /dashboard.
+      router.push('/');
     },
     [router],
   );
