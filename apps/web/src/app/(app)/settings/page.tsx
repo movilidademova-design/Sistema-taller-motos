@@ -23,7 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useApiSWR } from '@/hooks/use-api-swr';
 import { api } from '@/lib/api';
 import { getErrorMessage, useAuth } from '@/components/providers/auth-provider';
-import { Role } from '@taller/shared';
+import { Role, type PosRole } from '@taller/shared';
 import type { AccessoryOption, Branch, QuickService, UserSummary } from '@/lib/types';
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -34,9 +34,25 @@ const ROLE_LABELS: Record<Role, string> = {
   CLIENT: 'Cliente',
 };
 
+const POS_ROLE_LABELS: Record<PosRole, string> = {
+  ADMIN: 'Administrador',
+  CASHIER: 'Cajero',
+};
+
+// Valor del selector cuando la persona no entra a ese sistema. Un Select de
+// shadcn no admite una opción con valor vacío, así que se usa un centinela y
+// se traduce a null al enviar.
+const SIN_ACCESO = 'NONE';
+
 function assignableRoleOptions(currentUserRole: Role | null) {
   return Object.entries(ROLE_LABELS).filter(
     ([value]) => value !== 'CLIENT' && (currentUserRole === 'ADMIN' || value !== 'ADMIN'),
+  );
+}
+
+function assignablePosRoleOptions(currentUserRole: Role | null) {
+  return Object.entries(POS_ROLE_LABELS).filter(
+    ([value]) => currentUserRole === 'ADMIN' || value !== 'ADMIN',
   );
 }
 
@@ -236,7 +252,8 @@ function UsersSettings() {
           <TableRow>
             <TableHead>Nombre</TableHead>
             <TableHead>Correo</TableHead>
-            <TableHead>Rol</TableHead>
+            <TableHead>Taller</TableHead>
+            <TableHead>POS</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Sucursales</TableHead>
             <TableHead />
@@ -252,6 +269,13 @@ function UsersSettings() {
               <TableCell>
                 {u.role ? (
                   <Badge variant="secondary">{ROLE_LABELS[u.role]}</Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {u.posRole ? (
+                  <Badge variant="secondary">{POS_ROLE_LABELS[u.posRole]}</Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
@@ -301,12 +325,16 @@ function NewUserForm({
     email: '',
     password: '',
     phone: '',
-    role: Role.RECEPTIONIST as Role,
+    role: Role.RECEPTIONIST as Role | typeof SIN_ACCESO,
+    posRole: SIN_ACCESO as PosRole | typeof SIN_ACCESO,
   });
   const [branchIds, setBranchIds] = React.useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const needsBranchPicker = currentUserRole === 'ADMIN' && form.role !== 'ADMIN';
+  // Un ADMIN de cualquiera de los dos sistemas ve todas las sucursales y no
+  // necesita asignación; el resto sí. Misma regla que UsersService.create.
+  const isAnyAdmin = form.role === 'ADMIN' || form.posRole === 'ADMIN';
+  const needsBranchPicker = currentUserRole === 'ADMIN' && !isAnyAdmin;
   const { data: branches } = useApiSWR<Branch[]>(needsBranchPicker ? '/branches' : null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -315,6 +343,8 @@ function NewUserForm({
     try {
       await api.post('/users', {
         ...form,
+        role: form.role === SIN_ACCESO ? null : form.role,
+        posRole: form.posRole === SIN_ACCESO ? null : form.posRole,
         ...(needsBranchPicker ? { branchIds } : {}),
       });
       toast.success('Usuario creado');
@@ -327,6 +357,7 @@ function NewUserForm({
   }
 
   const roleOptions = assignableRoleOptions(currentUserRole);
+  const posRoleOptions = assignablePosRoleOptions(currentUserRole);
 
   return (
     <form onSubmit={handleSubmit}>
@@ -361,13 +392,17 @@ function NewUserForm({
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
         </div>
-        <div className="col-span-2 flex flex-col gap-1.5">
-          <Label>Rol</Label>
-          <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
+        <div className="flex flex-col gap-1.5">
+          <Label>Rol en el Taller</Label>
+          <Select
+            value={form.role}
+            onValueChange={(v) => setForm({ ...form, role: v as Role })}
+          >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={SIN_ACCESO}>Sin acceso</SelectItem>
               {roleOptions.map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
@@ -376,6 +411,30 @@ function NewUserForm({
             </SelectContent>
           </Select>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Rol en el POS</Label>
+          <Select
+            value={form.posRole}
+            onValueChange={(v) => setForm({ ...form, posRole: v as PosRole })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SIN_ACCESO}>Sin acceso</SelectItem>
+              {posRoleOptions.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {form.role === SIN_ACCESO && form.posRole === SIN_ACCESO && (
+          <p className="col-span-2 text-sm text-destructive">
+            Elige al menos un sistema, o el usuario no podrá entrar a nada.
+          </p>
+        )}
         {needsBranchPicker && (
           <div className="col-span-2 flex flex-col gap-2">
             <Label>Sucursales</Label>
@@ -400,7 +459,11 @@ function NewUserForm({
       <DialogFooter>
         <Button
           type="submit"
-          disabled={isSubmitting || (needsBranchPicker && branchIds.length === 0)}
+          disabled={
+            isSubmitting ||
+            (form.role === SIN_ACCESO && form.posRole === SIN_ACCESO) ||
+            (needsBranchPicker && branchIds.length === 0)
+          }
         >
           {isSubmitting ? 'Guardando...' : 'Crear usuario'}
         </Button>
@@ -422,10 +485,12 @@ function EditUserForm({
     firstName: user.firstName,
     lastName: user.lastName,
     phone: user.phone ?? '',
-    // Se conserva `null` tal cual en vez de forzar un rol por defecto: si esta
-    // cuenta es solo-POS y el selector no se toca, el PATCH reenvía `role: null`
-    // (que la API entiende como "sigue sin acceso al taller"), no un rol inventado.
-    role: user.role,
+    // Se traduce `null` al centinela SIN_ACCESO en vez de un rol por defecto:
+    // si esta cuenta no tiene acceso a un sistema y el selector no se toca, el
+    // PATCH reenvía `role`/`posRole: null` (sigue sin acceso), no un rol
+    // inventado que le otorgaría acceso en silencio al guardar otro campo.
+    role: (user.role ?? SIN_ACCESO) as Role | typeof SIN_ACCESO,
+    posRole: (user.posRole ?? SIN_ACCESO) as PosRole | typeof SIN_ACCESO,
     isActive: user.isActive,
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -434,7 +499,11 @@ function EditUserForm({
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await api.patch(`/users/${user.id}`, form);
+      await api.patch(`/users/${user.id}`, {
+        ...form,
+        role: form.role === SIN_ACCESO ? null : form.role,
+        posRole: form.posRole === SIN_ACCESO ? null : form.posRole,
+      });
       toast.success('Usuario actualizado');
       onSuccess();
     } catch (error) {
@@ -445,6 +514,7 @@ function EditUserForm({
   }
 
   const roleOptions = assignableRoleOptions(currentUserRole);
+  const posRoleOptions = assignablePosRoleOptions(currentUserRole);
 
   return (
     <form onSubmit={handleSubmit}>
@@ -464,13 +534,17 @@ function EditUserForm({
           <Label>Teléfono</Label>
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </div>
-        <div className="col-span-2 flex flex-col gap-1.5">
-          <Label>Rol</Label>
-          <Select value={form.role ?? undefined} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
+        <div className="flex flex-col gap-1.5">
+          <Label>Rol en el Taller</Label>
+          <Select
+            value={form.role}
+            onValueChange={(v) => setForm({ ...form, role: v as Role })}
+          >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={SIN_ACCESO}>Sin acceso</SelectItem>
               {roleOptions.map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
@@ -479,6 +553,30 @@ function EditUserForm({
             </SelectContent>
           </Select>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Rol en el POS</Label>
+          <Select
+            value={form.posRole}
+            onValueChange={(v) => setForm({ ...form, posRole: v as PosRole })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SIN_ACCESO}>Sin acceso</SelectItem>
+              {posRoleOptions.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {form.role === SIN_ACCESO && form.posRole === SIN_ACCESO && (
+          <p className="col-span-2 text-sm text-destructive">
+            Elige al menos un sistema, o el usuario no podrá entrar a nada.
+          </p>
+        )}
         <div className="col-span-2">
           <Label className="flex items-center gap-2 font-normal">
             <Checkbox
@@ -490,7 +588,12 @@ function EditUserForm({
         </div>
       </div>
       <DialogFooter>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={
+            isSubmitting || (form.role === SIN_ACCESO && form.posRole === SIN_ACCESO)
+          }
+        >
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
       </DialogFooter>
