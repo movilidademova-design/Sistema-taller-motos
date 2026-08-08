@@ -23,6 +23,11 @@ enum Role {
   CLIENT
 }
 
+enum PosRole {
+  ADMIN
+  CASHIER
+}
+
 enum VehicleType {
   BICIMOTO
   PATINETA
@@ -254,7 +259,11 @@ model User {
   firstName    String
   lastName     String
   phone        String?
-  role         Role      @default(RECEPTIONIST)
+  // null = sin acceso a ese sistema. La restricción users_at_least_one_role
+  // (ver la migración) impide que los dos queden vacíos, porque sería una
+  // cuenta que puede iniciar sesión y no puede ir a ninguna parte.
+  role         Role?
+  posRole      PosRole?
   isActive     Boolean   @default(true)
   avatarUrl    String?
   lastLoginAt  DateTime?
