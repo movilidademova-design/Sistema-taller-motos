@@ -28,7 +28,12 @@ async function buildSheet(
  * previewImport usa `this.prisma` directo y applyImport lo hace dentro de
  * `$transaction`, cuyo callback recibe este mismo doble. */
 function makeService(
-  existing: { id: string; reference: string; color: string }[] = [],
+  existing: {
+    id: string;
+    reference: string;
+    name: string;
+    color: string;
+  }[] = [],
 ) {
   const findMany = jest.fn().mockResolvedValue(existing);
   const create = jest
@@ -64,7 +69,7 @@ describe('PosProductsService — importación de inventario', () => {
   describe('previewImport', () => {
     it('no escribe nada: solo cuenta cuántos crearía y cuántos actualizaría', async () => {
       const { service, posProduct } = makeService([
-        { id: 'p1', reference: 'EB-11U', color: 'Negro' },
+        { id: 'p1', reference: 'EB-11U', name: 'Apolo', color: 'Negro' },
       ]);
       const buffer = await buildSheet([
         ['EB-11U', 'Apolo Negro', 'MOTO', 'Negro', 'Prov', 1000000, 500000, 5],
@@ -93,7 +98,7 @@ describe('PosProductsService — importación de inventario', () => {
 
     it('respeta el branchId: solo empareja contra los productos de esa sucursal', async () => {
       const { service, posProduct } = makeService([
-        { id: 'p1', reference: 'EB-11U', color: 'Negro' },
+        { id: 'p1', reference: 'EB-11U', name: 'Apolo', color: 'Negro' },
       ]);
       const buffer = await buildSheet([
         ['EB-11U', 'Apolo Negro', 'MOTO', 'Negro', 'Prov', 1000000, 500000, 5],
@@ -103,7 +108,7 @@ describe('PosProductsService — importación de inventario', () => {
 
       expect(posProduct.findMany).toHaveBeenCalledWith({
         where: { tenantId, branchId: branchB, isActive: true },
-        select: { id: true, reference: true, color: true },
+        select: { id: true, reference: true, name: true, color: true },
       });
     });
   });
@@ -111,7 +116,12 @@ describe('PosProductsService — importación de inventario', () => {
   describe('applyImport', () => {
     it('empareja por referencia+color normalizados (espacios y mayúsculas no importan)', async () => {
       const { service, posProduct } = makeService([
-        { id: 'existing-id', reference: 'EB-11U', color: 'Negro' },
+        {
+          id: 'existing-id',
+          reference: 'EB-11U',
+          name: 'Apolo',
+          color: 'Negro',
+        },
       ]);
       const buffer = await buildSheet([
         [
@@ -138,9 +148,18 @@ describe('PosProductsService — importación de inventario', () => {
       expect(posProduct.create).not.toHaveBeenCalled();
     });
 
-    it('una fila sin referencia siempre crea, nunca actualiza', async () => {
+    // Sin referencia se empareja por nombre+color. Es el caso real de
+    // `CORRECION`, el único de los 50 productos de MotoPos que no tiene
+    // referencia: cuando estas filas creaban siempre, reimportar el mismo
+    // archivo tres veces dejaba tres CORRECION.
+    it('una fila sin referencia se empareja por nombre y color', async () => {
       const { service, posProduct } = makeService([
-        { id: 'existing-id', reference: '', color: '' },
+        {
+          id: 'existing-id',
+          reference: '',
+          name: 'Producto suelto',
+          color: '',
+        },
       ]);
       const buffer = await buildSheet([
         ['', 'Producto suelto', 'ACCESORIO', '', 'Prov', 10000, 0, 1],
@@ -148,9 +167,28 @@ describe('PosProductsService — importación de inventario', () => {
 
       const result = await service.applyImport(tenantId, branchA, buffer);
 
+      expect(result).toEqual({ created: 0, updated: 1 });
+      expect(posProduct.update).toHaveBeenCalledTimes(1);
+      expect(posProduct.create).not.toHaveBeenCalled();
+    });
+
+    it('sin referencia, un nombre distinto sí crea uno nuevo', async () => {
+      const { service, posProduct } = makeService([
+        {
+          id: 'existing-id',
+          reference: '',
+          name: 'Producto suelto',
+          color: '',
+        },
+      ]);
+      const buffer = await buildSheet([
+        ['', 'Otro producto', 'ACCESORIO', '', 'Prov', 10000, 0, 1],
+      ]);
+
+      const result = await service.applyImport(tenantId, branchA, buffer);
+
       expect(result).toEqual({ created: 1, updated: 0 });
       expect(posProduct.create).toHaveBeenCalledTimes(1);
-      expect(posProduct.update).not.toHaveBeenCalled();
     });
 
     it('un archivo con errores no escribe nada: se rechaza entero con 400', async () => {
@@ -177,7 +215,7 @@ describe('PosProductsService — importación de inventario', () => {
 
       expect(posProduct.findMany).toHaveBeenCalledWith({
         where: { tenantId, branchId: branchB, isActive: true },
-        select: { id: true, reference: true, color: true },
+        select: { id: true, reference: true, name: true, color: true },
       });
       expect(posProduct.create).toHaveBeenCalledWith({
         // Nested expect.objectContaining() inside an object literal loses its type here.
@@ -188,7 +226,7 @@ describe('PosProductsService — importación de inventario', () => {
 
     it('el stock del archivo reemplaza al del sistema, no se suma', async () => {
       const { service, posProduct } = makeService([
-        { id: 'existing-id', reference: 'R1', color: '' },
+        { id: 'existing-id', reference: 'R1', name: 'Casco', color: '' },
       ]);
       const buffer = await buildSheet([
         ['R1', 'Casco', 'ACCESORIO', '', 'Prov', 50000, 20000, 2],

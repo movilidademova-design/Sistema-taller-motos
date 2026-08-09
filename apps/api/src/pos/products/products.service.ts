@@ -149,20 +149,28 @@ export class PosProductsService {
    * Un producto se identifica por referencia + color, normalizados (sin
    * mayúsculas, sin espacios de sobra) — la referencia sola no alcanza:
    * en los datos reales `EB-11U` es a la vez la Apolo negra y la gris.
+   *
+   * Sin referencia se cae a nombre + color. Antes esas filas creaban siempre
+   * un producto nuevo, y reimportar el mismo archivo iba acumulando copias:
+   * el `CORRECION` de MotoPos no tiene referencia, así que tres importaciones
+   * dejaban tres CORRECION. Duplicar en silencio es peor que emparejar por un
+   * nombre que el usuario controla.
    */
-  private matchKey(reference: string, color: string): string {
-    return `${reference.trim().toLowerCase()}|${color.trim().toLowerCase()}`;
+  private matchKey(reference: string, name: string, color: string): string {
+    const norm = (s: string) => s.trim().toLowerCase();
+    const id = reference.trim()
+      ? `ref:${norm(reference)}`
+      : `nom:${norm(name)}`;
+    return `${id}|${norm(color)}`;
   }
 
-  /** Indexa productos existentes por referencia+color. Una fila sin
-   * referencia nunca entra aquí: no hay con qué emparejarla, así que siempre crea. */
+  /** Indexa los productos existentes por su clave de emparejado. */
   private indexByKey(
-    existing: { id: string; reference: string; color: string }[],
+    existing: { id: string; reference: string; name: string; color: string }[],
   ): Map<string, string> {
     const byKey = new Map<string, string>();
     for (const p of existing) {
-      if (!p.reference.trim()) continue;
-      byKey.set(this.matchKey(p.reference, p.color), p.id);
+      byKey.set(this.matchKey(p.reference, p.name, p.color), p.id);
     }
     return byKey;
   }
@@ -179,16 +187,16 @@ export class PosProductsService {
     const { rows, errors } = await parseProductImportSheet(buffer);
     const existing = await this.prisma.posProduct.findMany({
       where: { tenantId, branchId, isActive: true },
-      select: { id: true, reference: true, color: true },
+      select: { id: true, reference: true, name: true, color: true },
     });
     const existingByKey = this.indexByKey(existing);
 
     let toCreate = 0;
     let toUpdate = 0;
     for (const row of rows) {
-      const isUpdate =
-        row.reference &&
-        existingByKey.has(this.matchKey(row.reference, row.color));
+      const isUpdate = existingByKey.has(
+        this.matchKey(row.reference, row.name, row.color),
+      );
       if (isUpdate) toUpdate++;
       else toCreate++;
     }
@@ -218,7 +226,7 @@ export class PosProductsService {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.posProduct.findMany({
         where: { tenantId, branchId, isActive: true },
-        select: { id: true, reference: true, color: true },
+        select: { id: true, reference: true, name: true, color: true },
       });
       const existingByKey = this.indexByKey(existing);
 
@@ -237,9 +245,9 @@ export class PosProductsService {
           color: row.color,
           supplier: row.supplier,
         };
-        const existingId = row.reference
-          ? existingByKey.get(this.matchKey(row.reference, row.color))
-          : undefined;
+        const existingId = existingByKey.get(
+          this.matchKey(row.reference, row.name, row.color),
+        );
 
         if (existingId) {
           await tx.posProduct.update({ where: { id: existingId }, data });
