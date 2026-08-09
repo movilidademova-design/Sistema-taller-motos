@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Search, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Search, AlertTriangle, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { mutate } from 'swr';
 import { Button } from '@/components/ui/button';
@@ -93,16 +94,23 @@ export default function PosProductosPage() {
           />
         </div>
         {isAdmin && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus /> Nuevo producto
+          <div className="flex items-center gap-2">
+            <Link href="/pos/productos/importar">
+              <Button variant="outline">
+                <Upload /> Importar
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <ProductForm onSuccess={() => { setOpen(false); refresh(); }} />
-            </DialogContent>
-          </Dialog>
+            </Link>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus /> Nuevo producto
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <ProductForm onSuccess={() => { setOpen(false); refresh(); }} />
+              </DialogContent>
+            </Dialog>
+          </div>
         )}
       </div>
 
