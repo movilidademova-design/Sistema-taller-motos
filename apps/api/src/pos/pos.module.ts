@@ -8,6 +8,8 @@ import { PosSalesController } from './sales/sales.controller';
 import { PosSalesService } from './sales/sales.service';
 import { PosLayawaysController } from './layaways/layaways.controller';
 import { PosLayawaysService } from './layaways/layaways.service';
+import { PosReportsController } from './reports/reports.controller';
+import { PosReportsService } from './reports/reports.service';
 
 @Global()
 @Module({
@@ -16,6 +18,7 @@ import { PosLayawaysService } from './layaways/layaways.service';
     PosListsController,
     PosSalesController,
     PosLayawaysController,
+    PosReportsController,
   ],
   providers: [
     PosPrismaService,
@@ -23,6 +26,7 @@ import { PosLayawaysService } from './layaways/layaways.service';
     PosListsService,
     PosSalesService,
     PosLayawaysService,
+    PosReportsService,
   ],
   exports: [PosPrismaService],
 })
