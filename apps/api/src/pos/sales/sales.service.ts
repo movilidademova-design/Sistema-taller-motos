@@ -12,14 +12,12 @@ import {
   ListPosSalesQueryDto,
 } from './dto/sale.dto';
 import { computeSaleTotals, DiscountType } from './sale-pricing.util';
+import { nextInvoiceNumber } from './invoice-number.util';
 
 // Reglas migradas de motopos/app.py: crear_venta (línea 389), anular_venta
-// (línea 499), hacer_nota_credito (línea 510), _next_factura_num (línea 369).
-
-// ponytail: piso fijo por ahora — app.py lo lee de una tabla `configuracion`
-// que todavía no se portó. Se vuelve configurable por tenant cuando alguien
-// lo pida de verdad.
-const INVOICE_NUMBER_FLOOR = 3;
+// (línea 499), hacer_nota_credito (línea 510). La numeración de factura
+// (_next_factura_num, línea 369) vive en invoice-number.util.ts porque
+// PosLayawaysService también la necesita al completar un separado.
 
 const SALE_INCLUDE = {
   items: true,
@@ -96,11 +94,7 @@ export class PosSalesService {
         );
       }
 
-      const invoiceNumber = await this.nextInvoiceNumber(
-        tx,
-        tenantId,
-        branchId,
-      );
+      const invoiceNumber = await nextInvoiceNumber(tx, tenantId, branchId);
       // "dividido" es el término que ya usa el catálogo de métodos de pago
       // (PosList) para esta venta con más de un método.
       const paymentMethod =
@@ -286,26 +280,6 @@ export class PosSalesService {
         });
       }
     }
-  }
-
-  /**
-   * Primer número de factura libre desde el piso, por sucursal. NO cuenta
-   * hacia arriba: reutiliza el hueco que deja una venta anulada (app.py línea
-   * 374), porque es la regla fiscal que el usuario ya decidió mantener.
-   */
-  private async nextInvoiceNumber(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    branchId: string,
-  ): Promise<number> {
-    const sales = await tx.posSale.findMany({
-      where: { tenantId, branchId, invoiceNumber: { not: null } },
-      select: { invoiceNumber: true },
-    });
-    const used = new Set(sales.map((s) => s.invoiceNumber as number));
-    let n = Math.max(4, INVOICE_NUMBER_FLOOR + 1);
-    while (used.has(n)) n++;
-    return n;
   }
 
   private async resolveItem(
