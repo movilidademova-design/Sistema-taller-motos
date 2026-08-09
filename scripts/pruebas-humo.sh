@@ -34,6 +34,11 @@ HT=(-H "Authorization: Bearer $TEC"   -H "X-Branch-Id: $BR_A")
 # así que su sucursal se pregunta en vez de darla por sabida.
 BR_CAJ=$(curl -s "$API/users/me/branches" -H "Authorization: Bearer $CAJ" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 HC=(-H "Authorization: Bearer $CAJ"   -H "X-Branch-Id: $BR_CAJ")
+# Admin del POS (Fase 4): reportes, exportaciones y cierre mensual son solo
+# suyos — ni el cajero (POS) ni el admin del taller deben poder pedirlos.
+POSA=$(login pos-admin@tallerdemo.com)
+BR_POSA=$(curl -s "$API/users/me/branches" -H "Authorization: Bearer $POSA" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+HP=(-H "Authorization: Bearer $POSA" -H "X-Branch-Id: $BR_POSA")
 
 echo ""; echo "AUTENTICACIÓN Y ROLES"
 check "login admin" 200 "$(code -X POST $API/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@tallerdemo.com","password":"Password123!"}')"
@@ -137,6 +142,19 @@ check "admin del taller NO ve productos POS" 403 "$(code $API/pos/products "${HA
 check "admin del taller NO ve listas POS" 403 "$(code $API/pos/lists "${HA[@]}")"
 check "admin del taller NO ve ventas POS" 403 "$(code $API/pos/sales "${HA[@]}")"
 check "admin del taller NO ve separados POS" 403 "$(code $API/pos/layaways "${HA[@]}")"
+
+echo ""; echo "POS — REPORTES Y CIERRE (Fase 4, solo PosRole.ADMIN)"
+check "admin POS ve el resumen" 200 "$(code "$API/pos/reports/summary" "${HP[@]}")"
+check "cajero NO ve el resumen" 403 "$(code "$API/pos/reports/summary" "${HC[@]}")"
+check "admin del taller NO ve el resumen POS" 403 "$(code "$API/pos/reports/summary" "${HA[@]}")"
+check "admin POS exporta ventas" 200 "$(code "$API/pos/sales/export" "${HP[@]}")"
+check "cajero NO exporta ventas" 403 "$(code "$API/pos/sales/export" "${HC[@]}")"
+check "admin POS exporta inventario" 200 "$(code "$API/pos/products/export" "${HP[@]}")"
+check "admin POS exporta separados" 200 "$(code "$API/pos/layaways/export" "${HP[@]}")"
+CIERRE_MES=$(date +%Y-%m)
+check "admin POS genera el cierre mensual" 200 "$(code "$API/pos/reports/monthly-close?month=$CIERRE_MES" "${HP[@]}")"
+check "cajero NO genera el cierre mensual" 403 "$(code "$API/pos/reports/monthly-close?month=$CIERRE_MES" "${HC[@]}")"
+check "mes con formato inválido rechaza" 400 "$(code "$API/pos/reports/monthly-close?month=2026" "${HP[@]}")"
 
 echo ""; echo "MÓDULOS ELIMINADOS (deben dar 404)"
 for m in payments warranties; do check "/$m eliminado" 404 "$(code $API/$m "${HA[@]}")"; done

@@ -27,8 +27,8 @@ async function main() {
     },
   });
 
-  const [admin, manager, receptionist, technician, cashier] = await Promise.all(
-    [
+  const [admin, manager, receptionist, technician, cashier, posAdmin] =
+    await Promise.all([
       prisma.user.upsert({
         where: { email: 'admin@tallerdemo.com' },
         update: {},
@@ -92,8 +92,24 @@ async function main() {
           lastName: 'Cajero',
         },
       }),
-    ],
-  );
+      prisma.user.upsert({
+        where: { email: 'pos-admin@tallerdemo.com' },
+        update: {},
+        create: {
+          tenantId: tenant.id,
+          email: 'pos-admin@tallerdemo.com',
+          passwordHash,
+          // Igual que el cajero: sin rol de taller, para poder probar el
+          // aislamiento entre sistemas también del lado ADMIN del POS (los
+          // reportes y el cierre mensual son PosRole.ADMIN, y sin este
+          // usuario no había ninguna cuenta de demo capaz de alcanzarlos).
+          role: null,
+          posRole: PosRole.ADMIN,
+          firstName: 'Patricia',
+          lastName: 'Administradora POS',
+        },
+      }),
+    ]);
 
   const branch = await prisma.branch.upsert({
     where: { tenantId_code: { tenantId: tenant.id, code: '0001' } },
@@ -114,6 +130,11 @@ async function main() {
     where: { userId_branchId: { userId: cashier.id, branchId: branch.id } },
     update: {},
     create: { userId: cashier.id, branchId: branch.id },
+  });
+  await prisma.userBranch.upsert({
+    where: { userId_branchId: { userId: posAdmin.id, branchId: branch.id } },
+    update: {},
+    create: { userId: posAdmin.id, branchId: branch.id },
   });
 
   const client = await prisma.client.upsert({
@@ -251,6 +272,7 @@ async function main() {
   console.log(`  Recepción:    ${receptionist.email} / ${password}`);
   console.log(`  Técnico:      ${technician.email} / ${password}`);
   console.log(`  Cajero (POS): ${cashier.email} / ${password}`);
+  console.log(`  Admin POS: ${posAdmin.email} / ${password}`);
   console.log(`Producto demo: ${product.name} (stock ${product.quantity})`);
 }
 
