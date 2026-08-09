@@ -21,7 +21,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "pos:generate": "prisma generate --config prisma/pos/prisma.config.ts",
+    "pos:migrate": "prisma migrate deploy --config prisma/pos/prisma.config.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

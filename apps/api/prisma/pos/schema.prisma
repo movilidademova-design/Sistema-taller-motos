@@ -1,0 +1,128 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/generated/pos"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// tenantId, branchId y createdById son texto plano SIN llave foránea: apuntan a
+// la base del taller, y no puede haber una relación entre bases distintas. Ese
+// es justamente el aislamiento que se busca.
+
+enum PosProductCategory {
+  MOTO
+  ACCESORIO
+  REPUESTO
+  TALLER
+}
+
+enum PosSaleStatus {
+  ACTIVE
+  VOIDED
+  CREDIT_NOTE
+}
+
+model PosProduct {
+  id        String             @id @default(uuid())
+  tenantId  String
+  branchId  String
+  name      String
+  category  PosProductCategory
+  price     Decimal            @db.Decimal(12, 2)
+  cost      Decimal            @default(0) @db.Decimal(12, 2)
+  stock     Int                @default(0)
+  reference String             @default("")
+  color     String             @default("")
+  supplier  String             @default("")
+  entryDate DateTime?
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  saleItems PosSaleItem[]
+
+  @@index([tenantId, branchId, isActive])
+  @@map("pos_products")
+}
+
+// Catálogos editables: categorías, colores, proveedores, métodos de pago.
+model PosList {
+  id       String @id @default(uuid())
+  tenantId String
+  branchId String
+  type     String
+  value    String
+
+  @@unique([tenantId, branchId, type, value])
+  @@index([tenantId, branchId, type])
+  @@map("pos_lists")
+}
+
+model PosSale {
+  id              String        @id @default(uuid())
+  tenantId        String
+  branchId        String
+  // Se reutiliza el hueco que deja una venta anulada, por decisión fiscal del
+  // usuario. Nulo mientras la venta está anulada.
+  invoiceNumber   Int?
+  soldAt          DateTime      @default(now())
+  // Texto suelto a propósito: el cliente del taller vive en la otra base.
+  clientName      String
+  clientDoc       String        @default("")
+  paymentMethod   String
+  subtotal        Decimal       @db.Decimal(12, 2)
+  generalDiscount Decimal       @default(0) @db.Decimal(12, 2)
+  total           Decimal       @db.Decimal(12, 2)
+  status          PosSaleStatus @default(ACTIVE)
+  statusChangedAt DateTime?
+  createdById     String
+  createdAt       DateTime      @default(now())
+
+  items    PosSaleItem[]
+  payments PosSalePayment[]
+
+  @@unique([tenantId, branchId, invoiceNumber])
+  @@index([tenantId, branchId, soldAt])
+  @@map("pos_sales")
+}
+
+model PosSaleItem {
+  id            String      @id @default(uuid())
+  saleId        String
+  sale          PosSale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       PosProduct? @relation(fields: [productId], references: [id])
+  // Copia congelada: el nombre y el precio de la venta no deben cambiar porque
+  // después se edite el producto.
+  name          String
+  unitPrice     Decimal     @db.Decimal(12, 2)
+  unitCost      Decimal     @default(0) @db.Decimal(12, 2)
+  itemDiscount  Decimal     @default(0) @db.Decimal(12, 2)
+  finalPrice    Decimal     @db.Decimal(12, 2)
+  quantity      Int
+  lineTotal     Decimal     @db.Decimal(12, 2)
+  reference     String      @default("")
+  color         String      @default("")
+  supplier      String      @default("")
+  // Solo para motos. El cierre mensual los exige.
+  engineNumber  String?
+  chassisNumber String?
+
+  @@index([saleId])
+  @@map("pos_sale_items")
+}
+
+// Una venta puede pagarse con varios métodos a la vez (pago dividido).
+model PosSalePayment {
+  id     String  @id @default(uuid())
+  saleId String
+  sale   PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method String
+  amount Decimal @db.Decimal(12, 2)
+
+  @@index([saleId])
+  @@map("pos_sale_payments")
+}

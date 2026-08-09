@@ -5,6 +5,9 @@
 # generated prisma client (regenerated via `pnpm prisma:generate`)
 /src/generated/prisma
 
+# generated prisma client del POS (regenerado via `pnpm pos:generate`)
+/src/generated/pos
+
 # Logs
 logs
 *.log
