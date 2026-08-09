@@ -71,3 +71,58 @@ export interface PosList {
   type: string;
   value: string;
 }
+
+export type PosLayawayStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+
+export interface PosLayawayItem {
+  id: string;
+  layawayId: string;
+  productId?: string | null;
+  name: string;
+  unitPrice: string;
+  unitCost: string;
+  finalPrice: string;
+  quantity: number;
+  lineTotal: string;
+  reference: string;
+  color: string;
+  supplier: string;
+  engineNumber?: string | null;
+  chassisNumber?: string | null;
+}
+
+export interface PosLayawayPayment {
+  id: string;
+  layawayId: string;
+  paidAt: string;
+  amount: string;
+  method: string;
+  notes: string;
+  receiptNumber: number | null;
+  createdById: string;
+}
+
+export interface PosLayaway {
+  id: string;
+  clientName: string;
+  clientDoc: string;
+  clientPhone: string;
+  total: string;
+  generalDiscount: string;
+  paid: string;
+  balance: string;
+  status: PosLayawayStatus;
+  notes: string;
+  saleId?: string | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  items: PosLayawayItem[];
+  payments: PosLayawayPayment[];
+}
+
+/** Respuesta de POST /pos/layaways/:id/payments: el separado actualizado y,
+ * si este abono lo completó, la venta que se generó (si no, `sale` es null). */
+export interface PosLayawayPaymentResult extends PosLayaway {
+  sale: PosSale | null;
+}

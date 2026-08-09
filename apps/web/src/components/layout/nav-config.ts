@@ -13,6 +13,7 @@ import {
   Settings,
   FileSpreadsheet,
   Receipt,
+  HandCoins,
   type LucideIcon,
 } from 'lucide-react';
 import type { SystemId } from '@/lib/active-system';
@@ -43,6 +44,7 @@ export const POS_NAV: NavItem[] = [
   { href: '/pos/vender', label: 'Vender', icon: ShoppingCart },
   { href: '/pos/productos', label: 'Productos', icon: Package },
   { href: '/pos/ventas', label: 'Ventas', icon: Receipt },
+  { href: '/pos/separados', label: 'Separados', icon: HandCoins },
 ];
 
 export const NAV_BY_SYSTEM: Record<SystemId, NavItem[]> = {
