@@ -126,3 +126,26 @@ export interface PosLayaway {
 export interface PosLayawayPaymentResult extends PosLayaway {
   sale: PosSale | null;
 }
+
+/**
+ * Respuesta de GET /pos/reports/summary. A diferencia de las entidades de
+ * arriba, el backend YA convierte los `Decimal` a número antes de responder
+ * (solo se puede hacer una vez, al final) — estos campos llegan como number,
+ * no como string.
+ */
+export interface PosSummary {
+  from?: string;
+  to?: string;
+  salesCount: number;
+  totalInvoiced: number;
+  totalProfit: number;
+  byPaymentMethod: { method: string; total: number }[];
+  topProducts: { name: string; quantity: number; total: number }[];
+  activeLayaways: {
+    id: string;
+    clientName: string;
+    total: number;
+    paid: number;
+    balance: number;
+  }[];
+}

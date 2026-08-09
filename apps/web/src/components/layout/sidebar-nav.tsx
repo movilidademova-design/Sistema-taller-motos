@@ -33,7 +33,9 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   const items = NAV_BY_SYSTEM[activeSystem].filter(
-    (item) => !item.roles || (!!user?.role && item.roles.includes(user.role)),
+    (item) =>
+      (!item.roles || (!!user?.role && item.roles.includes(user.role))) &&
+      (!item.posRoles || (!!user?.posRole && item.posRoles.includes(user.posRole))),
   );
 
   return (

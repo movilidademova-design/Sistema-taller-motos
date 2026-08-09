@@ -1,4 +1,4 @@
-import type { Role } from '@taller/shared';
+import type { Role, PosRole } from '@taller/shared';
 import {
   LayoutDashboard,
   Users,
@@ -23,6 +23,8 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   roles?: Role[];
+  /** Gating por rol del POS (independiente de `roles`, que mira el rol del taller). */
+  posRoles?: PosRole[];
 }
 
 export const TALLER_NAV: NavItem[] = [
@@ -45,6 +47,8 @@ export const POS_NAV: NavItem[] = [
   { href: '/pos/productos', label: 'Productos', icon: Package },
   { href: '/pos/ventas', label: 'Ventas', icon: Receipt },
   { href: '/pos/separados', label: 'Separados', icon: HandCoins },
+  // Solo ADMIN: un cajero no ve la ganancia ni el cierre mensual.
+  { href: '/pos/reportes', label: 'Reportes', icon: FileSpreadsheet, posRoles: ['ADMIN'] },
 ];
 
 export const NAV_BY_SYSTEM: Record<SystemId, NavItem[]> = {

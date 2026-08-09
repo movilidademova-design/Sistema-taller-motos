@@ -13,6 +13,7 @@ export function ExportButton({
   params = {},
   label = 'Exportar a Excel',
   hint,
+  visible,
 }: {
   endpoint: string;
   /** Nombre de respaldo si el servidor no manda Content-Disposition. */
@@ -21,12 +22,19 @@ export function ExportButton({
   label?: string;
   /** Aviso al pasar el mouse, para cuando el archivo no trae exactamente lo que se ve en pantalla. */
   hint?: string;
+  /**
+   * Anula el chequeo de rol por defecto (taller: ADMIN/MANAGER). El POS usa
+   * `posRole`, un campo distinto — sus páginas pasan aquí su propio cálculo
+   * (p. ej. `user?.posRole === 'ADMIN'`) en vez de depender del rol del taller.
+   */
+  visible?: boolean;
 }) {
   const { user } = useAuth();
   const [isExporting, setIsExporting] = React.useState(false);
 
   // Exportar datos es una operación administrativa: recepción y técnicos no la ven.
-  if (user?.role !== 'ADMIN' && user?.role !== 'MANAGER') return null;
+  const canExport = visible ?? (user?.role === 'ADMIN' || user?.role === 'MANAGER');
+  if (!canExport) return null;
 
   async function handleExport() {
     setIsExporting(true);
