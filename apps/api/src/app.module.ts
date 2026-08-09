@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { PosModule } from './pos/pos.module';
 import { PdfModule } from './common/pdf/pdf.module';
 import { ExcelModule } from './common/excel/excel.module';
 import { AuthModule } from './auth/auth.module';
@@ -36,6 +37,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 200 }]),
     PrismaModule,
+    PosModule,
     PdfModule,
     ExcelModule,
     StorageModule,
