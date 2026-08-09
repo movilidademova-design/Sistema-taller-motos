@@ -71,7 +71,10 @@ export function computeSaleTotals(input: SaleTotalsInput): SaleTotals {
         Prisma.Decimal.min(generalDiscountInput, subtotal).toDecimalPlaces(
           TWO_DECIMALS,
         )
-      : subtotal.mul(generalDiscountInput).div(100).toDecimalPlaces(TWO_DECIMALS);
+      : subtotal
+          .mul(generalDiscountInput)
+          .div(100)
+          .toDecimalPlaces(TWO_DECIMALS);
 
   const total = subtotal.sub(generalDiscount).toDecimalPlaces(TWO_DECIMALS);
 

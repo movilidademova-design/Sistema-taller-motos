@@ -18,7 +18,12 @@ describe('computeSaleTotals', () => {
   it('aplica un descuento por ítem porcentual', () => {
     const r = computeSaleTotals({
       items: [
-        { unitPrice: d('1000'), quantity: 2, discount: d('10'), discountType: 'pct' },
+        {
+          unitPrice: d('1000'),
+          quantity: 2,
+          discount: d('10'),
+          discountType: 'pct',
+        },
       ],
     });
     expect(r.items[0].finalPrice.toFixed(2)).toBe('900.00');
@@ -28,7 +33,12 @@ describe('computeSaleTotals', () => {
   it('aplica un descuento por ítem fijo', () => {
     const r = computeSaleTotals({
       items: [
-        { unitPrice: d('1000'), quantity: 1, discount: d('150'), discountType: 'amount' },
+        {
+          unitPrice: d('1000'),
+          quantity: 1,
+          discount: d('150'),
+          discountType: 'amount',
+        },
       ],
     });
     expect(r.items[0].finalPrice.toFixed(2)).toBe('850.00');
@@ -39,7 +49,12 @@ describe('computeSaleTotals', () => {
   it('un descuento por ítem mayor que el precio deja la línea en cero, no en negativo', () => {
     const r = computeSaleTotals({
       items: [
-        { unitPrice: d('1000'), quantity: 1, discount: d('5000'), discountType: 'amount' },
+        {
+          unitPrice: d('1000'),
+          quantity: 1,
+          discount: d('5000'),
+          discountType: 'amount',
+        },
       ],
     });
     expect(r.items[0].finalPrice.toFixed(2)).toBe('0.00');
@@ -71,7 +86,10 @@ describe('computeSaleTotals', () => {
   // el cierre mensual no cuadra.
   it('no arrastra error de coma flotante', () => {
     const r = computeSaleTotals({
-      items: Array.from({ length: 3 }, () => ({ unitPrice: d('0.10'), quantity: 1 })),
+      items: Array.from({ length: 3 }, () => ({
+        unitPrice: d('0.10'),
+        quantity: 1,
+      })),
     });
     expect(r.subtotal.toFixed(2)).toBe('0.30');
   });
