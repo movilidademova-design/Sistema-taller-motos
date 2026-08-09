@@ -122,12 +122,21 @@ POS_SALE_ID=$(curl -s -X POST $API/pos/sales "${HC[@]}" -H 'Content-Type: applic
   -d '{"clientName":"Prueba Humo","items":[{"name":"Item suelto","unitPrice":1000,"quantity":1}],"payments":[{"method":"efectivo","amount":1000}]}' \
   | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 check "cajero NO anula venta" 403 "$(code -X POST $API/pos/sales/$POS_SALE_ID/void "${HC[@]}")"
+
+# Separados: el cajero aparta y abona, pero cancelar (devuelve dinero
+# cobrado y stock) es solo de ADMIN.
+check "cajero crea separado" 201 "$(code -X POST $API/pos/layaways "${HC[@]}" -H 'Content-Type: application/json' -d '{"clientName":"Prueba Humo Separado","items":[{"name":"Item suelto","unitPrice":1000,"quantity":1}],"payment":{"method":"efectivo","amount":300}}')"
+check "cajero ve separados" 200 "$(code $API/pos/layaways "${HC[@]}")"
+LAY_ID=$(curl -s "$API/pos/layaways" "${HC[@]}" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+check "cajero NO cancela separado" 403 "$(code -X POST $API/pos/layaways/$LAY_ID/cancel "${HC[@]}")"
+
 # Espejo de "ACCESO POR SISTEMA": el admin del taller (sin posRole) tampoco
 # entra al POS, igual que el cajero no entra al taller. El aislamiento va en
 # los dos sentidos.
 check "admin del taller NO ve productos POS" 403 "$(code $API/pos/products "${HA[@]}")"
 check "admin del taller NO ve listas POS" 403 "$(code $API/pos/lists "${HA[@]}")"
 check "admin del taller NO ve ventas POS" 403 "$(code $API/pos/sales "${HA[@]}")"
+check "admin del taller NO ve separados POS" 403 "$(code $API/pos/layaways "${HA[@]}")"
 
 echo ""; echo "MÓDULOS ELIMINADOS (deben dar 404)"
 for m in payments warranties; do check "/$m eliminado" 404 "$(code $API/$m "${HA[@]}")"; done
