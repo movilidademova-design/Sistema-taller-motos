@@ -3,6 +3,7 @@ import { PosLayawaysService } from './layaways.service';
 import { PosLayawayStatus } from '../../generated/pos/enums';
 import { Prisma } from '../../generated/pos/client';
 import type { CreateLayawayDto, AddLayawayPaymentDto } from './dto/layaway.dto';
+import { whereOf } from '../../common/testing/export-test-utils';
 
 const tenantId = 'tenant-1';
 const branchId = 'branch-calle-80';
@@ -37,12 +38,20 @@ function makeTx() {
 }
 type Tx = ReturnType<typeof makeTx>;
 
-function makeService(tx: Tx = makeTx()) {
+function makeService(
+  tx: Tx = makeTx(),
+  overrides: { findMany?: jest.Mock; generate?: jest.Mock } = {},
+) {
+  const findMany = overrides.findMany ?? jest.fn().mockResolvedValue([]);
+  const generate =
+    overrides.generate ?? jest.fn().mockResolvedValue(Buffer.from(''));
   const prisma = {
     $transaction: jest.fn((cb: (t: Tx) => unknown) => cb(tx)),
+    posLayaway: { findMany },
   };
-  const service = new PosLayawaysService(prisma as never);
-  return { service, tx };
+  const excel = { generate };
+  const service = new PosLayawaysService(prisma as never, excel as never);
+  return { service, tx, findMany, generate };
 }
 
 function makeProduct(overrides: Record<string, unknown> = {}) {
@@ -388,5 +397,52 @@ describe('PosLayawaysService.cancel', () => {
     await expect(
       service.cancel(tenantId, branchId, 'layaway-1'),
     ).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('PosLayawaysService.exportToExcel', () => {
+  it('una fila por separado, con el número de abonos y el último', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        createdAt: new Date('2026-04-01'),
+        clientName: 'Ana',
+        clientDoc: '',
+        clientPhone: '',
+        total: new Prisma.Decimal(1000),
+        paid: new Prisma.Decimal(400),
+        balance: new Prisma.Decimal(600),
+        status: PosLayawayStatus.ACTIVE,
+        payments: [
+          { paidAt: new Date('2026-04-01') },
+          { paidAt: new Date('2026-04-10') },
+        ],
+      },
+    ]);
+    const generate = jest.fn().mockResolvedValue(Buffer.from(''));
+    const { service } = makeService(makeTx(), { findMany, generate });
+
+    await service.exportToExcel(tenantId, branchId, {});
+
+    const [args] = generate.mock.calls[0] as [
+      {
+        columns: { header: string; value: (r: unknown) => unknown }[];
+        rows: unknown[];
+      },
+    ];
+    const countCol = args.columns.find((c) => c.header === 'Número de abonos')!;
+    expect(countCol.value(args.rows[0])).toBe(2);
+    const lastCol = args.columns.find((c) => c.header === 'Último abono')!;
+    expect(lastCol.value(args.rows[0])).toEqual(new Date('2026-04-10'));
+  });
+
+  it('sin branchId explícito exporta todas las sucursales; con branchId, filtra', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const { service } = makeService(makeTx(), { findMany });
+
+    await service.exportToExcel(tenantId, branchId, {
+      branchId: 'branch-otra',
+    });
+
+    expect(whereOf(findMany).branchId).toBe('branch-otra');
   });
 });

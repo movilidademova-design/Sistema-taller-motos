@@ -15,6 +15,13 @@ import {
   CreateLayawayItemDto,
   ListLayawaysQueryDto,
 } from './dto/layaway.dto';
+import { ExcelService, MAX_ROWS } from '../../common/excel/excel.service';
+import {
+  dateRangeFilter,
+  resolveExportBranchId,
+} from '../../common/utils/export-filters.util';
+import { PosExportQueryDto } from '../reports/dto/pos-export-query.dto';
+import { Role } from '../../generated/prisma/enums';
 
 // Reglas migradas de motopos/app.py: crear_separado (línea 1418),
 // agregar_pago_separado (línea 1523), cancelar_separado (línea 1568),
@@ -44,7 +51,10 @@ interface ResolvedLayawayItem {
 
 @Injectable()
 export class PosLayawaysService {
-  constructor(private readonly prisma: PosPrismaService) {}
+  constructor(
+    private readonly prisma: PosPrismaService,
+    private readonly excel: ExcelService,
+  ) {}
 
   async create(
     tenantId: string,
@@ -288,6 +298,94 @@ export class PosLayawaysService {
         where: { id },
         include: LAYAWAY_INCLUDE,
       });
+    });
+  }
+
+  /** Una fila por separado, con saldo y resumen de abonos — no por abono individual. */
+  async exportToExcel(
+    tenantId: string,
+    currentBranchId: string,
+    query: PosExportQueryDto,
+  ): Promise<Buffer> {
+    const branchId = resolveExportBranchId(
+      Role.ADMIN,
+      currentBranchId,
+      query.branchId,
+    );
+    const createdAt = dateRangeFilter(query.from, query.to);
+
+    const layaways = await this.prisma.posLayaway.findMany({
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        ...(createdAt ? { createdAt } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: MAX_ROWS + 1,
+      include: { payments: { orderBy: { paidAt: 'asc' } } },
+    });
+
+    const statusLabel: Record<PosLayawayStatus, string> = {
+      [PosLayawayStatus.ACTIVE]: 'Activo',
+      [PosLayawayStatus.COMPLETED]: 'Completado',
+      [PosLayawayStatus.CANCELLED]: 'Cancelado',
+    };
+
+    type Row = (typeof layaways)[number];
+    return this.excel.generate<Row>({
+      sheetName: 'Separados',
+      rows: layaways,
+      columns: [
+        {
+          header: 'Fecha creación',
+          key: 'createdAt',
+          format: 'datetime',
+          value: (l) => l.createdAt,
+        },
+        {
+          header: 'Cliente',
+          key: 'client',
+          width: 24,
+          value: (l) => l.clientName,
+        },
+        { header: 'Documento', key: 'doc', value: (l) => l.clientDoc },
+        { header: 'Teléfono', key: 'phone', value: (l) => l.clientPhone },
+        {
+          header: 'Total',
+          key: 'total',
+          format: 'currency',
+          value: (l) => Number(l.total),
+        },
+        {
+          header: 'Abonado',
+          key: 'paid',
+          format: 'currency',
+          value: (l) => Number(l.paid),
+        },
+        {
+          header: 'Saldo',
+          key: 'balance',
+          format: 'currency',
+          value: (l) => Number(l.balance),
+        },
+        {
+          header: 'Estado',
+          key: 'status',
+          value: (l) => statusLabel[l.status],
+        },
+        {
+          header: 'Número de abonos',
+          key: 'paymentCount',
+          format: 'number',
+          value: (l) => l.payments.length,
+        },
+        {
+          header: 'Último abono',
+          key: 'lastPayment',
+          format: 'datetime',
+          value: (l) => l.payments.at(-1)?.paidAt,
+        },
+      ],
     });
   }
 

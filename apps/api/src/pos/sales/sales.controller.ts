@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  StreamableFile,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PosSalesService } from './sales.service';
 import { CreateSaleDto, ListPosSalesQueryDto } from './dto/sale.dto';
@@ -6,6 +14,11 @@ import { PosRoles } from '../../common/decorators/pos-roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CurrentBranch } from '../../common/decorators/current-branch.decorator';
 import { PosRole } from '../../generated/prisma/enums';
+import {
+  EXCEL_CONTENT_TYPE,
+  excelAttachment,
+} from '../../common/excel/excel.service';
+import { PosExportQueryDto } from '../reports/dto/pos-export-query.dto';
 
 @ApiBearerAuth()
 @ApiTags('pos')
@@ -32,6 +45,26 @@ export class PosSalesController {
     @Query() query: ListPosSalesQueryDto,
   ) {
     return this.salesService.findAll(tenantId, branchId, query);
+  }
+
+  // Reportes y exportaciones: solo ADMIN, un cajero no ve la ganancia.
+  // Va antes de ':id' — si no, Nest tomaría "export" como un id literal.
+  @PosRoles(PosRole.ADMIN)
+  @Get('export')
+  async exportToExcel(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
+    @Query() query: PosExportQueryDto,
+  ): Promise<StreamableFile> {
+    const buffer = await this.salesService.exportToExcel(
+      tenantId,
+      branchId,
+      query,
+    );
+    return new StreamableFile(buffer, {
+      type: EXCEL_CONTENT_TYPE,
+      disposition: excelAttachment('ventas'),
+    });
   }
 
   @PosRoles(PosRole.ADMIN, PosRole.CASHIER)

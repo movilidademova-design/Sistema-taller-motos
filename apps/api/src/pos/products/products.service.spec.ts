@@ -1,8 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
 import { PosProductsService } from './products.service';
+import { whereOf } from '../../common/testing/export-test-utils';
 
-function makeService(prisma: Record<string, unknown>): PosProductsService {
-  return new PosProductsService(prisma as never);
+function makeService(
+  prisma: Record<string, unknown>,
+  generate: jest.Mock = jest.fn().mockResolvedValue(Buffer.from('')),
+): PosProductsService {
+  return new PosProductsService(prisma as never, { generate } as never);
 }
 
 describe('PosProductsService — branch scoping', () => {
@@ -89,6 +93,52 @@ describe('PosProductsService — branch scoping', () => {
         NotFoundException,
       );
       expect(update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('exportToExcel', () => {
+    it('siempre filtra isActive: true, y por branch cuando se pide', async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const generate = jest.fn().mockResolvedValue(Buffer.from(''));
+      const service = makeService({ posProduct: { findMany } }, generate);
+
+      await service.exportToExcel(tenantId, branchA, { branchId: branchB });
+
+      expect(whereOf(findMany)).toMatchObject({
+        tenantId,
+        isActive: true,
+        branchId: branchB,
+      });
+    });
+
+    it('la valorización es costo × stock', async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          reference: 'R1',
+          name: 'Casco',
+          category: 'ACCESORIO',
+          color: '',
+          supplier: '',
+          price: 100,
+          cost: 40,
+          stock: 5,
+        },
+      ]);
+      const generate = jest.fn().mockResolvedValue(Buffer.from(''));
+      const service = makeService({ posProduct: { findMany } }, generate);
+
+      await service.exportToExcel(tenantId, branchA, {});
+
+      const [args] = generate.mock.calls[0] as [
+        {
+          columns: { header: string; value: (r: unknown) => unknown }[];
+          rows: unknown[];
+        },
+      ];
+      const valuationCol = args.columns.find(
+        (c) => c.header === 'Valorización',
+      )!;
+      expect(valuationCol.value(args.rows[0])).toBe(200);
     });
   });
 });

@@ -13,6 +13,13 @@ import {
 } from './dto/sale.dto';
 import { computeSaleTotals, DiscountType } from './sale-pricing.util';
 import { nextInvoiceNumber } from './invoice-number.util';
+import { ExcelService, MAX_ROWS } from '../../common/excel/excel.service';
+import {
+  dateRangeFilter,
+  resolveExportBranchId,
+} from '../../common/utils/export-filters.util';
+import { PosExportQueryDto } from '../reports/dto/pos-export-query.dto';
+import { Role } from '../../generated/prisma/enums';
 
 // Reglas migradas de motopos/app.py: crear_venta (línea 389), anular_venta
 // (línea 499), hacer_nota_credito (línea 510). La numeración de factura
@@ -41,7 +48,10 @@ interface ResolvedSaleItem {
 
 @Injectable()
 export class PosSalesService {
-  constructor(private readonly prisma: PosPrismaService) {}
+  constructor(
+    private readonly prisma: PosPrismaService,
+    private readonly excel: ExcelService,
+  ) {}
 
   async create(
     tenantId: string,
@@ -280,6 +290,127 @@ export class PosSalesService {
         });
       }
     }
+  }
+
+  /** Una fila por ítem vendido, no por venta: es lo que deja ver qué producto exacto se movió. */
+  async exportToExcel(
+    tenantId: string,
+    currentBranchId: string,
+    query: PosExportQueryDto,
+  ): Promise<Buffer> {
+    // ADMIN sin `branchId` explícito exporta todas las sucursales del
+    // tenant; el rol siempre es ADMIN porque el controlador ya lo exige
+    // (@PosRoles(PosRole.ADMIN)) — Role.ADMIN aquí es una constante, no un
+    // dato del usuario.
+    const branchId = resolveExportBranchId(
+      Role.ADMIN,
+      currentBranchId,
+      query.branchId,
+    );
+    const soldAt = dateRangeFilter(query.from, query.to);
+
+    const sales = await this.prisma.posSale.findMany({
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        ...(soldAt ? { soldAt } : {}),
+      },
+      orderBy: { soldAt: 'desc' },
+      // Corta la consulta una fila por encima del tope para que ExcelService
+      // responda 400 con instrucciones en vez de traer medio millón de filas.
+      take: MAX_ROWS + 1,
+      include: SALE_INCLUDE,
+    });
+
+    interface Row {
+      sale: (typeof sales)[number];
+      item: (typeof sales)[number]['items'][number];
+    }
+    const rows: Row[] = sales.flatMap((sale) =>
+      sale.items.map((item) => ({ sale, item })),
+    );
+
+    const statusLabel: Record<PosSaleStatus, string> = {
+      [PosSaleStatus.ACTIVE]: 'Activa',
+      [PosSaleStatus.VOIDED]: 'Anulada',
+      [PosSaleStatus.CREDIT_NOTE]: 'Nota crédito',
+    };
+
+    return this.excel.generate<Row>({
+      sheetName: 'Ventas',
+      rows,
+      columns: [
+        {
+          header: 'Fecha',
+          key: 'soldAt',
+          format: 'datetime',
+          value: (r) => r.sale.soldAt,
+        },
+        {
+          header: 'Factura',
+          key: 'invoice',
+          value: (r) => r.sale.invoiceNumber?.toString(),
+        },
+        {
+          header: 'Estado',
+          key: 'status',
+          value: (r) => statusLabel[r.sale.status],
+        },
+        {
+          header: 'Cliente',
+          key: 'client',
+          width: 24,
+          value: (r) => r.sale.clientName,
+        },
+        { header: 'Documento', key: 'doc', value: (r) => r.sale.clientDoc },
+        {
+          header: 'Producto',
+          key: 'product',
+          width: 26,
+          value: (r) => r.item.name,
+        },
+        {
+          header: 'Referencia',
+          key: 'reference',
+          value: (r) => r.item.reference,
+        },
+        {
+          header: 'Cantidad',
+          key: 'qty',
+          format: 'number',
+          value: (r) => r.item.quantity,
+        },
+        {
+          header: 'Precio unitario',
+          key: 'unitPrice',
+          format: 'currency',
+          value: (r) => Number(r.item.unitPrice),
+        },
+        {
+          header: 'Total línea',
+          key: 'lineTotal',
+          format: 'currency',
+          value: (r) => Number(r.item.lineTotal),
+        },
+        { header: 'Motor', key: 'engine', value: (r) => r.item.engineNumber },
+        {
+          header: 'Chasis',
+          key: 'chassis',
+          value: (r) => r.item.chassisNumber,
+        },
+        {
+          header: 'Método de pago',
+          key: 'method',
+          value: (r) => r.sale.paymentMethod,
+        },
+        {
+          header: 'Total venta',
+          key: 'saleTotal',
+          format: 'currency',
+          value: (r) => Number(r.sale.total),
+        },
+      ],
+    });
   }
 
   private async resolveItem(

@@ -3,6 +3,7 @@ import { PosSalesService } from './sales.service';
 import { PosSaleStatus } from '../../generated/pos/enums';
 import { Prisma } from '../../generated/pos/client';
 import type { CreateSaleDto } from './dto/sale.dto';
+import { whereOf } from '../../common/testing/export-test-utils';
 
 const tenantId = 'tenant-1';
 const branchId = 'branch-calle-80';
@@ -26,12 +27,20 @@ function makeTx() {
 }
 type Tx = ReturnType<typeof makeTx>;
 
-function makeService(tx: Tx = makeTx()) {
+function makeService(
+  tx: Tx = makeTx(),
+  overrides: { findMany?: jest.Mock; generate?: jest.Mock } = {},
+) {
+  const findMany = overrides.findMany ?? jest.fn().mockResolvedValue([]);
+  const generate =
+    overrides.generate ?? jest.fn().mockResolvedValue(Buffer.from(''));
   const prisma = {
     $transaction: jest.fn((cb: (t: Tx) => unknown) => cb(tx)),
+    posSale: { findMany },
   };
-  const service = new PosSalesService(prisma as never);
-  return { service, tx };
+  const excel = { generate };
+  const service = new PosSalesService(prisma as never, excel as never);
+  return { service, tx, findMany, generate };
 }
 
 function makeProduct(overrides: Record<string, unknown> = {}) {
@@ -299,5 +308,70 @@ describe('PosSalesService.creditNote', () => {
     await expect(
       service.creditNote(tenantId, branchId, 'sale-1'),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('PosSalesService.exportToExcel', () => {
+  it('una fila por ítem, no por venta', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: 's1',
+        soldAt: new Date('2026-04-01'),
+        invoiceNumber: 1,
+        status: PosSaleStatus.ACTIVE,
+        clientName: 'Cliente',
+        clientDoc: '',
+        paymentMethod: 'efectivo',
+        total: new Prisma.Decimal(500),
+        items: [
+          {
+            name: 'A',
+            reference: '',
+            quantity: 1,
+            unitPrice: new Prisma.Decimal(200),
+            lineTotal: new Prisma.Decimal(200),
+            engineNumber: null,
+            chassisNumber: null,
+          },
+          {
+            name: 'B',
+            reference: '',
+            quantity: 1,
+            unitPrice: new Prisma.Decimal(300),
+            lineTotal: new Prisma.Decimal(300),
+            engineNumber: null,
+            chassisNumber: null,
+          },
+        ],
+      },
+    ]);
+    const generate = jest.fn().mockResolvedValue(Buffer.from(''));
+    const { service } = makeService(makeTx(), { findMany, generate });
+
+    await service.exportToExcel(tenantId, branchId, {});
+
+    expect(generate).toHaveBeenCalled();
+    const [args] = generate.mock.calls[0] as [{ rows: unknown[] }];
+    expect(args.rows).toHaveLength(2);
+  });
+
+  it('sin branchId explícito, ADMIN exporta todas las sucursales del tenant', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const { service } = makeService(makeTx(), { findMany });
+
+    await service.exportToExcel(tenantId, branchId, {});
+
+    expect(whereOf(findMany)).not.toHaveProperty('branchId');
+  });
+
+  it('con branchId explícito, filtra por esa sucursal', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const { service } = makeService(makeTx(), { findMany });
+
+    await service.exportToExcel(tenantId, branchId, {
+      branchId: 'branch-otra',
+    });
+
+    expect(whereOf(findMany).branchId).toBe('branch-otra');
   });
 });
