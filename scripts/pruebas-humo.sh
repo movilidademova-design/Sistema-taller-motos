@@ -113,6 +113,22 @@ done
 check "el cajero NO administra usuarios" 403 "$(code $API/users "${HC[@]}")"
 check "crear sin ningún sistema se rechaza" 400 "$(code -X POST $API/users "${HA[@]}" -H 'Content-Type: application/json' -d '{"email":"nadie'"$RANDOM"'@t.com","password":"Password123!","firstName":"N","lastName":"A","branchIds":["'"$BR_A"'"]}')"
 
+echo ""; echo "POS"
+check "cajero ve productos" 200 "$(code $API/pos/products "${HC[@]}")"
+check "cajero ve listas" 200 "$(code $API/pos/lists "${HC[@]}")"
+check "cajero ve ventas" 200 "$(code $API/pos/sales "${HC[@]}")"
+check "cajero NO crea producto" 403 "$(code -X POST $API/pos/products "${HC[@]}" -H 'Content-Type: application/json' -d '{"name":"x","category":"ACCESORIO","price":1000}')"
+POS_SALE_ID=$(curl -s -X POST $API/pos/sales "${HC[@]}" -H 'Content-Type: application/json' \
+  -d '{"clientName":"Prueba Humo","items":[{"name":"Item suelto","unitPrice":1000,"quantity":1}],"payments":[{"method":"efectivo","amount":1000}]}' \
+  | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+check "cajero NO anula venta" 403 "$(code -X POST $API/pos/sales/$POS_SALE_ID/void "${HC[@]}")"
+# Espejo de "ACCESO POR SISTEMA": el admin del taller (sin posRole) tampoco
+# entra al POS, igual que el cajero no entra al taller. El aislamiento va en
+# los dos sentidos.
+check "admin del taller NO ve productos POS" 403 "$(code $API/pos/products "${HA[@]}")"
+check "admin del taller NO ve listas POS" 403 "$(code $API/pos/lists "${HA[@]}")"
+check "admin del taller NO ve ventas POS" 403 "$(code $API/pos/sales "${HA[@]}")"
+
 echo ""; echo "MÓDULOS ELIMINADOS (deben dar 404)"
 for m in payments warranties; do check "/$m eliminado" 404 "$(code $API/$m "${HA[@]}")"; done
 OID2=$(curl -s "$API/orders" "${HA[@]}" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
