@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PosPrismaService } from '../pos-prisma.service';
 import { CreatePosProductDto, UpdatePosProductDto } from './dto/product.dto';
 import { ExcelService, MAX_ROWS } from '../../common/excel/excel.service';
@@ -8,6 +12,23 @@ import {
 } from '../../common/utils/export-filters.util';
 import { PosExportQueryDto } from '../reports/dto/pos-export-query.dto';
 import { Role } from '../../generated/prisma/enums';
+import {
+  ImportError,
+  ParsedProductRow,
+  parseProductImportSheet,
+} from './product-import.util';
+
+export interface ImportPreview {
+  toCreate: number;
+  toUpdate: number;
+  errors: ImportError[];
+  rows: ParsedProductRow[];
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+}
 
 @Injectable()
 export class PosProductsService {
@@ -121,6 +142,115 @@ export class PosProductsService {
           value: (p) => Number(p.cost) * p.stock,
         },
       ],
+    });
+  }
+
+  /**
+   * Un producto se identifica por referencia + color, normalizados (sin
+   * mayúsculas, sin espacios de sobra) — la referencia sola no alcanza:
+   * en los datos reales `EB-11U` es a la vez la Apolo negra y la gris.
+   */
+  private matchKey(reference: string, color: string): string {
+    return `${reference.trim().toLowerCase()}|${color.trim().toLowerCase()}`;
+  }
+
+  /** Indexa productos existentes por referencia+color. Una fila sin
+   * referencia nunca entra aquí: no hay con qué emparejarla, así que siempre crea. */
+  private indexByKey(
+    existing: { id: string; reference: string; color: string }[],
+  ): Map<string, string> {
+    const byKey = new Map<string, string>();
+    for (const p of existing) {
+      if (!p.reference.trim()) continue;
+      byKey.set(this.matchKey(p.reference, p.color), p.id);
+    }
+    return byKey;
+  }
+
+  /**
+   * Analiza el archivo y dice qué pasaría al aplicarlo, sin escribir nada:
+   * el usuario tiene que poder revisar antes de comprometerse.
+   */
+  async previewImport(
+    tenantId: string,
+    branchId: string,
+    buffer: Buffer,
+  ): Promise<ImportPreview> {
+    const { rows, errors } = await parseProductImportSheet(buffer);
+    const existing = await this.prisma.posProduct.findMany({
+      where: { tenantId, branchId, isActive: true },
+      select: { id: true, reference: true, color: true },
+    });
+    const existingByKey = this.indexByKey(existing);
+
+    let toCreate = 0;
+    let toUpdate = 0;
+    for (const row of rows) {
+      const isUpdate =
+        row.reference &&
+        existingByKey.has(this.matchKey(row.reference, row.color));
+      if (isUpdate) toUpdate++;
+      else toCreate++;
+    }
+
+    return { toCreate, toUpdate, errors, rows };
+  }
+
+  /**
+   * Aplica el archivo: crea lo nuevo, actualiza lo existente. Todo o nada —
+   * un solo error en el archivo lo rechaza completo, y toda la escritura
+   * corre dentro de una transacción.
+   */
+  async applyImport(
+    tenantId: string,
+    branchId: string,
+    buffer: Buffer,
+  ): Promise<ImportResult> {
+    const { rows, errors } = await parseProductImportSheet(buffer);
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message:
+          'El archivo tiene errores y no se aplicó ningún cambio. Corrígelos e inténtalo de nuevo.',
+        errors,
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.posProduct.findMany({
+        where: { tenantId, branchId, isActive: true },
+        select: { id: true, reference: true, color: true },
+      });
+      const existingByKey = this.indexByKey(existing);
+
+      let created = 0;
+      let updated = 0;
+      for (const row of rows) {
+        // El stock del archivo REEMPLAZA al del sistema: es una hoja de
+        // inventario, no un movimiento de entrada que se suma.
+        const data = {
+          name: row.name,
+          category: row.category,
+          price: row.price,
+          cost: row.cost,
+          stock: row.stock,
+          reference: row.reference,
+          color: row.color,
+          supplier: row.supplier,
+        };
+        const existingId = row.reference
+          ? existingByKey.get(this.matchKey(row.reference, row.color))
+          : undefined;
+
+        if (existingId) {
+          await tx.posProduct.update({ where: { id: existingId }, data });
+          updated++;
+        } else {
+          await tx.posProduct.create({ data: { ...data, tenantId, branchId } });
+          created++;
+        }
+      }
+
+      return { created, updated };
     });
   }
 

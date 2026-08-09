@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,8 +9,11 @@ import {
   Post,
   Query,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { PosProductsService } from './products.service';
 import { CreatePosProductDto, UpdatePosProductDto } from './dto/product.dto';
 import { PosRoles } from '../../common/decorators/pos-roles.decorator';
@@ -21,6 +25,10 @@ import {
   excelAttachment,
 } from '../../common/excel/excel.service';
 import { PosExportQueryDto } from '../reports/dto/pos-export-query.dto';
+
+// Mismo tope que orders.controller.ts usa para fotos: generoso para el
+// archivo pero no ilimitado. Un .xlsx de 50 productos pesa unos pocos KB.
+const IMPORT_FILE_LIMITS = { limits: { fileSize: 8 * 1024 * 1024 } };
 
 @ApiBearerAuth()
 @ApiTags('pos')
@@ -56,6 +64,34 @@ export class PosProductsController {
       type: EXCEL_CONTENT_TYPE,
       disposition: excelAttachment('inventario'),
     });
+  }
+
+  // Cargar inventario en bloque no es tarea de un cajero: mismo rol que
+  // crear o borrar productos uno por uno.
+  @PosRoles(PosRole.ADMIN)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', IMPORT_FILE_LIMITS))
+  @Post('import/preview')
+  previewImport(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Debes adjuntar un archivo');
+    return this.productsService.previewImport(tenantId, branchId, file.buffer);
+  }
+
+  @PosRoles(PosRole.ADMIN)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', IMPORT_FILE_LIMITS))
+  @Post('import')
+  applyImport(
+    @CurrentUser('tenantId') tenantId: string,
+    @CurrentBranch() branchId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('Debes adjuntar un archivo');
+    return this.productsService.applyImport(tenantId, branchId, file.buffer);
   }
 
   @PosRoles(PosRole.ADMIN)
