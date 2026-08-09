@@ -1,6 +1,6 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { BranchContextGuard } from './branch-context.guard';
-import { Role } from '../../generated/prisma/enums';
+import { PosRole, Role } from '../../generated/prisma/enums';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { RequestWithBranch } from '../decorators/current-branch.decorator';
 
@@ -80,6 +80,52 @@ describe('BranchContextGuard', () => {
     await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
     expect(request.branchId).toBe(branchId);
     expect(prisma.userBranch.findUnique).not.toHaveBeenCalled();
+  });
+
+  // Un administrador del POS no tiene rol de taller. Sin mirar el posRole aquí,
+  // /users/me/branches le ofrecía todas las sucursales y este guard le negaba
+  // cada una, dejándolo sin poder vender en ninguna parte.
+  it('resolves the branch for a POS ADMIN with no workshop role', async () => {
+    const { guard, prisma } = makeGuard({
+      branch: { id: branchId, tenantId, isActive: true },
+    });
+    const request: Partial<RequestWithBranch> = {
+      headers: { 'x-branch-id': branchId },
+      user: {
+        userId,
+        tenantId,
+        email: 'a@b.com',
+        role: null,
+        posRole: PosRole.ADMIN,
+      },
+    };
+
+    await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
+    expect(request.branchId).toBe(branchId);
+    expect(prisma.userBranch.findUnique).not.toHaveBeenCalled();
+  });
+
+  // Un cajero sí queda atado a las sucursales que le asignaron: el atajo es
+  // para administradores, no para cualquiera que tenga rol de POS.
+  it('still requires a UserBranch row for a POS CASHIER', async () => {
+    const { guard } = makeGuard({
+      branch: { id: branchId, tenantId, isActive: true },
+      userBranch: null,
+    });
+    const request: Partial<RequestWithBranch> = {
+      headers: { 'x-branch-id': branchId },
+      user: {
+        userId,
+        tenantId,
+        email: 'a@b.com',
+        role: null,
+        posRole: PosRole.CASHIER,
+      },
+    };
+
+    await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
+    expect(request.branchId).toBeUndefined();
+    expect(request.branchUnavailable).toBe(true);
   });
 
   it('resolves the branch for a non-ADMIN with a matching UserBranch row', async () => {

@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Role } from '../../generated/prisma/enums';
+import { PosRole, Role } from '../../generated/prisma/enums';
 import type { RequestWithBranch } from '../decorators/current-branch.decorator';
 
 /**
@@ -51,7 +51,15 @@ export class BranchContextGuard implements CanActivate {
       return true;
     }
 
-    if (request.user.role !== Role.ADMIN) {
+    // Un ADMIN de cualquiera de los dos sistemas alcanza todas las sucursales,
+    // la misma regla que aplica UsersService.findMyBranches. Sin mirar también
+    // el posRole, a un administrador del POS se le ofrecían todas las
+    // sucursales y luego se le negaba cada una: /users/me/branches decía que sí
+    // y este guard decía que no.
+    const isAnyAdmin =
+      request.user.role === Role.ADMIN ||
+      request.user.posRole === PosRole.ADMIN;
+    if (!isAnyAdmin) {
       const access = await this.prisma.userBranch.findUnique({
         where: { userId_branchId: { userId: request.user.userId, branchId } },
       });
