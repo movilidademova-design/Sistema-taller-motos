@@ -42,7 +42,8 @@ model PosProduct {
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
-  saleItems PosSaleItem[]
+  saleItems    PosSaleItem[]
+  layawayItems PosLayawayItem[]
 
   @@index([tenantId, branchId, isActive])
   @@map("pos_products")
@@ -125,4 +126,89 @@ model PosSalePayment {
 
   @@index([saleId])
   @@map("pos_sale_payments")
+}
+
+// ═══ SEPARADOS (layaways) ═══════════════════════════════════════════════
+// Reglas migradas de motopos/app.py: crear_separado (línea 1418),
+// agregar_pago_separado (línea 1523), cancelar_separado (línea 1568),
+// _completar_separado (línea 1382), _next_recibo_num (línea 379).
+
+enum PosLayawayStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model PosLayaway {
+  id              String           @id @default(uuid())
+  tenantId        String
+  branchId        String
+  clientName      String
+  clientDoc       String           @default("")
+  clientPhone     String           @default("")
+  total           Decimal          @db.Decimal(12, 2)
+  generalDiscount Decimal          @default(0) @db.Decimal(12, 2)
+  paid            Decimal          @default(0) @db.Decimal(12, 2)
+  balance         Decimal          @db.Decimal(12, 2)
+  status          PosLayawayStatus @default(ACTIVE)
+  notes           String           @default("")
+  // Se llena al completarse: la venta que generó este separado.
+  saleId          String?
+  createdById     String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  items    PosLayawayItem[]
+  payments PosLayawayPayment[]
+
+  @@index([tenantId, branchId, status])
+  @@map("pos_layaways")
+}
+
+model PosLayawayItem {
+  id            String      @id @default(uuid())
+  layawayId     String
+  layaway       PosLayaway  @relation(fields: [layawayId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       PosProduct? @relation(fields: [productId], references: [id])
+  name          String
+  unitPrice     Decimal     @db.Decimal(12, 2)
+  unitCost      Decimal     @default(0) @db.Decimal(12, 2)
+  finalPrice    Decimal     @db.Decimal(12, 2)
+  quantity      Int
+  lineTotal     Decimal     @db.Decimal(12, 2)
+  reference     String      @default("")
+  color         String      @default("")
+  supplier      String      @default("")
+  // Se capturan al entregar, no al apartar: cuando se aparta una moto todavía
+  // no se sabe qué unidad concreta se va a entregar.
+  engineNumber  String?
+  chassisNumber String?
+
+  @@index([layawayId])
+  @@map("pos_layaway_items")
+}
+
+model PosLayawayPayment {
+  id            String     @id @default(uuid())
+  layawayId     String
+  layaway       PosLayaway @relation(fields: [layawayId], references: [id], onDelete: Cascade)
+  paidAt        DateTime   @default(now())
+  amount        Decimal    @db.Decimal(12, 2)
+  method        String
+  notes         String     @default("")
+  // Se libera (queda nulo) al cancelar el separado, igual que el número de
+  // factura al anular una venta.
+  receiptNumber Int?
+  createdById   String
+
+  // ponytail: la serie de recibos es por sucursal, pero esta tabla no tiene
+  // branchId (vive colgada del separado), así que la unicidad real por
+  // sucursal la impone LayawaysService dentro de la transacción al calcular
+  // el siguiente número. Este índice es solo una red de seguridad local
+  // (no dos pagos del MISMO separado con el mismo número). Subir a
+  // unicidad por sucursal si algún día esta tabla gana su propio branchId.
+  @@unique([layawayId, receiptNumber])
+  @@index([layawayId])
+  @@map("pos_layaway_payments")
 }
