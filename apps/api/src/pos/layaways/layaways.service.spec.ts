@@ -19,7 +19,9 @@ function makeTx() {
       update: jest.fn(),
     },
     posLayawayItem: {
-      update: jest.fn(),
+      // Por omisión el ítem sí pertenece al separado (count 1); las pruebas
+      // que comprueban el caso ajeno lo sobrescriben con count 0.
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     posLayawayPayment: {
       create: jest.fn(),
@@ -236,6 +238,64 @@ describe('PosLayawaysService.addPayment', () => {
       data: { status: PosLayawayStatus.COMPLETED, saleId: 'sale-99' },
     });
     expect(result.sale).toEqual(expect.objectContaining({ id: 'sale-99' }));
+  });
+
+  // El id del ítem llega del cuerpo de la petición. Sin atarlo al separado que
+  // se está pagando, un cajero podía escribir motor y chasis sobre el ítem de
+  // cualquier separado —de otra sucursal o de otra empresa— pagando uno propio.
+  // Y esos dos campos acaban estampados en la factura al completarse.
+  it('el motor y chasis solo se escriben en ítems del separado que se está pagando', async () => {
+    const tx = makeTx();
+    tx.posLayaway.findFirst.mockResolvedValue(makeActiveLayaway());
+    tx.posLayaway.findUniqueOrThrow.mockResolvedValue({
+      ...makeActiveLayaway(),
+      items: [],
+      payments: [{ method: 'efectivo', amount: new Prisma.Decimal(1000) }],
+    });
+    tx.posSale.create.mockResolvedValue({
+      id: 'sale-99',
+      items: [],
+      payments: [],
+    });
+    const { service } = makeService(tx);
+
+    await service.addPayment(tenantId, branchId, userId, 'layaway-1', {
+      method: 'efectivo',
+      amount: 600,
+      items: [
+        { layawayItemId: 'item-1', engineNumber: 'M-1', chassisNumber: 'C-1' },
+      ],
+    });
+
+    expect(tx.posLayawayItem.updateMany).toHaveBeenCalledWith({
+      where: { id: 'item-1', layawayId: 'layaway-1' },
+      data: { engineNumber: 'M-1', chassisNumber: 'C-1' },
+    });
+  });
+
+  it('un ítem de otro separado se rechaza en vez de escribirse', async () => {
+    const tx = makeTx();
+    tx.posLayaway.findFirst.mockResolvedValue(makeActiveLayaway());
+    // El where con layawayId no encuentra nada: el ítem es de otro separado.
+    tx.posLayawayItem.updateMany.mockResolvedValue({ count: 0 });
+    const { service } = makeService(tx);
+
+    await expect(
+      service.addPayment(tenantId, branchId, userId, 'layaway-1', {
+        method: 'efectivo',
+        amount: 600,
+        items: [
+          {
+            layawayItemId: 'item-de-otra-empresa',
+            engineNumber: 'FALSO',
+            chassisNumber: 'FALSO',
+          },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    // Y la venta no llega a crearse: la transacción entera se deshace.
+    expect(tx.posSale.create).not.toHaveBeenCalled();
   });
 
   it('al completarse NO se vuelve a descontar stock (ya se descontó al crear el separado)', async () => {

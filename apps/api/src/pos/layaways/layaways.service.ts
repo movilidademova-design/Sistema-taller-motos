@@ -244,13 +244,23 @@ export class PosLayawaysService {
       }> | null = null;
       if (newBalance.isZero()) {
         for (const delivery of dto.items ?? []) {
-          await tx.posLayawayItem.update({
-            where: { id: delivery.layawayItemId },
+          // El `layawayId` del where no es decorativo: sin él, el id del ítem
+          // llega del cuerpo de la petición y se escribiría sobre CUALQUIER
+          // ítem de la base, de otro separado, de otra sucursal o de otra
+          // empresa. El separado ya se comprobó arriba contra tenantId y
+          // branchId, así que atar el ítem a él hereda ese alcance.
+          const { count } = await tx.posLayawayItem.updateMany({
+            where: { id: delivery.layawayItemId, layawayId: id },
             data: {
               engineNumber: delivery.engineNumber ?? null,
               chassisNumber: delivery.chassisNumber ?? null,
             },
           });
+          if (count === 0) {
+            throw new BadRequestException(
+              'Ese ítem no pertenece a este separado.',
+            );
+          }
         }
         sale = await this.completeLayaway(tx, tenantId, branchId, id);
       }
