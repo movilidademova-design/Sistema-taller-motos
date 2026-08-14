@@ -1,4 +1,8 @@
-import { BadRequestException, createParamDecorator, ExecutionContext } from '@nestjs/common';
+import {
+  BadRequestException,
+  createParamDecorator,
+  ExecutionContext,
+} from '@nestjs/common';
 import type { RequestWithUser } from './current-user.decorator';
 
 export type RequestWithBranch = RequestWithUser & {

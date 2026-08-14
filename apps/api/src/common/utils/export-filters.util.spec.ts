@@ -61,9 +61,9 @@ describe('resolveExportBranchId', () => {
   });
 
   it('ignores a branchId a MANAGER tries to request for another branch', () => {
-    expect(resolveExportBranchId(Role.MANAGER, currentBranch, otherBranch)).toBe(
-      currentBranch,
-    );
+    expect(
+      resolveExportBranchId(Role.MANAGER, currentBranch, otherBranch),
+    ).toBe(currentBranch);
   });
 
   it.each([Role.RECEPTIONIST, Role.TECHNICIAN, Role.CLIENT])(

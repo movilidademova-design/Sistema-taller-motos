@@ -13,7 +13,12 @@ const BASE: QuotationPdfData = {
   clientName: 'Carlos Ramírez',
   vehicle: 'Mobulaa Apolo',
   items: [
-    { description: 'Cunas de dirección', quantity: 1, unitPrice: 70000, subtotal: 70000 },
+    {
+      description: 'Cunas de dirección',
+      quantity: 1,
+      unitPrice: 70000,
+      subtotal: 70000,
+    },
     { description: 'Farola', quantity: 2, unitPrice: 140000, subtotal: 280000 },
   ],
   total: 350000,

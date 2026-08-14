@@ -2,11 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 
 export type ExcelColumnFormat =
-  | 'text'
-  | 'date'
-  | 'datetime'
-  | 'currency'
-  | 'number';
+  'text' | 'date' | 'datetime' | 'currency' | 'number';
 
 interface ExcelColumnBase {
   /** Encabezado visible, en español. */
