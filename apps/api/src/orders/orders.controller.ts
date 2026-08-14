@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -13,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { IMAGE_UPLOAD_OPTIONS } from '../common/upload/image-upload.options';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -29,7 +29,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentBranch } from '../common/decorators/current-branch.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
-import { OrderStatus, Role } from '../generated/prisma/enums';
+import { Role } from '../generated/prisma/enums';
 
 @ApiBearerAuth()
 @ApiTags('orders')
@@ -95,19 +95,7 @@ export class OrdersController {
         { name: 'photos', maxCount: 10 },
         { name: 'signature', maxCount: 1 },
       ],
-      {
-        limits: { fileSize: 8 * 1024 * 1024 },
-        fileFilter: (_req, file, callback) => {
-          if (!/^image\/(jpeg|png|webp)$/.test(file.mimetype)) {
-            callback(
-              new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'),
-              false,
-            );
-            return;
-          }
-          callback(null, true);
-        },
-      },
+      IMAGE_UPLOAD_OPTIONS,
     ),
   )
   @Post('intake')

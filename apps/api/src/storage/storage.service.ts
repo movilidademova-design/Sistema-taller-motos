@@ -4,6 +4,10 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { IMAGE_EXTENSION_BY_MIME } from '../common/upload/image-upload.options';
+
+/** Extensiones no-imagen que la aplicación genera ella misma (PDF de cotización). */
+const SAFE_EXTENSIONS = new Set(['.pdf', '.xlsx']);
 
 /**
  * Abstracts object storage so the rest of the app never talks to S3/R2 or the
@@ -42,7 +46,17 @@ export class StorageService {
     mimeType: string,
     folder = 'misc',
   ): Promise<string> {
-    const extension = path.extname(originalName) || '';
+    // La extensión sale del mimetype ya validado, NO del nombre que envía el
+    // cliente. Con `path.extname(originalName)` un fichero llamado `x.html`
+    // conservaba esa extensión y el servidor de estáticos lo devolvía como
+    // text/html — es decir, contenido arbitrario ejecutándose en el origen de
+    // la API. Un mimetype desconocido cae en `.bin`, que ningún navegador
+    // interpreta.
+    const extension =
+      IMAGE_EXTENSION_BY_MIME[mimeType] ??
+      (SAFE_EXTENSIONS.has(path.extname(originalName).toLowerCase())
+        ? path.extname(originalName).toLowerCase()
+        : '.bin');
     const key = `${folder}/${randomUUID()}${extension}`;
 
     if (this.driver === 's3' && this.s3Client) {

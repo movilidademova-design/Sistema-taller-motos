@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
@@ -40,18 +44,45 @@ export class EmailService {
 
   async send(options: SendMailOptions): Promise<void> {
     if (!this.transporter) {
-      this.logger.warn(
-        `SMTP no configurado — se omite envío de correo a ${options.to}: "${options.subject}"`,
+      // Lanza, no avisa y sigue. Antes devolvía sin más, y como los dos únicos
+      // sitios que llaman aquí son endpoints cuyo trabajo ES enviar el correo,
+      // el resultado era que la notificación quedaba marcada como
+      // «SENT / EMAIL» con su fecha de envío **sin que saliera ningún correo**.
+      // El taller creía haber avisado al cliente y el cliente no recibía nada.
+      // Comprobado en la base: status=SENT, sentVia=EMAIL, sentAt con fecha.
+      this.logger.error(
+        `SMTP no configurado — NO se envió el correo a ${options.to}: "${options.subject}"`,
       );
-      return;
+      throw new ServiceUnavailableException(
+        'El envío de correo no está configurado en este servidor. ' +
+          'Usa la opción de copiar el mensaje o de WhatsApp, o pide al administrador que configure el correo saliente.',
+      );
     }
-    await this.transporter.sendMail({
-      from: this.config.get<string>('SMTP_FROM'),
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      attachments: options.attachments,
-    });
+    try {
+      await this.transporter.sendMail({
+        from: this.config.get<string>('SMTP_FROM'),
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        attachments: options.attachments,
+      });
+    } catch (error) {
+      // El detalle real (ECONNREFUSED, credenciales rechazadas, el host y el
+      // puerto) va SÓLO al log: es justo donde hay que mirar, y justo lo que no
+      // debe salir hacia el cliente.
+      this.logger.error(
+        `Fallo al enviar correo a ${options.to}: "${options.subject}"`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      // Sin este catch, un servidor SMTP caído devolvía «Error interno del
+      // servidor» (500), que no le dice nada a quien sólo quiere avisar a un
+      // cliente. Comprobado parando el servidor de correo a mitad de prueba.
+      throw new ServiceUnavailableException(
+        'No se pudo enviar el correo: el servidor de correo no respondió. ' +
+          'Vuelve a intentarlo en unos minutos, o usa la opción de copiar el mensaje o de WhatsApp. ' +
+          'Si sigue fallando, avisa al administrador.',
+      );
+    }
   }
 
   async sendQuotationReady(to: string, orderNumber: string, pdfBuffer: Buffer) {

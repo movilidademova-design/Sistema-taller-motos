@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { requireJwtSecret } from '../../common/config/jwt-secret.util';
 
 export interface JwtPayload {
   sub: string;
@@ -21,9 +22,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        config.get<string>('JWT_ACCESS_SECRET') ??
-        'dev_access_secret_change_me_in_production',
+      // Sin valor por defecto a propósito. Antes había uno ('dev_access_secret…')
+      // escrito en este mismo archivo: si la variable faltaba en producción, la
+      // API seguía arrancando y aceptaba cualquier token firmado con un secreto
+      // que está publicado en el repositorio. Es preferible no arrancar.
+      secretOrKey: requireJwtSecret(config),
     });
   }
 

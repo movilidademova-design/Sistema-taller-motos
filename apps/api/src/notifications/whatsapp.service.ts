@@ -11,9 +11,7 @@ import { ConfigService } from '@nestjs/config';
  * (implement WhatsappProvider and set WHATSAPP_PROVIDER accordingly).
  */
 export type WhatsappTemplate =
-  | 'ORDER_RECEIVED'
-  | 'QUOTATION_READY'
-  | 'MAINTENANCE_REMINDER';
+  'ORDER_RECEIVED' | 'QUOTATION_READY' | 'MAINTENANCE_REMINDER';
 
 export interface WhatsappProvider {
   sendTemplate(

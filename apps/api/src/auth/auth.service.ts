@@ -114,7 +114,10 @@ export class AuthService {
 
   async refresh(rawRefreshToken: string, ip?: string) {
     const tokenHash = this.hashToken(rawRefreshToken);
-    const stored = await this.prisma.refreshToken.findFirst({
+    // findUnique, no findFirst: `tokenHash` tiene índice único desde la
+    // migración 20260813120000. Antes era un recorrido secuencial de una tabla
+    // que solo crece.
+    const stored = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
       include: { user: true },
     });
@@ -157,6 +160,31 @@ export class AuthService {
     return { success: true };
   }
 
+  /**
+   * Borra los tokens que ya no sirven para nada: caducados, o revocados hace
+   * más de una semana (se conservan ese tiempo por si hay que investigar un
+   * robo de sesión). Sin esto la tabla crece para siempre.
+   *
+   * Se llama de forma oportunista al emitir tokens, no en un cron: no hace
+   * falta un proceso aparte que mantener, y la limpieza ocurre justo cuando la
+   * tabla acaba de crecer. `deleteMany` no falla si no hay nada que borrar.
+   */
+  private async purgeExpiredTokens() {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    try {
+      await this.prisma.refreshToken.deleteMany({
+        where: {
+          OR: [
+            { expiresAt: { lt: new Date() } },
+            { revokedAt: { lt: weekAgo } },
+          ],
+        },
+      });
+    } catch {
+      // Es mantenimiento: que falle no debe impedir a nadie iniciar sesión.
+    }
+  }
+
   private async issueTokens(
     userId: string,
     tenantId: string,
@@ -188,6 +216,8 @@ export class AuthService {
         createdByIp: ip,
       },
     });
+
+    await this.purgeExpiredTokens();
 
     return { accessToken, refreshToken: rawRefreshToken, refreshTokenId };
   }
