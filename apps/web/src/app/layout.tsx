@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AuthProvider } from '@/components/providers/auth-provider';
+import { SwrProvider } from '@/components/providers/swr-provider';
 import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <SwrProvider>{children}</SwrProvider>
             <Toaster position="top-right" />
           </AuthProvider>
         </ThemeProvider>

@@ -107,12 +107,57 @@ export function apiFileUrl(path: string) {
   return `${API_URL}${path}`;
 }
 
-export async function fetchAuthedBlob(path: string): Promise<Blob> {
+/**
+ * Petición autenticada que devuelve binario (PDF, Excel).
+ *
+ * Manda la sucursal activa y renueva el token ante un 401, igual que `request`.
+ * Antes no hacía ninguna de las dos cosas: abrir un PDF con el token de acceso
+ * caducado (15 minutos) fallaba con "Unauthorized" mientras el resto de la
+ * aplicación seguía funcionando, y los endpoints que dependen de la sucursal la
+ * recibían sin ella.
+ */
+async function authedBinaryFetch(
+  path: string,
+  skipAuthRetry = false,
+): Promise<Response> {
   const token = authStorage.getAccessToken();
+  const branchId = authStorage.getBranchId();
+
   const res = await fetch(`${API_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(branchId ? { 'X-Branch-Id': branchId } : {}),
+    },
   });
-  if (!res.ok) throw new ApiError(res.statusText, res.status);
+
+  if (res.status === 401 && !skipAuthRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) return authedBinaryFetch(path, true);
+    authStorage.clear();
+    if (typeof window !== 'undefined') window.location.href = '/login';
+    throw new ApiError('Sesión expirada', 401);
+  }
+
+  if (!res.ok) {
+    // El backend responde JSON en los errores aunque la ruta devuelva binario
+    // en el camino feliz — de ahí sale el aviso del tope de filas.
+    let message = res.statusText;
+    try {
+      const errBody = await res.json();
+      message = Array.isArray(errBody.message)
+        ? errBody.message.join(', ')
+        : (errBody.message ?? message);
+    } catch {
+      // ignore parse errors, keep statusText
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  return res;
+}
+
+export async function fetchAuthedBlob(path: string): Promise<Blob> {
+  const res = await authedBinaryFetch(path);
   return res.blob();
 }
 
@@ -140,43 +185,8 @@ function filenameFromDisposition(header: string | null): string | null {
 export async function downloadFile(
   path: string,
   fallbackFilename: string,
-  options: { skipAuthRetry?: boolean } = {},
 ): Promise<void> {
-  const token = authStorage.getAccessToken();
-  const branchId = authStorage.getBranchId();
-
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(branchId ? { 'X-Branch-Id': branchId } : {}),
-    },
-  });
-
-  if (res.status === 401 && !options.skipAuthRetry) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      return downloadFile(path, fallbackFilename, { skipAuthRetry: true });
-    }
-    authStorage.clear();
-    if (typeof window !== 'undefined') window.location.href = '/login';
-    throw new ApiError('Sesión expirada', 401);
-  }
-
-  if (!res.ok) {
-    // El backend responde JSON en los errores aunque la ruta devuelva binario
-    // en el camino feliz — de ahí sale el aviso del tope de filas.
-    let message = res.statusText;
-    try {
-      const errBody = await res.json();
-      message = Array.isArray(errBody.message)
-        ? errBody.message.join(', ')
-        : (errBody.message ?? message);
-    } catch {
-      // ignore parse errors, keep statusText
-    }
-    throw new ApiError(message, res.status);
-  }
-
+  const res = await authedBinaryFetch(path);
   const blob = await res.blob();
   const filename =
     filenameFromDisposition(res.headers.get('Content-Disposition')) ??

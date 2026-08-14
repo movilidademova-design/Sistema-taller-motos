@@ -18,7 +18,11 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        'inline-flex h-9 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground',
+        // `max-w-full` + scroll horizontal: con `w-fit` a secas, una fila de
+        // pestañas más ancha que la pantalla desbordaba la página entera en
+        // móvil (comprobado: 454 px de pestañas en una pantalla de 390 px).
+        // Ahora las pestañas se desplazan dentro de su propia caja.
+        'inline-flex h-9 w-fit max-w-full items-center justify-center overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground',
         className,
       )}
       {...props}
