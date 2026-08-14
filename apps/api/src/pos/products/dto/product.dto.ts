@@ -10,6 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { PosProductCategory } from '../../../generated/pos/enums';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class CreatePosProductDto {
   @ApiProperty()
@@ -56,6 +57,7 @@ export class CreatePosProductDto {
   supplier?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   entryDate?: string;

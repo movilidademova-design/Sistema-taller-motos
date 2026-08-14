@@ -18,9 +18,11 @@ import {
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { PosSaleStatus } from '../../../generated/pos/enums';
 import type { DiscountType } from '../sale-pricing.util';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class CreateSaleItemDto {
   @ApiPropertyOptional()
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   productId?: string;

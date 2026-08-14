@@ -31,11 +31,15 @@ function makeTx() {
     posProduct: {
       findFirst: jest.fn(),
       update: jest.fn(),
+      // Descuento condicional: comprueba y resta en la misma operación.
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     posSale: {
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
     },
+    // Bloqueo consultivo por sucursal para las series de recibo y factura.
+    $executeRawUnsafe: jest.fn().mockResolvedValue(0),
   };
 }
 type Tx = ReturnType<typeof makeTx>;
@@ -103,8 +107,8 @@ describe('PosLayawaysService.create', () => {
 
     await service.create(tenantId, branchId, userId, dto);
 
-    expect(tx.posProduct.update).toHaveBeenCalledWith({
-      where: { id: 'prod-1' },
+    expect(tx.posProduct.updateMany).toHaveBeenCalledWith({
+      where: { id: 'prod-1', stock: { gte: 2 } },
       data: { stock: { decrement: 2 } },
     });
   });

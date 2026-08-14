@@ -118,7 +118,18 @@ export async function parseProductImportSheet(
   buffer: Buffer,
 ): Promise<ParseImportResult> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as never);
+  try {
+    await workbook.xlsx.load(buffer as never);
+  } catch {
+    // Un .xlsx es un ZIP; cualquier otra cosa (un .csv renombrado, un archivo
+    // corrupto, una descarga a medias) hace reventar a ExcelJS con un error
+    // suyo. Sin este try, ese error salía como 500 «Error interno del
+    // servidor», que no le dice nada a quien sólo se equivocó de archivo.
+    throw new BadRequestException(
+      'El archivo no se pudo leer como Excel. Asegúrate de subir un .xlsx ' +
+        'generado desde la plantilla de exportación (no un .csv ni un archivo dañado).',
+    );
+  }
   const sheet = workbook.worksheets[0];
 
   if (!sheet) {

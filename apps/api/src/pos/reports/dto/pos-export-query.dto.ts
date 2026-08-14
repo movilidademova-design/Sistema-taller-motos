@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsDateString, IsOptional, IsUUID } from 'class-validator';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 /**
  * Filtro común a los reportes y exportaciones del POS: rango de fechas +
@@ -8,6 +9,7 @@ import { IsDateString, IsOptional, IsUUID } from 'class-validator';
  */
 export class PosExportQueryDto {
   @ApiPropertyOptional({ description: 'Fecha inicial (YYYY-MM-DD)' })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   from?: string;
@@ -15,6 +17,7 @@ export class PosExportQueryDto {
   @ApiPropertyOptional({
     description: 'Fecha final (YYYY-MM-DD), inclusive',
   })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   to?: string;
@@ -23,6 +26,7 @@ export class PosExportQueryDto {
     description:
       'Solo lo usa un ADMIN; por defecto se usa la sucursal activa (X-Branch-Id).',
   })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   branchId?: string;

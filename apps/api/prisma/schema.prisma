@@ -290,7 +290,11 @@ model RefreshToken {
   id              String    @id @default(uuid())
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash       String
+  // Único e indexado: cada renovación de sesión busca por este campo y sin
+  // índice era un recorrido secuencial de toda la tabla, que además no se
+  // limpia nunca. Con rotación cada 15 minutos la tabla solo crece, así que la
+  // búsqueda se degradaba de forma continua y silenciosa.
+  tokenHash       String    @unique
   expiresAt       DateTime
   revokedAt       DateTime?
   replacedByToken String?
@@ -298,6 +302,8 @@ model RefreshToken {
   createdAt       DateTime  @default(now())
 
   @@index([userId])
+  // Soporta el borrado periódico de tokens caducados (ver AuthService.purgeExpired).
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 

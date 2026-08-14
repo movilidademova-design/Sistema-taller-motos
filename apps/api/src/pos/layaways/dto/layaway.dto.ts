@@ -17,9 +17,11 @@ import {
 } from 'class-validator';
 import { PosLayawayStatus } from '../../../generated/pos/enums';
 import type { DiscountType } from '../../sales/sale-pricing.util';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class CreateLayawayItemDto {
   @ApiPropertyOptional()
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   productId?: string;

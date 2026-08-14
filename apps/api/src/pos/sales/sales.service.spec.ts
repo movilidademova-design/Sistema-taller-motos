@@ -22,7 +22,13 @@ function makeTx() {
     posProduct: {
       findFirst: jest.fn(),
       update: jest.fn(),
+      // El descuento de stock es condicional (`where: { stock: { gte } }`) para
+      // que la comprobación y la resta ocurran en la misma operación. `count`
+      // es lo que distingue "descontado" de "otra caja se llevó las unidades".
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
+    // Bloqueo consultivo que serializa la asignación de número de factura.
+    $executeRawUnsafe: jest.fn().mockResolvedValue(0),
   };
 }
 type Tx = ReturnType<typeof makeTx>;
@@ -75,11 +81,55 @@ describe('PosSalesService.create', () => {
 
     await service.create(tenantId, branchId, userId, dto);
 
-    expect(tx.posProduct.update).toHaveBeenCalledTimes(1);
-    expect(tx.posProduct.update).toHaveBeenCalledWith({
-      where: { id: 'prod-1' },
+    expect(tx.posProduct.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.posProduct.updateMany).toHaveBeenCalledWith({
+      where: { id: 'prod-1', stock: { gte: 2 } },
       data: { stock: { decrement: 2 } },
     });
+  });
+
+  it('aborta la venta si el stock desapareció entre la validación y el descuento', async () => {
+    const tx = makeTx();
+    tx.posProduct.findFirst.mockResolvedValue(makeProduct({ stock: 10 }));
+    tx.posSale.create.mockResolvedValue({ id: 'sale-1' });
+    // Otra caja se llevó las unidades: la actualización condicional no
+    // encuentra fila que cumpla `stock >= 2` y no toca nada.
+    tx.posProduct.updateMany.mockResolvedValue({ count: 0 });
+    const { service } = makeService(tx);
+
+    const dto: CreateSaleDto = {
+      clientName: 'Juan Pérez',
+      items: [{ productId: 'prod-1', quantity: 2 }],
+      payments: [{ method: 'efectivo', amount: 200 }],
+    };
+
+    await expect(
+      service.create(tenantId, branchId, userId, dto),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('toma el bloqueo por sucursal antes de leer los números de factura usados', async () => {
+    const tx = makeTx();
+    tx.posProduct.findFirst.mockResolvedValue(makeProduct({ stock: 10 }));
+    tx.posSale.create.mockResolvedValue({ id: 'sale-1' });
+    const { service } = makeService(tx);
+
+    await service.create(tenantId, branchId, userId, {
+      clientName: 'Juan Pérez',
+      items: [{ productId: 'prod-1', quantity: 1 }],
+      payments: [{ method: 'efectivo', amount: 100 }],
+    });
+
+    // Sin el bloqueo, dos ventas simultáneas eligen el mismo número y la
+    // segunda muere con violación de unicidad.
+    expect(tx.$executeRawUnsafe).toHaveBeenCalledWith(
+      expect.stringContaining('pg_advisory_xact_lock'),
+      `${tenantId}:${branchId}`,
+      'pos:invoice',
+    );
+    const lockOrder = tx.$executeRawUnsafe.mock.invocationCallOrder[0];
+    const readOrder = tx.posSale.findMany.mock.invocationCallOrder[0];
+    expect(lockOrder).toBeLessThan(readOrder);
   });
 
   it('reutiliza el primer hueco libre de número de factura (4 y 6 usados, piso 3 -> 5)', async () => {

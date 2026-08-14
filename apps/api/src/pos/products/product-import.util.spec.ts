@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import { parseProductImportSheet } from './product-import.util';
 
@@ -226,5 +227,32 @@ describe('parseProductImportSheet', () => {
 
     expect(errors).toEqual([]);
     expect(rows).toHaveLength(2);
+  });
+});
+
+describe('parseProductImportSheet — archivos que no son Excel', () => {
+  /**
+   * Regresión: un fichero que no es un .xlsx hacía reventar a ExcelJS con un
+   * error suyo, que salía al usuario como 500 «Error interno del servidor».
+   * Quien sube un .csv por error merece que se lo digan, no un fallo de servidor.
+   */
+  it('devuelve 400 con explicación, no un error de servidor', async () => {
+    await expect(
+      parseProductImportSheet(
+        Buffer.from('esto no es un excel, es texto plano'),
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('el mensaje dice qué hacer', async () => {
+    await expect(
+      parseProductImportSheet(Buffer.from('a,b,c\n1,2,3')),
+    ).rejects.toThrow(/no se pudo leer como Excel/i);
+  });
+
+  it('un archivo vacío tampoco revienta con 500', async () => {
+    await expect(parseProductImportSheet(Buffer.alloc(0))).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

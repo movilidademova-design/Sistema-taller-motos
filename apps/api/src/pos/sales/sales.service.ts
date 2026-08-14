@@ -13,6 +13,7 @@ import {
 } from './dto/sale.dto';
 import { computeSaleTotals, DiscountType } from './sale-pricing.util';
 import { nextInvoiceNumber } from './invoice-number.util';
+import { decrementStock } from '../shared/stock.util';
 import { ExcelService, MAX_ROWS } from '../../common/excel/excel.service';
 import {
   dateRangeFilter,
@@ -151,12 +152,15 @@ export class PosSalesService {
 
       // Descontar stock — solo de los ítems que sí tienen un producto real.
       // Los sueltos (servicios, productId nulo) no tocan inventario.
+      //
+      // `decrementStock` vuelve a comprobar la disponibilidad dentro de la
+      // misma operación de escritura. La validación de `resolveItem` sigue
+      // estando porque da un mensaje mejor y falla antes, pero la garantía real
+      // es esta: entre aquella lectura y esta escritura otra caja pudo haberse
+      // llevado las unidades.
       for (const r of resolvedItems) {
         if (r.productId) {
-          await tx.posProduct.update({
-            where: { id: r.productId },
-            data: { stock: { decrement: r.quantity } },
-          });
+          await decrementStock(tx, r.productId, r.quantity, r.name);
         }
       }
 

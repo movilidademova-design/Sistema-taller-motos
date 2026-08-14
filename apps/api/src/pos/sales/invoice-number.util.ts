@@ -1,5 +1,6 @@
 import { Prisma } from '../../generated/pos/client';
 import { nextFreeNumber } from '../shared/next-free-number.util';
+import { lockNumberSeries, NumberSeries } from '../shared/branch-lock.util';
 
 // Reglas migradas de motopos/app.py: _next_factura_num (línea 369).
 //
@@ -22,6 +23,12 @@ export async function nextInvoiceNumber(
   tenantId: string,
   branchId: string,
 ): Promise<number> {
+  // Antes del SELECT, o la carrera sigue abierta: sin esto, dos ventas
+  // simultáneas de la misma sucursal leían el mismo conjunto de números usados
+  // y elegían el mismo hueco. La segunda moría con violación de unicidad y el
+  // cajero perdía la venta.
+  await lockNumberSeries(tx, tenantId, branchId, NumberSeries.INVOICE);
+
   const sales = await tx.posSale.findMany({
     where: { tenantId, branchId, invoiceNumber: { not: null } },
     select: { invoiceNumber: true },

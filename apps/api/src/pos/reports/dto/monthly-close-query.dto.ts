@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsUUID, Matches } from 'class-validator';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class MonthlyCloseQueryDto {
   @ApiProperty({ description: 'Mes a cerrar, formato AAAA-MM' })
@@ -14,6 +15,7 @@ export class MonthlyCloseQueryDto {
       'el contador, un archivo por bodega); sin este parámetro se usa la ' +
       'sucursal activa (X-Branch-Id).',
   })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   branchId?: string;

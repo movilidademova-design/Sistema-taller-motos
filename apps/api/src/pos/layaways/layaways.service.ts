@@ -9,6 +9,8 @@ import { PosPrismaService } from '../pos-prisma.service';
 import { computeSaleTotals, DiscountType } from '../sales/sale-pricing.util';
 import { nextInvoiceNumber } from '../sales/invoice-number.util';
 import { nextFreeNumber } from '../shared/next-free-number.util';
+import { lockNumberSeries, NumberSeries } from '../shared/branch-lock.util';
+import { decrementStock } from '../shared/stock.util';
 import {
   AddLayawayPaymentDto,
   CreateLayawayDto,
@@ -152,10 +154,7 @@ export class PosLayawaysService {
       // descontar al completarse (ver completeLayaway más abajo).
       for (const r of resolvedItems) {
         if (r.productId) {
-          await tx.posProduct.update({
-            where: { id: r.productId },
-            data: { stock: { decrement: r.quantity } },
-          });
+          await decrementStock(tx, r.productId, r.quantity, r.name);
         }
       }
 
@@ -496,6 +495,13 @@ export class PosLayawaysService {
     tenantId: string,
     branchId: string,
   ): Promise<number> {
+    // Imprescindible antes del SELECT. La unicidad en base de datos aquí es
+    // solo por separado (@@unique([layawayId, receiptNumber])), no por
+    // sucursal, así que dos abonos simultáneos a separados DISTINTOS elegían
+    // el mismo número y la base de datos aceptaba los dos: dos recibos con el
+    // mismo número, sin error y sin log. Reproducido contra PostgreSQL real.
+    await lockNumberSeries(tx, tenantId, branchId, NumberSeries.RECEIPT);
+
     const payments = await tx.posLayawayPayment.findMany({
       where: {
         receiptNumber: { not: null },
