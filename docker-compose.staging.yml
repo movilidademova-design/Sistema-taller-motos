@@ -1,0 +1,102 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGING — pila completa: PostgreSQL + API + Frontend
+#
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+#
+# Los secretos vienen de `.env.staging`, que NO se sube al repositorio y NO
+# entra en ninguna imagen. Ver STAGING.md.
+#
+# Sobre PM2: aquí NO hace falta. `restart: unless-stopped` ya reinicia los
+# contenedores si se caen o si se reinicia el servidor, que es justo lo que
+# aportaría PM2. Añadirlo sería tener dos supervisores peleándose por el mismo
+# proceso.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: taller_motos
+    # SIN `ports:` a propósito. La base sólo se alcanza desde la red interna de
+    # Docker; no queda expuesta a internet. Para conectarte desde fuera, usa un
+    # túnel SSH (ver STAGING.md §10), no abras el puerto.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Crea la segunda base (motopos) la primera vez que arranca el volumen.
+      - ./scripts/init-pos-db.sh:/docker-entrypoint-initdb.d/init-pos-db.sh:ro
+    healthcheck:
+      # El `-d` NO es opcional: sin él, pg_isready intenta conectar a una base
+      # que se llame igual que el usuario. Con POSTGRES_USER=taller busca una
+      # base «taller» que no existe, el contenedor nunca se declara sano y la
+      # API no arranca nunca. (Con el usuario `postgres` por defecto colaba,
+      # porque esa base sí existe siempre.)
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d taller_motos']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      # Margen para el primer arranque. Si el contenedor anterior no se cerró
+      # limpiamente, PostgreSQL hace una recuperación que puede tardar 10-20 s;
+      # sin este margen, compose se rinde antes de tiempo y la API no arranca
+      # aunque la base acabe estando perfectamente.
+      start_period: 30s
+    networks: [interna]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/taller_motos?schema=public
+      POS_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/motopos?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PUBLIC_URL: ${PUBLIC_URL}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    volumes:
+      # Los archivos subidos viven FUERA del contenedor. Sin esto, cada
+      # despliegue borraría las fotos y las firmas de los clientes.
+      - uploads_data:/repo/apps/api/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Sólo se publica en localhost: quien habla con la API desde fuera es
+    # Nginx, que está en la misma máquina.
+    ports:
+      - '127.0.0.1:3001:3001'
+    networks: [interna]
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Se incrustan al compilar. Si cambian, hay que RECONSTRUIR la imagen;
+        # reiniciar el contenedor no sirve de nada.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - '127.0.0.1:3000:3000'
+    networks: [interna]
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  interna:
+    driver: bridge

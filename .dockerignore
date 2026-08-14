@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Lo que NO debe entrar en el contexto de construcción de Docker.
+#
+# La primera sección es la importante: un `.env` copiado a una imagen queda
+# grabado en una capa y es recuperable con `docker history`, aunque lo borres
+# después. Los secretos se pasan AL EJECUTAR (--env-file / environment:),
+# nunca al construir.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Secretos — NUNCA en una imagen
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencias y artefactos: se reconstruyen dentro de la imagen
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+.turbo
+**/.turbo
+coverage
+**/coverage
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Archivos subidos por usuarios: van en un volumen, no en la imagen
+uploads
+**/uploads
+
+# Control de versiones y editor
+.git
+.gitignore
+.idea
+.vscode
+.claude
+
+# Sistema POS anterior (Flask). No forma parte de la compilación.
+motopos
+
+# Documentación y utilidades: no hacen falta para ejecutar
+*.md
+!README.md
+scripts
+docs
