@@ -11,6 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { QuotationItemType } from '../../../generated/prisma/enums';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class QuotationItemDto {
   @ApiProperty({ enum: QuotationItemType })
@@ -18,6 +19,7 @@ export class QuotationItemDto {
   type: QuotationItemType;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   productId?: string;

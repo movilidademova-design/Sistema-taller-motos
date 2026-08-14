@@ -183,7 +183,8 @@ export class QuotationsService {
 
     // Una vez enviada o decidida, el diagnóstico ya no la puede pisar: el
     // cliente vio esa versión y quien manda a partir de ahí es el personal.
-    if (existing && !EDITABLE_STATUSES.includes(existing.status)) return existing;
+    if (existing && !EDITABLE_STATUSES.includes(existing.status))
+      return existing;
 
     const items = parts.map((p) => ({
       type: QuotationItemType.PART,
@@ -208,7 +209,9 @@ export class QuotationsService {
         create: { orderId, status: QuotationStatus.PENDING_REVIEW, ...totals },
         update: { status: QuotationStatus.PENDING_REVIEW, ...totals },
       });
-      await tx.quotationItem.deleteMany({ where: { quotationId: quotation.id } });
+      await tx.quotationItem.deleteMany({
+        where: { quotationId: quotation.id },
+      });
       await tx.quotationItem.createMany({
         data: items.map((i) => ({ ...i, quotationId: quotation.id })),
       });
@@ -242,7 +245,31 @@ export class QuotationsService {
   }
 
   async upsert(tenantId: string, orderId: string, dto: UpsertQuotationDto) {
-    const order = await this.ordersService.assertOrderExists(tenantId, orderId);
+    // Se llama por su efecto, no por su valor: lanza si la orden no existe o
+    // es de otra empresa. El resultado no se usa.
+    await this.ordersService.assertOrderExists(tenantId, orderId);
+
+    // La misma regla que ya aplican `syncFromDiagnosis` (arriba) y
+    // `generatePdf` (abajo), que aquí faltaba: una cotización enviada o
+    // decidida no se puede reescribir.
+    //
+    // Sin esta comprobación se podía cambiar los importes de una cotización ya
+    // APROBADA y la respuesta era 200. Consecuencias, todas comprobadas:
+    //   - el cliente aprobó un importe y quedaba guardado otro distinto;
+    //   - `approvedAt` se ponía a null pero el estado seguía siendo APPROVED,
+    //     un estado imposible (aprobada sin fecha de aprobación);
+    //   - el inventario ya se había descontado al aprobar, así que reescribir
+    //     los ítems dejaba stock y cotización contando cosas distintas;
+    //   - si ya había factura, su total dejaba de coincidir con la cotización.
+    const existing = await this.prisma.quotation.findUnique({
+      where: { orderId },
+    });
+    if (existing && !EDITABLE_STATUSES.includes(existing.status)) {
+      throw new BadRequestException(
+        'Esta cotización ya fue enviada o decidida por el cliente y no se puede modificar. ' +
+          'Crea una cotización nueva si hay que cambiar el presupuesto.',
+      );
+    }
 
     const partsCost = sumByType(dto.items, [
       QuotationItemType.PART,
@@ -479,7 +506,11 @@ Equipo ${tenant.name}`;
     tx: Prisma.TransactionClient,
     tenantId: string,
     order: { id: string; orderNumber: string; status: OrderStatus },
-    items: { type: QuotationItemType; productId: string | null; quantity: Prisma.Decimal }[],
+    items: {
+      type: QuotationItemType;
+      productId: string | null;
+      quantity: Prisma.Decimal;
+    }[],
     userId: string,
   ) {
     let missingStock = false;

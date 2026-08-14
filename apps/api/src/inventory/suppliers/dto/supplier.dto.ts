@@ -1,5 +1,6 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class CreateSupplierDto {
   @ApiProperty()
@@ -17,6 +18,7 @@ export class CreateSupplierDto {
   phone?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsEmail()
   email?: string;

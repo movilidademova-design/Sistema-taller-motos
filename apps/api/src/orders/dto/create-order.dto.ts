@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { BlankToUndefined } from '../../common/dto/blank-to-undefined.decorator';
 
 export class CreateOrderDto {
   @ApiProperty()
@@ -14,6 +15,7 @@ export class CreateOrderDto {
     required: false,
     description: 'Técnico asignado (opcional al recibir)',
   })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   technicianId?: string;

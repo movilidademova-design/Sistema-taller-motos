@@ -8,6 +8,16 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
+/**
+ * Id fijo para que la semilla sea idempotente, pero con formato de UUID v4
+ * VÁLIDO. Antes era '00000000-0000-0000-0000-000000000001', que no pasa el
+ * `@IsUUID()` de los DTOs: el dígito de versión debe ser 1-5. Efecto: no se
+ * podía crear una orden de compra para el proveedor de demostración, porque la
+ * propia API rechazaba su id. Los proveedores reales usan @default(uuid()) y
+ * nunca tuvieron el problema.
+ */
+const SEED_SUPPLIER_ID = '11111111-1111-4111-8111-111111111111';
+
 async function main() {
   const password = 'Password123!';
   const passwordHash = await argon2.hash(password);
@@ -185,10 +195,10 @@ async function main() {
   });
 
   const supplier = await prisma.supplier.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000001' },
+    where: { id: SEED_SUPPLIER_ID },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000001',
+      id: SEED_SUPPLIER_ID,
       tenantId: tenant.id,
       name: 'ElectroPartes S.A.S.',
       contactName: 'Laura Gómez',

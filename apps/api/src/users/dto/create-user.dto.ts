@@ -9,6 +9,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { PosRole, Role } from '../../generated/prisma/enums';
+import { BlankToUndefined } from '../../common/dto/blank-to-undefined.decorator';
 
 export class CreateUserDto {
   @ApiProperty()
@@ -46,6 +47,7 @@ export class CreateUserDto {
   posRole?: PosRole | null;
 
   @ApiProperty({ required: false, type: [String] })
+  @BlankToUndefined()
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

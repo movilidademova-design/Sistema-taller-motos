@@ -15,7 +15,10 @@ const ORDER = {
 /** Un `tx` de mentira que registra lo que el servicio intentó hacer. */
 function makeTx() {
   return {
-    quotation: { update: jest.fn(), upsert: jest.fn().mockResolvedValue({ id: 'q1' }) },
+    quotation: {
+      update: jest.fn(),
+      upsert: jest.fn().mockResolvedValue({ id: 'q1' }),
+    },
     quotationStatusHistory: { create: jest.fn() },
     quotationItem: { deleteMany: jest.fn(), createMany: jest.fn() },
     product: { findUnique: jest.fn(), update: jest.fn() },
@@ -315,5 +318,65 @@ describe('QuotationsService.pendingCount', () => {
       order: { tenantId: 't1', branchId: 'branch-1' },
       status: QuotationStatus.PENDING_REVIEW,
     });
+  });
+});
+
+describe('QuotationsService.upsert — no se reescribe una cotización ya decidida', () => {
+  /**
+   * Regresión de un bug encontrado en la auditoría del 2026-08-13.
+   *
+   * `upsert` era el único de los tres caminos que modifican una cotización que
+   * NO comprobaba `EDITABLE_STATUSES` (`syncFromDiagnosis` y `generatePdf` sí).
+   * Se podían cambiar los importes de una cotización ya APROBADA y la API
+   * respondía 200, dejando `status=APPROVED` con `approvedAt=null` — un estado
+   * imposible — y el inventario, ya descontado al aprobar, contando otra cosa.
+   */
+  const dto = {
+    items: [
+      {
+        type: QuotationItemType.OTHER,
+        description: 'Mano de obra',
+        quantity: 1,
+        unitPrice: 100000,
+      },
+    ],
+    discount: 0,
+    taxRate: 19,
+  };
+
+  it.each([
+    QuotationStatus.SENT,
+    QuotationStatus.APPROVED,
+    QuotationStatus.REJECTED,
+  ])('rechaza modificar una cotización en estado %s', async (status) => {
+    const { service, tx } = makeService({ id: 'q1', status });
+
+    await expect(service.upsert('t1', 'order-1', dto as never)).rejects.toThrow(
+      BadRequestException,
+    );
+    // Y no debe haber tocado nada.
+    expect(tx.quotation.upsert).not.toHaveBeenCalled();
+    expect(tx.quotationItem.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    QuotationStatus.DRAFT,
+    QuotationStatus.PENDING_REVIEW,
+    QuotationStatus.READY_TO_SEND,
+    QuotationStatus.PARTIALLY_APPROVED,
+  ])('permite modificar una cotización en estado %s', async (status) => {
+    const { service, tx } = makeService({ id: 'q1', status });
+
+    await service.upsert('t1', 'order-1', dto);
+
+    expect(tx.quotation.upsert).toHaveBeenCalled();
+  });
+
+  it('permite crear la primera cotización cuando no existe ninguna', async () => {
+    const { service, tx } = makeService(null);
+
+    await service.upsert('t1', 'order-1', dto);
+
+    expect(tx.quotation.upsert).toHaveBeenCalled();
   });
 });

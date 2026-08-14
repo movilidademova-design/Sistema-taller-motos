@@ -10,6 +10,7 @@ import {
   AppointmentType,
   AppointmentStatus,
 } from '../../generated/prisma/enums';
+import { BlankToUndefined } from '../../common/dto/blank-to-undefined.decorator';
 
 export class CreateAppointmentDto {
   @ApiProperty()
@@ -17,6 +18,7 @@ export class CreateAppointmentDto {
   clientId: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   motorcycleId?: string;
@@ -30,6 +32,7 @@ export class CreateAppointmentDto {
   scheduledAt: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   endAt?: string;
@@ -40,6 +43,7 @@ export class CreateAppointmentDto {
   notes?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   assignedToId?: string;

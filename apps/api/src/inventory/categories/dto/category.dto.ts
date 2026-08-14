@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class CreateCategoryDto {
   @ApiProperty()
@@ -7,6 +8,7 @@ export class CreateCategoryDto {
   name: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   parentId?: string;
@@ -19,6 +21,7 @@ export class UpdateCategoryDto {
   name?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   parentId?: string;

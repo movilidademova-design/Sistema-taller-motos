@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsEmail, IsOptional, IsString } from 'class-validator';
+import { BlankToUndefined } from '../../common/dto/blank-to-undefined.decorator';
 
 export class CreateClientDto {
   @ApiProperty()
@@ -21,6 +22,7 @@ export class CreateClientDto {
   phone?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsEmail()
   email?: string;
@@ -31,6 +33,7 @@ export class CreateClientDto {
   address?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   birthDate?: string;

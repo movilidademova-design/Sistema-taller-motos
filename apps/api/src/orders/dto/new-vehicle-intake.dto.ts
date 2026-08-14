@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
+import { BlankToUndefined } from '../../common/dto/blank-to-undefined.decorator';
 import { VehicleType } from '../../generated/prisma/enums';
 
 export class NewVehicleIntakeDto {
@@ -21,6 +22,7 @@ export class NewVehicleIntakeDto {
   color?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   purchaseDate?: string;

@@ -7,6 +7,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { BlankToUndefined } from '../../common/dto/blank-to-undefined.decorator';
 
 export class CreateMotorcycleDto {
   @ApiProperty()
@@ -68,11 +69,13 @@ export class CreateMotorcycleDto {
   display?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   purchaseDate?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsDateString()
   warrantyUntil?: string;

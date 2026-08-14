@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { NewClientIntakeDto } from './new-client-intake.dto';
 import { NewVehicleIntakeDto } from './new-vehicle-intake.dto';
+import { BlankToUndefined } from '../../common/dto/blank-to-undefined.decorator';
 
 function parseIfJsonString(value: unknown, fieldName: string): unknown {
   if (typeof value !== 'string') return value;
@@ -32,28 +33,35 @@ function parseNestedField<T extends object>(
 
 export class IntakeOrderDto {
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   clientId?: string;
 
   @ApiProperty({ required: false, type: NewClientIntakeDto })
   @IsOptional()
-  @Transform(({ value }) => parseNestedField(value, NewClientIntakeDto, 'newClient'))
+  @Transform(({ value }) =>
+    parseNestedField(value, NewClientIntakeDto, 'newClient'),
+  )
   @ValidateNested()
   newClient?: NewClientIntakeDto;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   motorcycleId?: string;
 
   @ApiProperty({ required: false, type: NewVehicleIntakeDto })
   @IsOptional()
-  @Transform(({ value }) => parseNestedField(value, NewVehicleIntakeDto, 'newMotorcycle'))
+  @Transform(({ value }) =>
+    parseNestedField(value, NewVehicleIntakeDto, 'newMotorcycle'),
+  )
   @ValidateNested()
   newMotorcycle?: NewVehicleIntakeDto;
 
   @ApiProperty({ required: false, type: [String] })
+  @BlankToUndefined()
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
@@ -61,6 +69,7 @@ export class IntakeOrderDto {
   quickServiceIds?: string[];
 
   @ApiProperty({ required: false, type: [String] })
+  @BlankToUndefined()
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

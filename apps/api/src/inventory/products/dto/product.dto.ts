@@ -8,14 +8,17 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
+import { BlankToUndefined } from '../../../common/dto/blank-to-undefined.decorator';
 
 export class CreateProductDto {
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   categoryId?: string;
 
   @ApiProperty({ required: false })
+  @BlankToUndefined()
   @IsOptional()
   @IsUUID()
   supplierId?: string;
